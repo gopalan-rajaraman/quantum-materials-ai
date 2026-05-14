@@ -25,18 +25,7 @@ const Sidebar = () => {
         <Link to="/results" className={linkClasses('/results')}>Model Results</Link>
       </nav>
 
-      <div className="absolute bottom-4 left-4 right-4 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-        <div className="flex items-center space-x-3 text-slate-300">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20 flex-shrink-0">
-            IIT
-          </div>
-          <div className="overflow-hidden">
-            <p className="text-sm font-bold text-white truncate">Prof. Rajaraman's Lab</p>
-            <p className="text-xs text-cyan-400 truncate font-medium">IIT Bombay</p>
-            <p className="text-[10px] text-slate-500 truncate mt-0.5">National Quantum Mission</p>
-          </div>
-        </div>
-      </div>
+
     </aside>
   );
 };
