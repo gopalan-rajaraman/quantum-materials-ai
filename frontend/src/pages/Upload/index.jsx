@@ -10,10 +10,13 @@ const Upload = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const emptyRow = {
+    P1: '', P2: '', CP1: '', CP2: '', FRP1: '', FRP2: '', SA: '', Substrate: '', CG: '', 
+    FRA: '', FRH: '', GTE: '', GTI: '', HR: '', Pressure: '', COM: '', PC: '', TOCVD: '', 
+    Class: '', PL_Peak: '', PL_FWHM: ''
+  };
   const [spreadsheetData, setSpreadsheetData] = useState([
-    { id: 'MAT-001', target: '', temp: '', pressure: '', structure: '' },
-    { id: 'MAT-002', target: '', temp: '', pressure: '', structure: '' },
-    { id: 'MAT-003', target: '', temp: '', pressure: '', structure: '' },
+    { ...emptyRow }, { ...emptyRow }, { ...emptyRow }
   ]);
   const [savedDatasets, setSavedDatasets] = useState([]);
 
@@ -238,31 +241,39 @@ const Upload = () => {
               </div>
               <p className="text-slate-400 mb-6">Directly insert or paste your data into the template below. The ML model will ingest this just like a file upload.</p>
               
-              <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/30">
+              <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/30 max-h-[500px] overflow-y-auto">
                 <table className="w-full text-left text-sm text-slate-300">
-                  <thead className="bg-slate-800/80 text-cyan-400 border-b border-slate-700 uppercase font-semibold text-xs tracking-wider">
+                  <thead className="bg-slate-800/80 text-cyan-400 border-b border-slate-700 uppercase font-semibold text-xs tracking-wider sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 border-r border-slate-700">Material_ID</th>
-                      <th className="px-4 py-3 border-r border-slate-700">Bandgap_eV</th>
-                      <th className="px-4 py-3 border-r border-slate-700">Temp_K</th>
-                      <th className="px-4 py-3 border-r border-slate-700">Pressure_atm</th>
-                      <th className="px-4 py-3">Crystal_Structure</th>
+                      {Object.keys(emptyRow).map(key => (
+                         <th key={key} className="px-4 py-3 border-r border-slate-700 whitespace-nowrap">{key}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {spreadsheetData.map((row, index) => (
                       <tr key={index} className="hover:bg-slate-700/30 transition-colors">
-                        <td className="p-0 border-r border-slate-700"><input type="text" className="w-full bg-transparent p-3 outline-none focus:bg-slate-700/50 text-white font-mono" value={row.id} onChange={(e) => { const newData = [...spreadsheetData]; newData[index].id = e.target.value; setSpreadsheetData(newData); }} /></td>
-                        <td className="p-0 border-r border-slate-700"><input type="text" className="w-full bg-transparent p-3 outline-none focus:bg-slate-700/50 text-white" value={row.target} placeholder="e.g. 1.45" onChange={(e) => { const newData = [...spreadsheetData]; newData[index].target = e.target.value; setSpreadsheetData(newData); }} /></td>
-                        <td className="p-0 border-r border-slate-700"><input type="text" className="w-full bg-transparent p-3 outline-none focus:bg-slate-700/50 text-white" value={row.temp} placeholder="e.g. 300.0" onChange={(e) => { const newData = [...spreadsheetData]; newData[index].temp = e.target.value; setSpreadsheetData(newData); }} /></td>
-                        <td className="p-0 border-r border-slate-700"><input type="text" className="w-full bg-transparent p-3 outline-none focus:bg-slate-700/50 text-white" value={row.pressure} placeholder="e.g. 1.0" onChange={(e) => { const newData = [...spreadsheetData]; newData[index].pressure = e.target.value; setSpreadsheetData(newData); }} /></td>
-                        <td className="p-0"><input type="text" className="w-full bg-transparent p-3 outline-none focus:bg-slate-700/50 text-white" value={row.structure} placeholder="e.g. Perovskite" onChange={(e) => { const newData = [...spreadsheetData]; newData[index].structure = e.target.value; setSpreadsheetData(newData); }} /></td>
+                        {Object.keys(emptyRow).map(key => (
+                          <td key={key} className="p-0 border-r border-slate-700">
+                            <input 
+                              type="text" 
+                              className={`w-full bg-transparent p-2 outline-none focus:bg-slate-700/50 text-white min-w-[80px] ${['PL_FWHM', 'GTE', 'GTI', 'FRA', 'Pressure'].includes(key) ? 'font-bold text-cyan-300' : ''}`}
+                              value={row[key]} 
+                              placeholder={`e.g. ${key}`}
+                              onChange={(e) => { 
+                                const newData = [...spreadsheetData]; 
+                                newData[index][key] = e.target.value; 
+                                setSpreadsheetData(newData); 
+                              }} 
+                            />
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <button onClick={() => setSpreadsheetData([...spreadsheetData, { id: `MAT-00${spreadsheetData.length+1}`, target: '', temp: '', pressure: '', structure: '' }])} className="mt-4 text-cyan-400 hover:text-cyan-300 text-sm font-medium flex items-center">
+              <button onClick={() => setSpreadsheetData([...spreadsheetData, { ...emptyRow }])} className="mt-4 text-cyan-400 hover:text-cyan-300 text-sm font-medium flex items-center">
                 + Add new row
               </button>
             </div>
