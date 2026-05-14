@@ -1,0 +1,4 @@
+Material_ID,Bandgap_eV,Temperature_K,Pressure_atm,Crystal_Structure
+MAT-001,1.45,300.0,1.0,Perovskite
+MAT-002,2.10,450.5,1.2,Spinel
+MAT-003,0.85,298.15,10.5,Rutile
