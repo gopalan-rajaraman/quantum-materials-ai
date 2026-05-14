@@ -64,12 +64,22 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
 
         # Load default training data
         if data_file is None:
-            # Try to load from thermal_cvd_rows.xlsx or labelled.xlsx
+            # Search known absolute paths first, then relative paths as fallback
+            known_paths = [
+                Path(r'C:\Users\Khushboo\OneDrive\Desktop\AI-Material-Optimization\labelled.xlsx'),
+                Path(r'C:\Users\Khushboo\OneDrive\Desktop\AI-Material-Optimization\thermal_cvd_rows.xlsx'),
+            ]
+            # Also try relative to the workspace root
             workspace_root = Path(__file__).parent.parent.parent.parent.parent
-            if (workspace_root / 'labelled.xlsx').exists():
-                data_file = str(workspace_root / 'labelled.xlsx')
-            elif (workspace_root / 'thermal_cvd_rows.xlsx').exists():
-                data_file = str(workspace_root / 'thermal_cvd_rows.xlsx')
+            known_paths += [
+                workspace_root / 'labelled.xlsx',
+                workspace_root / 'thermal_cvd_rows.xlsx',
+                Path(__file__).parent.parent.parent.parent / 'labelled.xlsx',
+            ]
+            for p in known_paths:
+                if p.exists():
+                    data_file = str(p)
+                    break
 
         if data_file and Path(data_file).exists():
             df = pd.read_excel(data_file)
@@ -80,6 +90,12 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
             # Handle PL FWHM column name variants
             if 'PL_FWHM' not in df.columns and 'PL FWHM' in df.columns:
                 df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
+
+            # Coerce known numeric columns (handles 'NS' or empty strings)
+            num_cols = ['FRH', 'HR', 'FRP1', 'FRP2', 'CP1', 'CP2', 'GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
+            for col in num_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
 
             optimizer_instance.load_training_data(df)
             optimizer_instance.generate_search_space(n_points=5000)

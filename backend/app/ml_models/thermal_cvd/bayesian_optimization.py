@@ -167,15 +167,20 @@ class BayesianOptimizationEngine:
         }
 
         for step in range(n_steps):
-            # Refit GP
-            gp.fit(X_obs, y_obs)
+            # Refit GP — use fast_fit if gp is a ThermalCVDGPModel, else use raw sklearn .fit()
+            if hasattr(gp, 'fast_fit'):
+                gp.fast_fit(X_obs, y_obs)
+                gp_predict = gp.gp
+            else:
+                gp.fit(X_obs, y_obs)
+                gp_predict = gp
 
             # Find best point by EI
-            ei_vals = self.expected_improvement(X_search, gp, self.best_y, xi=self.xi)
+            ei_vals = self.expected_improvement(X_search, gp_predict, self.best_y, xi=self.xi)
             idx_best = np.argmax(ei_vals)
 
             # Predict at best point
-            mu_new, sigma_new = gp.predict(X_search[idx_best : idx_best + 1], return_std=True)
+            mu_new, sigma_new = gp_predict.predict(X_search[idx_best : idx_best + 1], return_std=True)
             y_new = float(mu_new[0])
 
             # Decode variables

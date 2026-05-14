@@ -167,7 +167,7 @@ class ThermalCVDOptimizer:
             self.X_train,
             self.y_train,
             self.X_search,
-            self.gp_model,
+            self.gp_model,   # pass the wrapper so fast_fit is available
             self.encoder,
             n_steps=n_steps,
         )

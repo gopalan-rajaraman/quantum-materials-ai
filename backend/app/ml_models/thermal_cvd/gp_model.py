@@ -54,6 +54,18 @@ class ThermalCVDGPModel:
         self.gp.fit(X_train, y_train)
         self._fitted = True
 
+    def fast_fit(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
+        """Lightweight fit with fewer restarts for use inside the BO loop."""
+        gp = GaussianProcessRegressor(
+            kernel=self.kernel,
+            n_restarts_optimizer=2,
+            normalize_y=True,
+            random_state=self.random_state,
+        )
+        gp.fit(X_train, y_train)
+        self.gp = gp
+        self._fitted = True
+
     def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Predict mean and std at given points.
