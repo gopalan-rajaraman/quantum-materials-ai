@@ -20,8 +20,40 @@ saved_datasets = []
 
 @router.get("/saved")
 async def get_saved_datasets():
-    """Returns the list of previously uploaded datasets."""
-    return {"datasets": saved_datasets}
+    """Returns the list of previously uploaded datasets with live ML model info."""
+    import app.routes.thermal_cvd_routes as cvd_routes
+    
+    enriched = []
+    for i, ds in enumerate(saved_datasets):
+        entry = dict(ds)
+        entry['id'] = f'EXP-{100 + i + 1}'
+        entry['target'] = 'PL_FWHM (meV)'
+        
+        # Pull live best value from the model if fitted
+        if cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:
+            best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+            entry['bestValue'] = f'{best_fwhm:.2f} meV'
+            entry['status'] = 'Completed'
+        else:
+            entry['bestValue'] = '--'
+            entry['status'] = 'In Progress'
+        
+        enriched.append(entry)
+    
+    # If model is auto-loaded at startup but no manual upload happened, still show it
+    if not enriched and cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:
+        best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+        enriched.append({
+            'id': 'EXP-101',
+            'name': 'labelled.xlsx (auto-loaded)',
+            'date': cvd_routes.optimizer_instance._training_info.get('timestamp', 'N/A'),
+            'rows': str(cvd_routes.optimizer_instance._training_info.get('n_training_samples', 0)),
+            'target': 'PL_FWHM (meV)',
+            'bestValue': f'{best_fwhm:.2f} meV',
+            'status': 'Completed',
+        })
+    
+    return {"datasets": enriched}
 
 @router.post("/upload")
 async def upload_datasets(files: list[UploadFile] = File(...)):
