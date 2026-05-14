@@ -3,6 +3,8 @@ import io
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
+from datetime import datetime
+
 class SpreadsheetData(BaseModel):
     data: List[Dict[str, Any]]
 
@@ -10,6 +12,14 @@ router = APIRouter(
     prefix="/api/datasets",
     tags=["datasets"]
 )
+
+# Global in-memory storage for saved datasets
+saved_datasets = []
+
+@router.get("/saved")
+async def get_saved_datasets():
+    """Returns the list of previously uploaded datasets."""
+    return {"datasets": saved_datasets}
 
 @router.post("/upload")
 async def upload_datasets(files: list[UploadFile] = File(...)):
@@ -27,6 +37,13 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
             filenames.append(file.filename)
             contents = await file.read()
             total_rows += 15 # Mocking parsing rows
+            
+            # Store metadata for the saved list
+            saved_datasets.append({
+                "name": file.filename,
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "rows": f"{total_rows:,}"
+            })
             
         return {
             "total_files_processed": len(files),
@@ -57,6 +74,12 @@ async def upload_json_data(payload: SpreadsheetData):
         valid_data = [row for row in payload.data if row.get('id') and row.get('target')]
         if not valid_data:
             raise HTTPException(status_code=400, detail="No valid data provided.")
+            
+        saved_datasets.append({
+            "name": f"Manual_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "rows": f"{len(valid_data):,}"
+        })
             
         return {
             "total_rows_aggregated": len(valid_data),

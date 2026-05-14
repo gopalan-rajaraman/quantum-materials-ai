@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, FileSpreadsheet, Database, ArrowRight, CheckCircle2, Table as TableIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +15,22 @@ const Upload = () => {
     { id: 'MAT-002', target: '', temp: '', pressure: '', structure: '' },
     { id: 'MAT-003', target: '', temp: '', pressure: '', structure: '' },
   ]);
+  const [savedDatasets, setSavedDatasets] = useState([]);
+
+  useEffect(() => {
+    const fetchSavedDatasets = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/datasets/saved');
+        if (res.ok) {
+          const data = await res.json();
+          setSavedDatasets(data.datasets);
+        }
+      } catch (error) {
+        console.error('Failed to fetch saved datasets:', error);
+      }
+    };
+    fetchSavedDatasets();
+  }, [uploadSuccess]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -31,13 +47,13 @@ const Upload = () => {
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setSelectedFiles(Array.from(e.dataTransfer.files));
+      setSelectedFiles(prevFiles => [...prevFiles, ...Array.from(e.dataTransfer.files)]);
     }
   };
 
   const handleFileSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFiles(Array.from(e.target.files));
+      setSelectedFiles(prevFiles => [...prevFiles, ...Array.from(e.target.files)]);
     }
   };
 
@@ -268,14 +284,10 @@ const Upload = () => {
             <p className="text-sm text-slate-400 mb-6">Datasets previously uploaded and parsed by the ML engine. Select to reuse.</p>
 
             <div className="space-y-3">
-              {[
-                { name: 'Superconductor_v2.xlsx', date: '2 hours ago', rows: '1,245' },
-                { name: 'Perovskite_Screening.csv', date: 'Yesterday', rows: '840' },
-                { name: 'Thermal_Conductivity.xlsx', date: 'May 01, 2026', rows: '3,100' },
-              ].map((file, i) => (
+              {savedDatasets.length > 0 ? savedDatasets.map((file, i) => (
                 <div key={i} className="group p-4 rounded-2xl bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-purple-500/30 transition-all cursor-pointer">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-slate-200 font-medium text-sm truncate max-w-[150px]">{file.name}</span>
+                    <span className="text-slate-200 font-medium text-sm truncate max-w-[150px]" title={file.name}>{file.name}</span>
                     <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors group-hover:translate-x-1" />
                   </div>
                   <div className="flex justify-between items-center text-xs text-slate-500">
@@ -283,7 +295,9 @@ const Upload = () => {
                     <span className="flex items-center"><CheckCircle2 className="w-3 h-3 text-emerald-400 mr-1"/> {file.rows} rows</span>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-slate-500 text-sm text-center py-4">No datasets saved yet.</div>
+              )}
             </div>
           </div>
         </div>
