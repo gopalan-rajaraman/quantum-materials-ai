@@ -242,6 +242,10 @@ def simulate_run():
         
     try:
         result = optimizer_instance.simulate_experiment()
+        # Log activity
+        from app.routes.upload_routes import log_activity
+        fwhm = result.get('predicted_FWHM_meV', '?')
+        log_activity("BO Experiment Simulated", f"Predicted FWHM: {fwhm:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

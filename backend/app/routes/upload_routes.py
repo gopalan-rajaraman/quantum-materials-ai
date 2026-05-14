@@ -18,6 +18,54 @@ router = APIRouter(
 # Global in-memory storage for saved datasets
 saved_datasets = []
 
+# Global activity log
+activity_log = []
+
+def log_activity(title: str, desc: str, color: str = "bg-cyan-500"):
+    """Append an event to the activity log (keep last 20)."""
+    activity_log.insert(0, {
+        "title": title,
+        "desc": desc,
+        "color": color,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    if len(activity_log) > 20:
+        activity_log.pop()
+
+@router.get("/dashboard")
+async def get_dashboard_stats():
+    """Returns live stats for the Dashboard page."""
+    opt = cvd_routes.optimizer_instance
+    
+    fitted = opt is not None and opt._fitted
+    total_datasets = len(saved_datasets) + (1 if fitted and not saved_datasets else 0)
+    
+    best_fwhm = None
+    r2_score = None
+    mae = None
+    kernel_info = None
+    n_samples = 0
+    
+    if fitted:
+        best_fwhm = float(opt.y_train.min())
+        metrics = opt.gp_model.get_metrics(opt.X_train, opt.y_train)
+        r2_score = round(float(metrics['R2_score']) * 100, 1)
+        mae = round(float(metrics['MAE_meV']), 4)
+        n_samples = int(metrics['n_train_samples'])
+        kernel_info = str(opt.gp_model.gp.kernel_).split('(')[0]
+    
+    return {
+        "total_datasets": total_datasets,
+        "active_experiments": len(saved_datasets),
+        "best_fwhm_meV": round(best_fwhm, 2) if best_fwhm is not None else None,
+        "r2_percent": r2_score,
+        "mae_meV": mae,
+        "n_training_samples": n_samples,
+        "model_fitted": fitted,
+        "kernel": kernel_info,
+        "activity_log": activity_log[:8]
+    }
+
 @router.get("/saved")
 async def get_saved_datasets():
     """Returns the list of previously uploaded datasets with live ML model info."""
@@ -107,6 +155,9 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
             cvd_routes.optimizer_instance.load_training_data(combined_df)
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
+            best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+            log_activity("Dataset Uploaded", f"{', '.join(filenames)} added ({total_rows} rows)", "bg-purple-500")
+            log_activity("GP Model Trained", f"Best FWHM so far: {best_fwhm:.2f} meV", "bg-cyan-500")
             
         return {
             "total_files_processed": len(files),
@@ -155,6 +206,9 @@ async def upload_json_data(payload: SpreadsheetData):
             cvd_routes.optimizer_instance.load_training_data(df)
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
+            best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+            log_activity("Manual Data Submitted", f"{len(valid_data)} rows ingested", "bg-purple-500")
+            log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500")
             
         return {
             "total_rows_aggregated": len(valid_data),
