@@ -7,6 +7,7 @@ FastAPI routes for integration with FastAPI backend.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import pandas as pd
+import numpy as np
 import traceback
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -217,6 +218,17 @@ def run_optimization(request: OptimizeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/simulate-run")
+def simulate_run():
+    """Simulate running the highest EI experiment and update the model."""
+    if optimizer_instance is None or not optimizer_instance._fitted:
+        raise HTTPException(status_code=503, detail="Model not fitted")
+        
+    try:
+        result = optimizer_instance.simulate_experiment()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/health")
 def health_check():
@@ -228,6 +240,58 @@ def health_check():
         status = 'not_fitted'
 
     return {'status': status}
+
+
+@router.get("/plot-data")
+def get_plot_data():
+    """Get 1D slice of Surrogate and EI along GTE parameter."""
+    if optimizer_instance is None or not optimizer_instance._fitted:
+        raise HTTPException(status_code=503, detail="Model not fitted")
+        
+    try:
+        # Get the best recommended point to fix the other variables
+        recommendations = optimizer_instance.suggest_next_experiment(n_suggestions=1)
+        best = recommendations[0]
+        
+        # Sweep GTE while keeping others fixed
+        gte_range = np.linspace(550, 1050, 100)
+        
+        var_dicts = []
+        for gte in gte_range:
+            var_dicts.append({
+                'GTE': float(gte),
+                'GTI': best['GTI_minutes'],
+                'FRA': best['FRA_sccm'],
+                'Pressure': best['Pressure_Torr']
+            })
+            
+        X_search_list = [optimizer_instance.encoder.encode_variables(vd)[0] for vd in var_dicts]
+        X_sweep = np.array(X_search_list)
+        
+        # Calculate MU, SIGMA
+        mu, sigma = optimizer_instance.gp_model.predict(X_sweep, return_std=True)
+        
+        # Calculate EI
+        y_best = optimizer_instance.y_train.min()
+        ei_vals = optimizer_instance.bo_engine.expected_improvement(
+            X_sweep, optimizer_instance.gp_model.gp, y_best, xi=0.01
+        )
+        
+        return {
+            'x': gte_range.tolist(),
+            'mu': mu.tolist(),
+            'sigma': sigma.tolist(),
+            'ei': ei_vals.tolist(),
+            'fixed_params': {
+                'GTI': best['GTI_minutes'],
+                'FRA': best['FRA_sccm'],
+                'Pressure': best['Pressure_Torr']
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/reload")

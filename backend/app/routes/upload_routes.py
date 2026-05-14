@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 
 from datetime import datetime
 import pandas as pd
-from app.routes.thermal_cvd_routes import optimizer_instance
+import app.routes.thermal_cvd_routes as cvd_routes
 
 class SpreadsheetData(BaseModel):
     data: List[Dict[str, Any]]
@@ -32,6 +32,7 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
     dataframes = []
     
     try:
+        filenames = []
         for file in files:
             filenames.append(file.filename)
             contents = await file.read()
@@ -56,6 +57,12 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
         combined_df = pd.concat(dataframes, ignore_index=True)
         total_rows = len(combined_df)
         
+        # Coerce known numeric columns to float (handles 'NS' or empty strings)
+        num_cols = ['FRH', 'HR', 'FRP1', 'FRP2', 'CP1', 'CP2', 'GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
+        for col in num_cols:
+            if col in combined_df.columns:
+                combined_df[col] = pd.to_numeric(combined_df[col], errors='coerce')
+        
         # Store metadata for the saved list
         saved_datasets.append({
             "name": ", ".join(filenames),
@@ -64,10 +71,10 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
         })
         
         # Pass data to the global optimizer to train
-        if optimizer_instance is not None:
-            optimizer_instance.load_training_data(combined_df)
-            optimizer_instance.generate_search_space(n_points=5000)
-            optimizer_instance.train_gp()
+        if cvd_routes.optimizer_instance is not None:
+            cvd_routes.optimizer_instance.load_training_data(combined_df)
+            cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
+            cvd_routes.optimizer_instance.train_gp()
             
         return {
             "total_files_processed": len(files),
@@ -100,9 +107,11 @@ async def upload_json_data(payload: SpreadsheetData):
         if 'PL_FWHM' not in df.columns and 'PL FWHM' in df.columns:
             df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
             
-        # Convert numeric columns where possible
-        for col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='ignore')
+        # Coerce known numeric columns to float (handles 'NS' or empty strings)
+        num_cols = ['FRH', 'HR', 'FRP1', 'FRP2', 'CP1', 'CP2', 'GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
+        for col in num_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
             
         saved_datasets.append({
             "name": f"Manual_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
@@ -110,10 +119,10 @@ async def upload_json_data(payload: SpreadsheetData):
             "rows": f"{len(valid_data):,}"
         })
         
-        if optimizer_instance is not None:
-            optimizer_instance.load_training_data(df)
-            optimizer_instance.generate_search_space(n_points=5000)
-            optimizer_instance.train_gp()
+        if cvd_routes.optimizer_instance is not None:
+            cvd_routes.optimizer_instance.load_training_data(df)
+            cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
+            cvd_routes.optimizer_instance.train_gp()
             
         return {
             "total_rows_aggregated": len(valid_data),

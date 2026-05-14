@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, FileSpreadsheet, Database, ArrowRight, CheckCircle2, Table as TableIcon } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, Database, ArrowRight, CheckCircle2, Table as TableIcon, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Upload = () => {
@@ -62,6 +62,10 @@ const Upload = () => {
 
   const triggerFileSelect = () => {
     fileInputRef.current.click();
+  };
+
+  const removeFile = (indexToRemove) => {
+    setSelectedFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
   const uploadFilesToBackend = async () => {
@@ -152,9 +156,18 @@ const Upload = () => {
             {selectedFiles.length > 0 ? (
               <>
                 <h3 className="text-2xl font-semibold text-cyan-400 mb-2">{selectedFiles.length} files selected</h3>
-                <div className="flex flex-wrap justify-center gap-2 mb-6 max-h-32 overflow-y-auto">
+                <div className="flex flex-wrap justify-center gap-2 mb-6 max-h-32 overflow-y-auto z-10 relative">
                   {selectedFiles.map((f, i) => (
-                    <span key={i} className="px-3 py-1 bg-slate-800 rounded-lg text-sm text-slate-300 border border-slate-700">{f.name}</span>
+                    <span key={i} className="flex items-center space-x-2 px-3 py-1 bg-slate-800 rounded-lg text-sm text-slate-300 border border-slate-700">
+                      <span>{f.name}</span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                        className="text-slate-400 hover:text-red-400 transition-colors focus:outline-none"
+                        title="Remove file"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
                   ))}
                 </div>
               </>

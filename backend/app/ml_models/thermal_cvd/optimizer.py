@@ -186,6 +186,43 @@ class ThermalCVDOptimizer:
             },
         }
 
+    def simulate_experiment(self) -> Dict[str, Any]:
+        """
+        Simulate running the highest EI experiment by appending its GP prediction
+        to the training data and refitting the model. This advances the Active Learning loop.
+        """
+        if not self._fitted or self.X_search is None:
+            raise RuntimeError("Model not fitted.")
+            
+        y_best = self.y_train.min()
+        
+        # 1. Find best point by EI
+        ei_vals = self.bo_engine.expected_improvement(self.X_search, self.gp_model.gp, y_best, xi=self.bo_engine.xi)
+        idx_best = np.argmax(ei_vals)
+        
+        # 2. Predict FWHM at this best point
+        mu_new, sigma_new = self.gp_model.predict(self.X_search[idx_best : idx_best + 1], return_std=True)
+        y_new = float(mu_new[0])
+        
+        # 3. Permanently add to training set
+        self.X_train = np.vstack([self.X_train, self.X_search[idx_best : idx_best + 1]])
+        self.y_train = np.append(self.y_train, y_new)
+        
+        # 4. Refit model
+        metrics = self.train_gp()
+        self._training_info['n_training_samples'] = len(self.y_train)
+        
+        # Decode variables for response
+        var_dict = self.encoder.decode_variables(self.X_search[idx_best : idx_best + 1])
+        
+        return {
+            'simulated_experiment': var_dict,
+            'predicted_FWHM_meV': y_new,
+            'uncertainty_meV': float(sigma_new[0]),
+            'new_total_samples': len(self.y_train),
+            'metrics': metrics
+        }
+
     def set_constant(self, col: str, value: Any) -> None:
         """
         Change a constant value for a new experimental setup.
