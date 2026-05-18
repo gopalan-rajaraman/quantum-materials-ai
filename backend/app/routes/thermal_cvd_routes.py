@@ -250,6 +250,35 @@ def simulate_run():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class AddExperimentRequest(BaseModel):
+    GTE: float
+    GTI: float
+    FRA: float
+    Pressure: float
+    PL_FWHM: float
+
+@router.post("/add-experiment")
+def add_experiment(request: AddExperimentRequest):
+    """Add a manual experiment result and update the model."""
+    if optimizer_instance is None or not optimizer_instance._fitted:
+        raise HTTPException(status_code=503, detail="Model not fitted")
+        
+    try:
+        var_dict = {
+            'GTE': request.GTE,
+            'GTI': request.GTI,
+            'FRA': request.FRA,
+            'Pressure': request.Pressure,
+        }
+        result = optimizer_instance.add_experiment(var_dict, request.PL_FWHM)
+        
+        # Log activity
+        from app.routes.upload_routes import log_activity
+        log_activity("Experiment Result Added", f"FWHM: {request.PL_FWHM:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/health")
 def health_check():
     """Health check endpoint."""
