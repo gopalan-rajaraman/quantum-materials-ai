@@ -1,36 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreVertical, Lock, Unlock, Clock, Database as DbIcon, Beaker, Zap } from 'lucide-react';
+import { Plus, MoreVertical, Lock, Unlock, Clock, Database as DbIcon } from 'lucide-react';
 
 const Datasets = () => {
   const navigate = useNavigate();
+  const [datasets, setDatasets] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    total_datasets: 0,
+    active_experiments: 0,
+    locked_datasets: 0,
+    total_runs: 0
+  });
 
-  const datasets = [
-    {
-      id: 1,
-      name: 'Perovskite_PL_Study',
-      description: 'Perovskite PL FWHM optimization',
-      expRange: 'EXP-001 to EXP-010',
-      status: 'Locked',
-      date: '15/05/2026'
-    },
-    {
-      id: 2,
-      name: 'QD_Tuning_Study',
-      description: 'Quantum dot tuning experiments',
-      expRange: 'EXP-011 to EXP-020',
-      status: 'In-Progress',
-      date: '12/05/2026'
-    },
-    {
-      id: 3,
-      name: 'Material_Screening',
-      description: 'Material screening dataset',
-      expRange: 'EXP-021 to EXP-030',
-      status: 'Unlocked',
-      date: '10/05/2026'
-    }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [savedRes, dashRes] = await Promise.all([
+          fetch('http://localhost:8000/api/datasets/saved'),
+          fetch('http://localhost:8000/api/datasets/dashboard')
+        ]);
+        
+        if (savedRes.ok) {
+          const data = await savedRes.json();
+          // Transform backend structure if necessary, or just use it directly
+          const formatted = data.datasets.map((ds, idx) => ({
+            id: ds.id || idx,
+            name: ds.name || 'Dataset',
+            description: ds.target || 'Optimization dataset',
+            expRange: ds.id || `EXP-${100 + idx}`,
+            status: ds.status === 'Completed' ? 'Locked' : 'In-Progress',
+            date: ds.date || new Date().toLocaleDateString()
+          }));
+          setDatasets(formatted);
+        }
+
+        if (dashRes.ok) {
+          const dashData = await dashRes.json();
+          setDashboardStats({
+            total_datasets: dashData.total_datasets || 0,
+            locked_datasets: data?.datasets?.filter(d => d.status === 'Completed').length || 0,
+            active_experiments: dashData.active_experiments || 0,
+            total_runs: dashData.n_training_samples || 0
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch dataset info:", err);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
   const StatusBadge = ({ status }) => {
     switch (status) {
@@ -46,7 +65,7 @@ const Datasets = () => {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto min-h-full">
+    <div className="p-8 max-w-7xl mx-auto min-h-full animate-fade-in">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-1">My Datasets</h2>
@@ -54,7 +73,7 @@ const Datasets = () => {
         </div>
         <button 
           onClick={() => navigate('/datasets/upload')}
-          className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+          className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
         >
           <Plus className="w-5 h-5" />
           <span>New Dataset</span>
@@ -74,7 +93,7 @@ const Datasets = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {datasets.map((dataset) => (
+            {datasets.length > 0 ? datasets.map((dataset) => (
               <tr key={dataset.id} className="hover:bg-slate-50/80 transition-colors">
                 <td className="px-6 py-4 font-semibold text-slate-900">{dataset.name}</td>
                 <td className="px-6 py-4">{dataset.description}</td>
@@ -89,7 +108,13 @@ const Datasets = () => {
                   </button>
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan="6" className="px-6 py-8 text-center text-slate-500">
+                  No datasets found. Upload a new dataset to get started.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -122,19 +147,19 @@ const Datasets = () => {
           <div className="grid grid-cols-2 gap-6">
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center text-center">
               <p className="text-sm text-slate-500 mb-2">Total Datasets</p>
-              <p className="text-3xl font-bold text-indigo-600">3</p>
+              <p className="text-3xl font-bold text-indigo-600">{dashboardStats.total_datasets}</p>
             </div>
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center text-center">
               <p className="text-sm text-slate-500 mb-2">Locked Datasets</p>
-              <p className="text-3xl font-bold text-emerald-600">1</p>
+              <p className="text-3xl font-bold text-emerald-600">{datasets.filter(d => d.status === 'Locked').length}</p>
             </div>
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center text-center">
               <p className="text-sm text-slate-500 mb-2">Total Experiments</p>
-              <p className="text-3xl font-bold text-amber-600">30</p>
+              <p className="text-3xl font-bold text-amber-600">{dashboardStats.active_experiments}</p>
             </div>
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center text-center">
               <p className="text-sm text-slate-500 mb-2">Total Runs</p>
-              <p className="text-3xl font-bold text-rose-600">84</p>
+              <p className="text-3xl font-bold text-rose-600">{dashboardStats.total_runs}</p>
             </div>
           </div>
         </div>
