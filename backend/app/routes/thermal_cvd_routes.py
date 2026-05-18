@@ -101,12 +101,12 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
             optimizer_instance.generate_search_space(n_points=5000)
             optimizer_instance.train_gp()
 
-            print(f'✓ Thermal CVD optimizer initialized with {len(df)} training samples')
+            print(f'Thermal CVD optimizer initialized with {len(df)} training samples')
         else:
-            print('⚠ No training data found. Optimizer initialized but not fitted.')
+            print('No training data found. Optimizer initialized but not fitted.')
 
     except Exception as e:
-        print(f'✗ Error initializing thermal CVD model: {e}')
+        print(f'Error initializing thermal CVD model: {e}')
         traceback.print_exc()
 
 
