@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Cpu, LineChart, AlertTriangle } from 'lucide-react';
+import { Target, Cpu, LineChart, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Plot from 'react-plotly.js';
+import { useNavigate } from 'react-router-dom';
 
 const Results = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchOptimization = async () => {
@@ -35,16 +37,25 @@ const Results = () => {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-7xl mx-auto flex items-center justify-center h-full">
-        <div className="text-xl text-slate-400 animate-pulse">Running full Bayesian Optimization sequence (10 steps)...</div>
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
+        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <div className="text-xl font-medium text-slate-700">Running full Bayesian Optimization sequence...</div>
+        <p className="text-slate-500 mt-2">Computing n steps of convergence.</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 max-w-7xl mx-auto flex items-center justify-center h-full">
-        <div className="text-xl text-red-400">{error}</div>
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <AlertTriangle className="w-8 h-8 text-red-600" />
+        </div>
+        <div className="text-xl font-bold text-slate-900 mb-2">Access Denied</div>
+        <div className="text-slate-600 mb-6">{error}</div>
+        <button onClick={() => navigate('/datasets')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+          Go to Datasets
+        </button>
       </div>
     );
   }
@@ -56,61 +67,79 @@ const Results = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-fade-in">
-      <div className="mb-10">
-        <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight mb-2">Model Results (Thermal CVD)</h2>
-        <p className="text-slate-400 text-lg">Final analysis and parameter breakdown after simulating 10 optimization steps.</p>
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 mb-1">Result Summary</h2>
+          <p className="text-slate-500">Overall Summary of the entire BO loop after convergence.</p>
+        </div>
+        <button 
+          onClick={() => navigate('/optimization')}
+          className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-indigo-600 font-medium rounded-xl shadow-sm transition-all"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to Active Learning</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Best Parameters Found */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-slate-900/60 backdrop-blur-md rounded-3xl p-6 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-                <Target className="w-5 h-5 text-emerald-400" />
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
+            
+            <div className="flex items-center space-x-3 mb-6 mt-2">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <Target className="w-5 h-5 text-emerald-600" />
               </div>
-              <h3 className="text-xl font-bold text-white">Optimal Parameters</h3>
+              <h3 className="text-xl font-bold text-slate-900">Optimal Parameters</h3>
             </div>
             
-            <p className="text-sm text-slate-400 mb-6">The ML model suggests synthesizing the WS₂ material with these exact parameters to achieve the lowest PL FWHM.</p>
+            <p className="text-sm text-slate-500 mb-6">The ML model suggests synthesizing with these exact parameters to achieve the lowest PL FWHM.</p>
             
-            <div className="space-y-4">
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                <span className="text-slate-400 text-sm font-medium">Growth Temp (GTE)</span>
-                <span className="text-white font-mono font-bold text-lg">{bestRec.GTE_celsius} °C</span>
+            <div className="space-y-3">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <span className="text-slate-600 text-sm font-medium">Growth Temp (GTE)</span>
+                <span className="text-slate-900 font-mono font-bold text-lg">{bestRec.GTE_celsius} °C</span>
               </div>
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                <span className="text-slate-400 text-sm font-medium">Growth Time (GTI)</span>
-                <span className="text-white font-mono font-bold text-lg">{bestRec.GTI_minutes} min</span>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <span className="text-slate-600 text-sm font-medium">Growth Time (GTI)</span>
+                <span className="text-slate-900 font-mono font-bold text-lg">{bestRec.GTI_minutes} min</span>
               </div>
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                <span className="text-slate-400 text-sm font-medium">Ar Flow (FRA)</span>
-                <span className="text-cyan-400 font-mono font-bold text-lg">{bestRec.FRA_sccm} sccm</span>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <span className="text-slate-600 text-sm font-medium">Ar Flow (FRA)</span>
+                <span className="text-indigo-600 font-mono font-bold text-lg">{bestRec.FRA_sccm} sccm</span>
               </div>
-              <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                <span className="text-slate-400 text-sm font-medium">Pressure</span>
-                <span className="text-cyan-400 font-mono font-bold text-lg">{bestRec.Pressure_Torr} Torr</span>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <span className="text-slate-600 text-sm font-medium">Pressure</span>
+                <span className="text-indigo-600 font-mono font-bold text-lg">{bestRec.Pressure_Torr} Torr</span>
               </div>
             </div>
             
-            <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-              <p className="text-slate-500 text-sm mb-1">Predicted Target (PL FWHM)</p>
-              <p className="text-4xl font-extrabold text-emerald-400">{bestRec.predicted_FWHM_meV} <span className="text-xl text-emerald-500/70">meV</span></p>
+            <div className="mt-8 pt-6 border-t border-slate-200 text-center">
+              <p className="text-slate-500 text-sm mb-1 font-medium">Best Predicted Target (PL FWHM)</p>
+              <p className="text-4xl font-extrabold text-emerald-600">{bestRec.predicted_FWHM_meV.toFixed(2)} <span className="text-xl text-emerald-600/70">meV</span></p>
             </div>
           </div>
           
           {/* Uncertainty Metrics */}
-          <div className="bg-slate-900/60 backdrop-blur-md rounded-3xl p-6 border border-slate-800">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center"><AlertTriangle className="w-4 h-4 text-amber-400 mr-2" /> Summary Metrics</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Standard Deviation (σ)</span>
-                <span className="text-white font-mono">± {bestRec.uncertainty_meV} meV</span>
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+              <AlertTriangle className="w-5 h-5 text-amber-500 mr-2" /> 
+              Summary Metrics
+            </h3>
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Standard Deviation (σ)</span>
+                <span className="text-slate-900 font-mono font-semibold">± {bestRec.uncertainty_meV.toFixed(2)} meV</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Total Improvement</span>
-                <span className="text-emerald-400 font-mono">{results.summary.improvement_meV.toFixed(2)} meV</span>
+              <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Total Improvement</span>
+                <span className="text-emerald-600 font-mono font-semibold">{results.summary.improvement_meV.toFixed(2)} meV</span>
+              </div>
+              <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Initial Best FWHM</span>
+                <span className="text-slate-900 font-mono font-semibold">{results.summary.initial_best.toFixed(2)} meV</span>
               </div>
             </div>
           </div>
@@ -118,11 +147,11 @@ const Results = () => {
 
         {/* Charts & Analysis */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-slate-900/60 backdrop-blur-md rounded-3xl p-8 border border-slate-800 shadow-xl h-96 flex flex-col">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm h-96 flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white flex items-center"><LineChart className="w-5 h-5 text-cyan-400 mr-2" /> Optimization Trajectory</h3>
+              <h3 className="text-xl font-bold text-slate-900 flex items-center"><LineChart className="w-6 h-6 text-indigo-500 mr-2" /> Optimization Trajectory</h3>
             </div>
-            <div className="flex-1 bg-slate-800/30 rounded-xl border border-slate-700/50 flex items-center justify-center overflow-hidden">
+            <div className="flex-1 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden p-2">
                <Plot
                   data={[
                     {
@@ -140,7 +169,7 @@ const Results = () => {
                       type: 'scatter',
                       mode: 'markers',
                       name: 'Proposed Experiment',
-                      marker: {color: '#06b6d4', size: 6, symbol: 'cross'}
+                      marker: {color: '#6366f1', size: 6, symbol: 'cross'}
                     }
                   ]}
                   layout={{
@@ -148,9 +177,9 @@ const Results = () => {
                     margin: {l: 50, r: 20, b: 40, t: 20},
                     paper_bgcolor: 'transparent',
                     plot_bgcolor: 'transparent',
-                    xaxis: { title: 'BO Iteration Step', gridcolor: '#334155', color: '#94a3b8' },
-                    yaxis: { title: 'FWHM (meV)', gridcolor: '#334155', color: '#94a3b8' },
-                    legend: { font: { color: '#cbd5e1' } }
+                    xaxis: { title: 'BO Iteration Step', gridcolor: '#e2e8f0', color: '#64748b' },
+                    yaxis: { title: 'FWHM (meV)', gridcolor: '#e2e8f0', color: '#64748b' },
+                    legend: { font: { color: '#475569' } }
                   }}
                   useResizeHandler={true}
                   style={{width: '100%', height: '100%'}}
@@ -158,11 +187,11 @@ const Results = () => {
             </div>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur-md rounded-3xl p-8 border border-slate-800 shadow-xl h-72 flex flex-col">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm h-72 flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white flex items-center"><Cpu className="w-5 h-5 text-purple-400 mr-2" /> Exploration Uncertainty Over Time</h3>
+              <h3 className="text-xl font-bold text-slate-900 flex items-center"><Cpu className="w-6 h-6 text-purple-500 mr-2" /> Exploration Uncertainty Over Time</h3>
             </div>
-            <div className="flex-1 bg-slate-800/30 rounded-xl border border-slate-700/50 flex items-center justify-center overflow-hidden">
+            <div className="flex-1 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden p-2">
                <Plot
                   data={[
                     {
@@ -170,7 +199,7 @@ const Results = () => {
                       y: results.convergence_history.uncertainty,
                       type: 'bar',
                       name: 'Model Uncertainty (σ)',
-                      marker: {color: 'rgba(168, 85, 247, 0.6)', line: {color: '#a855f7', width: 1}}
+                      marker: {color: '#a855f7', line: {color: '#9333ea', width: 1}}
                     }
                   ]}
                   layout={{
@@ -178,8 +207,8 @@ const Results = () => {
                     margin: {l: 50, r: 20, b: 40, t: 20},
                     paper_bgcolor: 'transparent',
                     plot_bgcolor: 'transparent',
-                    xaxis: { title: 'BO Iteration Step', gridcolor: '#334155', color: '#94a3b8' },
-                    yaxis: { title: 'Uncertainty (σ) meV', gridcolor: '#334155', color: '#94a3b8' },
+                    xaxis: { title: 'BO Iteration Step', gridcolor: '#e2e8f0', color: '#64748b' },
+                    yaxis: { title: 'Uncertainty (σ) meV', gridcolor: '#e2e8f0', color: '#64748b' },
                     showlegend: false
                   }}
                   useResizeHandler={true}
