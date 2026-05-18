@@ -223,6 +223,31 @@ class ThermalCVDOptimizer:
             'metrics': metrics
         }
 
+    def add_experiment(self, var_dict: Dict[str, Any], fwhm_result: float) -> Dict[str, Any]:
+        """
+        Add a manual experiment result to the training data and retrain the model.
+        """
+        if not self._fitted:
+            raise RuntimeError("Model not fitted.")
+            
+        # Encode variables
+        X_new = self.encoder.encode_variables(var_dict)
+        
+        # Append to training set
+        self.X_train = np.vstack([self.X_train, X_new])
+        self.y_train = np.append(self.y_train, float(fwhm_result))
+        
+        # Refit model
+        metrics = self.train_gp()
+        self._training_info['n_training_samples'] = len(self.y_train)
+        
+        return {
+            'added_experiment': var_dict,
+            'FWHM_meV': float(fwhm_result),
+            'new_total_samples': len(self.y_train),
+            'metrics': metrics
+        }
+
     def set_constant(self, col: str, value: Any) -> None:
         """
         Change a constant value for a new experimental setup.
