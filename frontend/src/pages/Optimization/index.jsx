@@ -1,92 +1,128 @@
 import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
+import { FlaskConical, Target, TrendingDown, ArrowRight, Save, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Optimization = () => {
   const [modelInfo, setModelInfo] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [plotData, setPlotData] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  const [fwhmResult, setFwhmResult] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const infoRes = await fetch('http://localhost:8000/thermal-cvd/info');
-        if (infoRes.ok) {
-          const info = await infoRes.json();
-          setModelInfo(info);
+  const fetchModelData = async () => {
+    try {
+      const infoRes = await fetch('http://localhost:8000/thermal-cvd/info');
+      if (infoRes.ok) {
+        const info = await infoRes.json();
+        setModelInfo(info);
+        
+        if (info.status === 'fitted') {
+          const suggRes = await fetch('http://localhost:8000/thermal-cvd/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ n_suggestions: 1 })
+          });
+          if (suggRes.ok) {
+            const suggData = await suggRes.json();
+            setSuggestions(suggData.recommendations);
+          }
           
-          if (info.status === 'fitted') {
-            const suggRes = await fetch('http://localhost:8000/thermal-cvd/suggest', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ n_suggestions: 1 })
-            });
-            if (suggRes.ok) {
-              const suggData = await suggRes.json();
-              setSuggestions(suggData.recommendations);
-            }
-            
-            const plotRes = await fetch('http://localhost:8000/thermal-cvd/plot-data');
-            if (plotRes.ok) {
-              const pData = await plotRes.json();
-              setPlotData(pData);
-            }
+          const plotRes = await fetch('http://localhost:8000/thermal-cvd/plot-data');
+          if (plotRes.ok) {
+            const pData = await plotRes.json();
+            setPlotData(pData);
           }
         }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const handleRunExperiment = async () => {
-    if (suggestions.length === 0) return;
-    setLoading(true);
-    try {
-      const res = await fetch('http://localhost:8000/thermal-cvd/simulate-run', { method: 'POST' });
-      if (res.ok) {
-        // Refetch everything
-        const infoRes = await fetch('http://localhost:8000/thermal-cvd/info');
-        if (infoRes.ok) setModelInfo(await infoRes.json());
-        
-        const suggRes = await fetch('http://localhost:8000/thermal-cvd/suggest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ n_suggestions: 1 })
-        });
-        if (suggRes.ok) setSuggestions((await suggRes.json()).recommendations);
-        
-        const plotRes = await fetch('http://localhost:8000/thermal-cvd/plot-data');
-        if (plotRes.ok) setPlotData(await plotRes.json());
       }
     } catch (e) {
       console.error(e);
-      alert('Failed to simulate experiment.');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-2">Active Learning Loop</h2>
-      <p className="text-slate-400 mb-8">Gaussian Process Surrogate Model & Bayesian Optimization</p>
+  useEffect(() => {
+    fetchModelData();
+  }, []);
+
+  const handleAddExperiment = async (e) => {
+    e.preventDefault();
+    if (suggestions.length === 0 || !fwhmResult) return;
+    
+    setSubmitting(true);
+    try {
+      const payload = {
+        GTE: suggestions[0].GTE_celsius,
+        GTI: suggestions[0].GTI_minutes,
+        FRA: suggestions[0].FRA_sccm,
+        Pressure: suggestions[0].Pressure_Torr,
+        PL_FWHM: parseFloat(fwhmResult)
+      };
+
+      const res = await fetch('http://localhost:8000/thermal-cvd/add-experiment', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-            <h3 className="text-xl font-semibold text-white mb-4">Gaussian Surrogate Model</h3>
-            <div className="h-64 bg-slate-900 rounded-lg border border-slate-700 p-2 flex flex-col justify-center items-center relative overflow-hidden">
+      if (res.ok) {
+        setFwhmResult('');
+        // Refetch everything
+        setLoading(true);
+        await fetchModelData();
+      } else {
+        alert("Failed to submit result.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to add experiment result.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto min-h-full animate-fade-in">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 mb-1">Active Learning Loop</h2>
+          <p className="text-slate-500">Gaussian Process Surrogate Model & Bayesian Optimization.</p>
+        </div>
+        <button 
+          onClick={() => navigate('/results')}
+          className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-indigo-600 font-medium rounded-xl shadow-sm transition-all"
+        >
+          <Activity className="w-5 h-5" />
+          <span>View Convergence Results</span>
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Visualizations */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900">Gaussian Surrogate Model</h3>
+              {modelInfo?.status === 'fitted' && (
+                <div className="flex items-center space-x-4">
+                  <span className="text-xs font-semibold px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg">R²: {modelInfo.R2_score}%</span>
+                  <span className="text-xs font-semibold px-2 py-1 bg-rose-50 text-rose-700 rounded-lg">MAE: {modelInfo.MAE_meV} meV</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="h-[300px] bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center items-center relative overflow-hidden">
               {loading ? (
-                <span className="text-slate-500 animate-pulse">Loading model data...</span>
+                <div className="flex flex-col items-center justify-center">
+                  <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-3"></div>
+                  <span className="text-slate-500 font-medium">Loading model data...</span>
+                </div>
               ) : modelInfo?.status === 'fitted' && plotData ? (
-                <div className="w-full h-full relative">
-                  <div className="absolute top-0 right-0 text-xs text-slate-400 z-10 bg-slate-900/80 px-2 py-1 rounded">
-                    R²: {modelInfo.R2_score} | MAE: {modelInfo.MAE_meV} meV
-                  </div>
+                <div className="w-full h-full p-2">
                   <Plot
                     data={[
                       {
@@ -96,7 +132,7 @@ const Optimization = () => {
                         ),
                         type: 'scatter',
                         fill: 'toself',
-                        fillcolor: 'rgba(16, 185, 129, 0.2)',
+                        fillcolor: 'rgba(79, 70, 229, 0.1)',
                         line: {color: 'transparent'},
                         name: 'Uncertainty (95%)'
                       },
@@ -106,7 +142,7 @@ const Optimization = () => {
                         type: 'scatter',
                         mode: 'lines',
                         name: 'Predicted FWHM',
-                        line: {color: '#10b981', width: 2}
+                        line: {color: '#4f46e5', width: 3}
                       }
                     ]}
                     layout={{
@@ -114,8 +150,8 @@ const Optimization = () => {
                       margin: {l: 50, r: 20, b: 40, t: 20},
                       paper_bgcolor: 'transparent',
                       plot_bgcolor: 'transparent',
-                      xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#334155', color: '#94a3b8' },
-                      yaxis: { title: 'FWHM (meV)', gridcolor: '#334155', color: '#94a3b8' },
+                      xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#e2e8f0', color: '#64748b' },
+                      yaxis: { title: 'FWHM (meV)', gridcolor: '#e2e8f0', color: '#64748b' },
                       showlegend: false
                     }}
                     useResizeHandler={true}
@@ -128,13 +164,16 @@ const Optimization = () => {
             </div>
           </div>
           
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-            <h3 className="text-xl font-semibold text-white mb-4">Acquisition Function (Expected Improvement)</h3>
-            <div className="h-48 bg-slate-900 rounded-lg border border-slate-700 flex items-center justify-center p-2 relative overflow-hidden">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900 mb-6">Acquisition Function (Expected Improvement)</h3>
+            <div className="h-[250px] bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center relative overflow-hidden">
               {loading ? (
-                <span className="text-slate-500 animate-pulse">Loading...</span>
+                <div className="flex flex-col items-center justify-center">
+                  <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-3"></div>
+                  <span className="text-slate-500 font-medium">Computing...</span>
+                </div>
               ) : plotData ? (
-                <div className="w-full h-full">
+                <div className="w-full h-full p-2">
                   <Plot
                     data={[
                       {
@@ -144,8 +183,8 @@ const Optimization = () => {
                         mode: 'lines',
                         name: 'Expected Improvement',
                         fill: 'tozeroy',
-                        fillcolor: 'rgba(6, 182, 212, 0.3)',
-                        line: {color: '#06b6d4', width: 2}
+                        fillcolor: 'rgba(14, 165, 233, 0.2)',
+                        line: {color: '#0ea5e9', width: 3}
                       }
                     ]}
                     layout={{
@@ -153,8 +192,8 @@ const Optimization = () => {
                       margin: {l: 50, r: 20, b: 40, t: 20},
                       paper_bgcolor: 'transparent',
                       plot_bgcolor: 'transparent',
-                      xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#334155', color: '#94a3b8' },
-                      yaxis: { title: 'EI Value', gridcolor: '#334155', color: '#94a3b8' },
+                      xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#e2e8f0', color: '#64748b' },
+                      yaxis: { title: 'EI Value', gridcolor: '#e2e8f0', color: '#64748b' },
                       showlegend: false
                     }}
                     useResizeHandler={true}
@@ -162,59 +201,104 @@ const Optimization = () => {
                   />
                 </div>
               ) : (
-                <span className="text-slate-500">Plotly Graph will render here</span>
+                <span className="text-slate-500">Graph will render here</span>
               )}
             </div>
           </div>
         </div>
         
-        <div className="space-y-6">
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 border-t-4 border-t-cyan-500">
-            <h3 className="text-lg font-semibold text-white mb-2">Next Suggested Experiment</h3>
-            <p className="text-sm text-slate-400 mb-4">Based on max Expected Improvement</p>
+        {/* Right Column: Interaction */}
+        <div className="space-y-8 h-full">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xl shadow-indigo-100 h-full flex flex-col relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-cyan-400"></div>
             
-            <div className="space-y-3">
+            <div className="flex items-center space-x-3 mb-2 mt-2">
+              <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                <Target className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Next Suggestion</h3>
+            </div>
+            <p className="text-sm text-slate-500 mb-8">Perform this experiment to maximize Expected Improvement.</p>
+            
+            <div className="flex-1 space-y-4">
               {loading ? (
-                <div className="text-slate-500 text-sm py-4 animate-pulse">Computing predictions...</div>
+                <div className="space-y-3">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse"></div>
+                  ))}
+                </div>
               ) : suggestions.length > 0 ? (
                 <>
-                  <div className="bg-slate-900 p-3 rounded-lg flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Growth Temp (GTE)</span>
-                    <span className="text-cyan-400 font-mono font-bold">{suggestions[0].GTE_celsius} °C</span>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center hover:border-indigo-200 transition-colors">
+                    <span className="text-slate-600 font-medium text-sm">Growth Temp (GTE)</span>
+                    <span className="text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{suggestions[0].GTE_celsius} °C</span>
                   </div>
-                  <div className="bg-slate-900 p-3 rounded-lg flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Growth Time (GTI)</span>
-                    <span className="text-cyan-400 font-mono font-bold">{suggestions[0].GTI_minutes} min</span>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center hover:border-indigo-200 transition-colors">
+                    <span className="text-slate-600 font-medium text-sm">Growth Time (GTI)</span>
+                    <span className="text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{suggestions[0].GTI_minutes} min</span>
                   </div>
-                  <div className="bg-slate-900 p-3 rounded-lg flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Ar Flow (FRA)</span>
-                    <span className="text-cyan-400 font-mono font-bold">{suggestions[0].FRA_sccm} sccm</span>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center hover:border-indigo-200 transition-colors">
+                    <span className="text-slate-600 font-medium text-sm">Ar Flow (FRA)</span>
+                    <span className="text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{suggestions[0].FRA_sccm} sccm</span>
                   </div>
-                  <div className="bg-slate-900 p-3 rounded-lg flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Pressure</span>
-                    <span className="text-cyan-400 font-mono font-bold">{suggestions[0].Pressure_Torr} Torr</span>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center hover:border-indigo-200 transition-colors">
+                    <span className="text-slate-600 font-medium text-sm">Pressure</span>
+                    <span className="text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{suggestions[0].Pressure_Torr} Torr</span>
                   </div>
-                  <div className="bg-emerald-900/30 p-3 rounded-lg flex justify-between items-center border border-emerald-500/30 mt-4">
-                    <span className="text-emerald-400 text-sm">Predicted FWHM</span>
-                    <span className="text-emerald-400 font-mono font-bold">{suggestions[0].predicted_FWHM_meV} ± {suggestions[0].uncertainty_meV} meV</span>
-                  </div>
-                  <div className="bg-slate-900/50 p-2 rounded flex justify-between items-center">
-                     <span className="text-slate-500 text-xs">EI Value</span>
-                     <span className="text-slate-400 text-xs font-mono">{suggestions[0].EI_value}</span>
+                  
+                  <div className="mt-8 pt-6 border-t border-slate-200">
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex flex-col justify-center items-center">
+                      <span className="text-emerald-700 font-medium text-sm mb-1">Model Predicts FWHM</span>
+                      <span className="text-emerald-700 font-bold text-2xl">{suggestions[0].predicted_FWHM_meV} <span className="text-lg opacity-70 font-normal">± {suggestions[0].uncertainty_meV} meV</span></span>
+                    </div>
                   </div>
                 </>
               ) : (
-                <div className="text-slate-500 text-sm py-4">No suggestions available. Please upload training data first.</div>
+                <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
+                  <FlaskConical className="w-12 h-12 opacity-50" />
+                  <p className="text-center">No suggestions available.<br/>Please upload training data first.</p>
+                  <button onClick={() => navigate('/datasets/upload')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium">Upload Dataset</button>
+                </div>
               )}
             </div>
-            
-            <button 
-              onClick={handleRunExperiment}
-              disabled={suggestions.length === 0 || loading}
-              className={`w-full mt-6 py-2 rounded-lg transition-colors ${suggestions.length > 0 && !loading ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)]' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
-            >
-              {loading ? "Running..." : "Simulate Run Experiment"}
-            </button>
+
+            {suggestions.length > 0 && !loading && (
+              <form onSubmit={handleAddExperiment} className="mt-8 space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                <h4 className="font-bold text-slate-900 text-center">Log Experimental Result</h4>
+                <p className="text-xs text-center text-slate-500 mb-4">Run the experiment above and enter the resulting PL FWHM to retrain the model.</p>
+                
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block text-center">Measured FWHM (meV)</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    required
+                    value={fwhmResult}
+                    onChange={(e) => setFwhmResult(e.target.value)}
+                    placeholder="e.g., 34.50"
+                    className="w-full text-center text-lg font-bold p-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all"
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={submitting || !fwhmResult}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:shadow-none"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Updating Model...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      <span>Submit & Retrain</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>
