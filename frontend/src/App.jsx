@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -27,21 +26,18 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      <Navbar />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-6">
-          <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/datasets" element={<Datasets />} />
-            <Route path="/datasets/upload" element={<Upload />} />
-            <Route path="/experiments" element={<Experiments />} />
-            <Route path="/optimization" element={<Optimization />} />
-            <Route path="/results" element={<Results />} />
-          </Routes>
-        </main>
-      </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto bg-slate-50 p-6">
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/datasets" element={<Datasets />} />
+          <Route path="/datasets/upload" element={<Upload />} />
+          <Route path="/experiments" element={<Experiments />} />
+          <Route path="/optimization" element={<Optimization />} />
+          <Route path="/results" element={<Results />} />
+        </Routes>
+      </main>
     </div>
   );
 };
