@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
@@ -8,30 +8,48 @@ import Upload from './pages/Upload';
 import Optimization from './pages/Optimization';
 import Experiments from './pages/Experiments';
 import Results from './pages/Results';
+import Signup from './pages/Signup';
+import Datasets from './pages/Datasets';
+
+const AppLayout = () => {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/signup' || location.pathname === '/login' || location.pathname === '/';
+
+  if (isAuthPage) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/signup" element={<Signup />} />
+        </Routes>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      <Navbar />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-6">
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/datasets" element={<Datasets />} />
+            <Route path="/datasets/upload" element={<Upload />} />
+            <Route path="/experiments" element={<Experiments />} />
+            <Route path="/optimization" element={<Optimization />} />
+            <Route path="/results" element={<Results />} />
+          </Routes>
+        </main>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-slate-900 text-slate-50 flex flex-col font-sans">
-        <Navbar />
-        <div className="flex flex-1 overflow-hidden">
-          <Routes>
-            <Route path="/" element={null} />
-            <Route path="*" element={<Sidebar />} />
-          </Routes>
-          
-          <main className="flex-1 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/upload" element={<Upload />} />
-              <Route path="/experiments" element={<Experiments />} />
-              <Route path="/optimization" element={<Optimization />} />
-              <Route path="/results" element={<Results />} />
-            </Routes>
-          </main>
-        </div>
-      </div>
+      <AppLayout />
     </Router>
   );
 }
