@@ -63,13 +63,35 @@ const Results = () => {
   if (error) {
     return (
       <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-          <AlertTriangle className="w-8 h-8 text-red-600" />
+        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+          <AlertTriangle className="w-8 h-8 text-amber-600" />
         </div>
-        <div className="text-xl font-bold text-slate-900 mb-2">Access Denied</div>
-        <div className="text-slate-600 mb-6">{error}</div>
-        <button onClick={() => navigate('/datasets')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
-          Go to Datasets
+        <div className="text-xl font-bold text-slate-900 mb-2">BO Loop Incomplete</div>
+        <div className="text-slate-600 mb-6 text-center max-w-md">{error}</div>
+        
+        {boProgress && (
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-sm font-medium text-slate-700">Progress</span>
+              <span className="text-sm font-bold text-indigo-600">{boProgress.total_steps} / {boProgress.min_required_steps} steps</span>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-3">
+              <div 
+                className="bg-indigo-600 h-3 rounded-full transition-all" 
+                style={{ width: `${Math.min(100, (boProgress.total_steps / boProgress.min_required_steps) * 100)}%` }}
+              ></div>
+            </div>
+            {boProgress.current_best_fwhm && (
+              <div className="mt-4 text-center">
+                <span className="text-xs text-slate-500">Current Best FWHM: </span>
+                <span className="text-sm font-bold text-emerald-600">{boProgress.current_best_fwhm.toFixed(2)} meV</span>
+              </div>
+            )}
+          </div>
+        )}
+        
+        <button onClick={() => navigate('/optimization')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+          Continue BO Loop
         </button>
       </div>
     );

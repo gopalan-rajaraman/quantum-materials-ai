@@ -8,6 +8,7 @@ const Optimization = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [plotData, setPlotData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [boProgress, setBoProgress] = useState(null);
   
   const [fwhmResult, setFwhmResult] = useState('');
   const [submitting, setSubmitting] = useState(false);
