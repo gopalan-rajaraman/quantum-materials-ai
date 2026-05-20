@@ -3,7 +3,7 @@ User authentication and management routes.
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 from bson import ObjectId
@@ -17,12 +17,19 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 class UserCreate(BaseModel):
     full_name: str
-    email: EmailStr
+    email: str
     password: str
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if '@' not in v:
+            raise ValueError('Invalid email format')
+        return v
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
