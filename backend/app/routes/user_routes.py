@@ -85,12 +85,16 @@ async def register_user(user_data: UserCreate):
     }
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
 @router.post("/verify-email")
-async def verify_email(token: str):
+async def verify_email(request: VerifyEmailRequest):
     """Verify user email with token."""
     collection = get_users_collection()
     
-    user = await collection.find_one({"verification_token": token})
+    user = await collection.find_one({"verification_token": request.token})
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
     
