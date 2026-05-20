@@ -192,6 +192,33 @@ const Upload = () => {
     }));
   };
 
+  const toggleExpIdConfirmation = (expId) => {
+    setConfirmedExpIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(expId)) {
+        newSet.delete(expId);
+      } else {
+        newSet.add(expId);
+      }
+      return newSet;
+    });
+  };
+
+  const confirmAllExpIds = () => {
+    const firstColumn = Object.keys(parsedData[0])[0];
+    const allIds = parsedData.map(row => row[firstColumn]);
+    setConfirmedExpIds(new Set(allIds));
+  };
+
+  const getExperimentalIds = () => {
+    if (parsedData.length === 0) return [];
+    const firstColumn = Object.keys(parsedData[0])[0];
+    return parsedData.map(row => ({
+      id: row[firstColumn],
+      data: row
+    }));
+  };
+
   const handleLockDataset = async () => {
     setIsLocking(true);
     setLockError(null);
