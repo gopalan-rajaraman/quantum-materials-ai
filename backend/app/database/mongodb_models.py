@@ -38,8 +38,12 @@ class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
     full_name: str
     email: str
+    department: str = ""
+    institute: str = ""
+    role: str = "user"  # user, admin, student, researcher, professor, etc.
     password_hash: str
-    role: str = "user"  # user, admin
+    is_verified: bool = False
+    verification_token: Optional[str] = None
     member_since: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
