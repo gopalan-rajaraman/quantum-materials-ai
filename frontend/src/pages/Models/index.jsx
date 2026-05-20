@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { 
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Scatter, Legend
+  Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Scatter, Legend, Cell
 } from 'recharts';
 import surfacePlotImg from '../../assets/surface_plot.png';
 
