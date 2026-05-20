@@ -8,3 +8,6 @@ scipy
 openpyxl
 matplotlib
 seaborn
+pymongo
+motor
+python-dotenv
