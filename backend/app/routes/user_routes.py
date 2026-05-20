@@ -63,7 +63,7 @@ async def register_user(user_data: UserCreate):
         "institute": user_data.institute,
         "role": user_data.role or "user",
         "password_hash": hash_password(user_data.password),
-        "is_verified": False,
+        "is_verified": True,
         "verification_token": verification_token,
         "member_since": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow().isoformat()
@@ -122,8 +122,8 @@ async def login_user(login_data: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Check if email is verified
-    if not user.get("is_verified", False):
-        raise HTTPException(status_code=403, detail="Please verify your email before logging in")
+    # if not user.get("is_verified", False):
+    #     raise HTTPException(status_code=403, detail="Please verify your email before logging in")
     
     user["_id"] = str(user["_id"])
     user.pop("password_hash", None)
