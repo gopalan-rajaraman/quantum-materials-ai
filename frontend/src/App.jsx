@@ -12,6 +12,15 @@ import Login from './pages/Login';
 import Datasets from './pages/Datasets';
 import VerifyEmail from './pages/VerifyEmail';
 
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const user = localStorage.getItem('user');
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
 const AppLayout = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/signup' || location.pathname === '/login' || location.pathname === '/' || location.pathname === '/verify-email';
