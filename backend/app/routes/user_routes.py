@@ -85,6 +85,26 @@ async def register_user(user_data: UserCreate):
     }
 
 
+@router.post("/verify-email")
+async def verify_email(token: str):
+    """Verify user email with token."""
+    collection = get_users_collection()
+    
+    user = await collection.find_one({"verification_token": token})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+    
+    if user.get("is_verified", False):
+        raise HTTPException(status_code=400, detail="Email already verified")
+    
+    await collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"is_verified": True, "verification_token": None}}
+    )
+    
+    return {"message": "Email verified successfully"}
+
+
 @router.post("/login")
 async def login_user(login_data: UserLogin):
     """Login user and return user data."""
@@ -97,8 +117,13 @@ async def login_user(login_data: UserLogin):
     if user["password_hash"] != hash_password(login_data.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Check if email is verified
+    if not user.get("is_verified", False):
+        raise HTTPException(status_code=403, detail="Please verify your email before logging in")
+    
     user["_id"] = str(user["_id"])
     user.pop("password_hash", None)
+    user.pop("verification_token", None)
     
     return {
         "message": "Login successful",
