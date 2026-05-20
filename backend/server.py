@@ -1,12 +1,30 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.routes.upload_routes import router as upload_router
 from app.routes.thermal_cvd_routes import router as thermal_cvd_router, init_thermal_cvd_model
+from app.routes.dataset_routes import router as dataset_router
+from app.routes.user_routes import router as user_router
+from app.database.mongodb_config import MongoDB
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan."""
+    # Startup
+    print("Starting up... connecting to MongoDB")
+    await MongoDB.connect()
+    print("Starting up... initializing Thermal CVD optimizer")
+    init_thermal_cvd_model()
+    yield
+    # Shutdown
+    print("Shutting down... closing MongoDB connection")
+    await MongoDB.close()
 
 app = FastAPI(
     title="Quantum Materials AI API",
     description="FastAPI backend for material discovery and Bayesian Optimization",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Allow React Frontend
@@ -27,12 +45,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def startup_event():
-    """Initialize ML models on startup."""
-    print("Starting up... initializing Thermal CVD optimizer")
-    init_thermal_cvd_model()
-
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Quantum Materials AI API"}
@@ -40,6 +52,8 @@ def read_root():
 # Include routers
 app.include_router(upload_router)
 app.include_router(thermal_cvd_router)
+app.include_router(dataset_router)
+app.include_router(user_router)
 
 if __name__ == "__main__":
     import uvicorn
