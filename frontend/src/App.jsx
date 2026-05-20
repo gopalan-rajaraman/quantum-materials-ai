@@ -13,7 +13,7 @@ import VerifyEmail from './pages/VerifyEmail';
 
 const AppLayout = () => {
   const location = useLocation();
-  const isAuthPage = location.pathname === '/signup' || location.pathname === '/login' || location.pathname === '/';
+  const isAuthPage = location.pathname === '/signup' || location.pathname === '/login' || location.pathname === '/' || location.pathname === '/verify-email';
 
   if (isAuthPage) {
     return (
@@ -21,6 +21,7 @@ const AppLayout = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
         </Routes>
       </div>
     );
