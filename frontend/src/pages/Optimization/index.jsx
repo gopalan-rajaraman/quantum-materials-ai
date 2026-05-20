@@ -22,6 +22,13 @@ const Optimization = () => {
         setModelInfo(info);
         
         if (info.status === 'fitted') {
+          // Fetch BO progress
+          const progressRes = await fetch('http://localhost:8000/thermal-cvd/bo-progress');
+          if (progressRes.ok) {
+            const progressData = await progressRes.json();
+            setBoProgress(progressData);
+          }
+          
           const suggRes = await fetch('http://localhost:8000/thermal-cvd/suggest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
