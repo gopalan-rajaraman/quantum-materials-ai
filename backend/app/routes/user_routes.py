@@ -18,6 +18,9 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 class UserCreate(BaseModel):
     full_name: str
     email: str
+    department: str = ""
+    institute: str = ""
+    role: str = ""
     password: str
     
     @field_validator('email')
