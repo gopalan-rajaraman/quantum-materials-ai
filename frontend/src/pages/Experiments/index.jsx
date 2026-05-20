@@ -36,19 +36,8 @@ const Experiments = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Mock data generator for display purpose based on the screenshot
-  const mockExperiments = [
-    { id: 'EXP-018', name: 'Perovskite_PL_Study', target: 'FWHM (meV)', status: 'Completed', bestValue: '24.5 meV', rows: 120, date: '16 May 2026', time: '10:30 AM', range: 'EXP-001 to EXP-010' },
-    { id: 'EXP-017', name: 'Quantum_dot_Tuning', target: 'FWHM (meV)', status: 'In Progress', bestValue: '28.1 meV', rows: 86, date: '15 May 2026', time: '03:45 PM', range: 'EXP-011 to EXP-020' },
-    { id: 'EXP-016', name: 'Material_Screening', target: 'FWHM (meV)', status: 'Completed', bestValue: '26.3 meV', rows: 110, date: '14 May 2026', time: '11:20 AM', range: 'EXP-021 to EXP-030' },
-    { id: 'EXP-015', name: '2D_Materials_Study', target: 'FWHM (meV)', status: 'Completed', bestValue: '22.7 meV', rows: 98, date: '13 May 2026', time: '09:15 AM', range: 'EXP-031 to EXP-040' },
-    { id: 'EXP-014', name: 'Thin_Film_Analysis', target: 'FWHM (meV)', status: 'In Progress', bestValue: '30.2 meV', rows: 75, date: '12 May 2026', time: '02:05 PM', range: 'EXP-041 to EXP-050' },
-    { id: 'EXP-013', name: 'Doping_Effect_Study', target: 'FWHM (meV)', status: 'Completed', bestValue: '25.8 meV', rows: 132, date: '11 May 2026', time: '01:40 PM', range: 'EXP-051 to EXP-060' },
-    { id: 'EXP-012', name: 'Strain_Engineering', target: 'FWHM (meV)', status: 'In Progress', bestValue: '29.6 meV', rows: 68, date: '10 May 2026', time: '04:50 PM', range: 'EXP-061 to EXP-070' },
-    { id: 'EXP-011', name: 'Heterostructure_Design', target: 'FWHM (meV)', status: 'Completed', bestValue: '23.4 meV', rows: 143, date: '09 May 2026', time: '10:10 AM', range: 'EXP-071 to EXP-080' },
-  ];
-
-  const displayData = filteredExperiments.length > 0 ? filteredExperiments : mockExperiments;
+  // Use filtered experiments from API or empty array if no data
+  const displayData = filteredExperiments && filteredExperiments.length > 0 ? filteredExperiments : [];
 
   return (
     <div className="w-full max-w-[1200px] mx-auto">
@@ -149,14 +138,14 @@ const Experiments = () => {
                     Loading experiments...
                   </td>
                 </tr>
-              ) : (
+              ) : displayData && displayData.length > 0 ? (
                 displayData.map((exp, i) => (
                   <tr key={i} className="hover:bg-slate-50/50 transition-colors group cursor-pointer bg-white" onClick={() => navigate('/results')}>
                     <td className="px-6 py-4 text-center text-slate-300">
                       <Star className="w-[18px] h-[18px] hover:text-slate-400 transition-colors cursor-pointer inline-block" />
                     </td>
                     <td className="px-4 py-4">
-                      <span className="font-bold text-[#4C3BDE] text-[13px]">{exp.id || `EXP-01${8-i}`}</span>
+                      <span className="font-bold text-[#4C3BDE] text-[13px]">{exp.id || `EXP-${String(i + 1).padStart(3, '0')}`}</span>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center space-x-4">
@@ -164,14 +153,14 @@ const Experiments = () => {
                            <Database className="w-[18px] h-[18px]" />
                         </div>
                         <div>
-                           <div className="font-bold text-slate-800 text-[13px]">{exp.name || 'Perovskite_PL_Study'}</div>
-                           <div className="text-[11px] text-slate-500 mt-0.5 font-medium">{exp.range || 'EXP-001 to EXP-010'}</div>
+                           <div className="font-bold text-slate-800 text-[13px]">{exp.name || '—'}</div>
+                           <div className="text-[11px] text-slate-500 mt-0.5 font-medium">{exp.range || exp.id || '—'}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.target || 'FWHM (meV)'}</td>
+                    <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.target || '—'}</td>
                     <td className="px-4 py-4">
-                      {(exp.status === 'Completed' || i === 0 || i === 2 || i === 3 || i === 5 || i === 7) ? (
+                      {exp.status === 'Completed' ? (
                         <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-[#E8FFF3] text-[#00B050] text-[12px] font-bold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Completed</span>
@@ -183,13 +172,13 @@ const Experiments = () => {
                         </span>
                       )}
                     </td>
-                    <td className={`px-4 py-4 font-bold text-[13px] ${(exp.status === 'Completed' || i === 0 || i === 2 || i === 3 || i === 5 || i === 7) ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
-                      {exp.bestValue || '24.5 meV'}
+                    <td className={`px-4 py-4 font-bold text-[13px] ${exp.status === 'Completed' ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
+                      {exp.bestValue || '—'}
                     </td>
-                    <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.rows || 120}</td>
+                    <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.rows || '—'}</td>
                     <td className="px-4 py-4">
-                      <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '16 May 2026'}</div>
-                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || '10:30 AM'}</div>
+                      <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '—'}</div>
+                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || ''}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center space-x-2">
@@ -203,6 +192,12 @@ const Experiments = () => {
                     </td>
                   </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan="9" className="px-6 py-12 text-center">
+                    <div className="text-slate-500 text-[14px]">No experiments found. Upload a dataset to get started.</div>
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -211,7 +206,7 @@ const Experiments = () => {
         {/* Pagination Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white">
           <div className="text-slate-500 text-[13px] font-medium">
-            Showing 1 to 8 of 156 experiments
+            Showing {displayData.length} of {filteredExperiments.length} experiments
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-1">

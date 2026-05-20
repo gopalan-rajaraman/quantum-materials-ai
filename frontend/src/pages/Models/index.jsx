@@ -31,43 +31,20 @@ const Models = () => {
     fetchModelDetails();
   }, []);
 
-  const trainingData = modelInfo?.training_history || [
-    { iteration: 1, trainR2: 0.1, valR2: 0.18, loss: 0.7 },
-    { iteration: 2, trainR2: 0.6, valR2: 0.55, loss: 0.4 },
-    { iteration: 3, trainR2: 0.8, valR2: 0.72, loss: 0.28 },
-    { iteration: 4, trainR2: 0.85, valR2: 0.78, loss: 0.19 },
-    { iteration: 5, trainR2: 0.9, valR2: 0.81, loss: 0.11 },
-    { iteration: 6, trainR2: 0.92, valR2: 0.83, loss: 0.06 },
-    { iteration: 7, trainR2: 0.93, valR2: 0.84, loss: 0.04 },
-    { iteration: 8, trainR2: 0.94, valR2: 0.85, loss: 0.03 },
-    { iteration: 9, trainR2: 0.94, valR2: 0.85, loss: 0.02 },
-    { iteration: 10, trainR2: 0.95, valR2: 0.86, loss: 0.02 },
-  ];
+  const trainingData = modelInfo?.training_history || [];
 
-  const featureData = modelInfo?.feature_importances || [
-    { name: 'Growth Temp', value: 42 },
-    { name: 'Growth Time', value: 25 },
-    { name: 'Ar Flow', value: 18 },
-    { name: 'Pressure', value: 15 },
-  ];
+  const featureData = modelInfo?.feature_importances || [];
 
-  const predictionData = modelInfo?.prediction_data || [
-    { iteration: 1, predicted: 47, observed: 48, lower: 30, upper: 65 },
-    { iteration: 2, predicted: 39, observed: 38, lower: 25, upper: 55 },
-    { iteration: 3, predicted: 34, observed: 35, lower: 22, upper: 48 },
-    { iteration: 4, predicted: 31, observed: 30, lower: 20, upper: 44 },
-    { iteration: 5, predicted: 24, observed: 25, lower: 18, upper: 32 },
-  ];
+  const predictionData = modelInfo?.prediction_data || [];
 
-  const r2Value = modelInfo?.R2_score !== undefined ? `${(modelInfo.R2_score * 100).toFixed(1)}%` : '91.7%';
-  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)} meV` : '2.1 meV';
-  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '3.4 meV';
-  const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : 120;
+  const r2Value = modelInfo?.R2_score !== undefined ? `${(modelInfo.R2_score * 100).toFixed(1)}%` : '—';
+  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)} meV` : '—';
+  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '—';
+  const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : '—';
   const kernelName = modelInfo?.kernel || 'RBF + WhiteKernel';
 
   const modelVersions = [
-    { version: 'v2.3', kernel: kernelName, dataset: 'Active Dataset', r2: r2Value, mae: maeValue, status: modelInfo?.status === 'fitted' ? 'Active' : 'Not Trained', date: '20 May 2026, 10:40 AM', current: true },
-    { version: 'v2.2', kernel: 'Matern 5/2', dataset: 'Perovskite_PL_Study', r2: '89.4%', mae: '2.7 meV', status: 'Archived', date: '14 May 2026, 09:15 AM', current: false },
+    { version: 'v2.3', kernel: kernelName, dataset: 'Active Dataset', r2: r2Value, mae: maeValue, status: modelInfo?.status === 'fitted' ? 'Active' : 'Not Trained', date: modelInfo?.trained_at || 'Not yet trained', current: true },
   ];
 
   // Custom tooltips
@@ -154,10 +131,12 @@ const Models = () => {
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">R² Score</p>
             <p className="text-xl font-bold text-[#4C3BDE] mb-2">{r2Value}</p>
-            <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
-              <ArrowUpRight className="w-3 h-3" />
-              <span>4.3% vs last model</span>
-            </div>
+            {modelInfo?.r2_delta != null && (
+              <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
+                <ArrowUpRight className="w-3 h-3" />
+                <span>{modelInfo.r2_delta > 0 ? '+' : ''}{modelInfo.r2_delta.toFixed(1)}% vs last model</span>
+              </div>
+            )}
           </div>
           <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-4">
             <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE] mb-3">
@@ -165,10 +144,12 @@ const Models = () => {
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">MAE</p>
             <p className="text-xl font-bold text-slate-800 mb-2">{maeValue}</p>
-            <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
-              <ArrowDownRight className="w-3 h-3" />
-              <span>0.6 meV</span>
-            </div>
+            {modelInfo?.mae_delta != null && (
+              <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
+                <ArrowDownRight className="w-3 h-3" />
+                <span>{modelInfo.mae_delta.toFixed(2)} meV</span>
+              </div>
+            )}
           </div>
           <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-4">
             <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE] mb-3">
@@ -176,21 +157,21 @@ const Models = () => {
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">RMSE</p>
             <p className="text-xl font-bold text-slate-800 mb-2">{rmseValue}</p>
-            <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
-              <ArrowDownRight className="w-3 h-3" />
-              <span>0.8 meV</span>
-            </div>
+            {modelInfo?.rmse_delta != null && (
+              <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
+                <ArrowDownRight className="w-3 h-3" />
+                <span>{modelInfo.rmse_delta.toFixed(2)} meV</span>
+              </div>
+            )}
           </div>
           <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-4">
             <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE] mb-3">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">Confidence</p>
-            <p className="text-xl font-bold text-slate-800 mb-2">94%</p>
-            <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
-              <ArrowUpRight className="w-3 h-3" />
-              <span>6%</span>
-            </div>
+            <p className="text-xl font-bold text-slate-800 mb-2">
+              {modelInfo?.confidence != null ? `${(modelInfo.confidence * 100).toFixed(0)}%` : '—'}
+            </p>
           </div>
           <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-4">
             <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE] mb-3">
@@ -198,21 +179,15 @@ const Models = () => {
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">Training Rows</p>
             <p className="text-xl font-bold text-slate-800 mb-2">{trainRows}</p>
-            <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
-              <ArrowUpRight className="w-3 h-3" />
-              <span>20</span>
-            </div>
           </div>
           <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-4">
             <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE] mb-3">
               <Zap className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">Inference Time</p>
-            <p className="text-xl font-bold text-slate-800 mb-2">8 ms</p>
-            <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
-              <ArrowDownRight className="w-3 h-3" />
-              <span>15 ms</span>
-            </div>
+            <p className="text-xl font-bold text-slate-800 mb-2">
+              {modelInfo?.inference_time_ms != null ? `${modelInfo.inference_time_ms} ms` : '—'}
+            </p>
           </div>
         </div>
       </div>

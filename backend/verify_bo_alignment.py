@@ -36,21 +36,13 @@ TEST_DATA = {
     'Pressure': [730.0, np.nan, 50.0, 50.0, np.nan, 7.5, 30.0],
     'COM': ['Rapid', 'Natural', 'NS', 'NS', 'NS', 'NS', 'NS'],
     'PC': ['Quartz boat', 'Al2O3 crucible', 'Bubbler', 'Bubbler', 'Sulfur boat', 'Ceramic boat', 'Gas cylinders'],
+    'Class': ['Monolayer', 'Nanosheets', np.nan, np.nan, np.nan, np.nan, np.nan],
     'TOCVD': ['Thermal CVD'] * 7,
-    'PL FWHM': [21, 124, 60, 69, 27, 48, 60],
+    'PL_FWHM': [21, 124, 60, 69, 27, 48, 60],
 }
 
 df_test = pd.DataFrame(TEST_DATA)
 df_test = df_test.replace('NS', np.nan)
-
-# Rename to backend convention
-df_test.columns = [
-    'P1', 'P2', 'CP1', 'CP2', 'FRP1', 'FRP2', 'SA', 'Substrate',
-    'CG', 'FRA', 'FRH', 'GTE', 'GTI', 'HR', 'Pressure', 'COM', 'PC', 'TOCVD', 'PL_FWHM'
-]
-
-if 'PL_FWHM' not in df_test.columns:
-    df_test = df_test.rename(columns={'PL FWHM': 'PL_FWHM'})
 
 
 def test_encoder():
@@ -115,6 +107,9 @@ def test_gp_fit(optimizer, X_train, y_train):
     print("\n" + "="*70)
     print("TEST 3: GP Model Training (Notebook Step 7)")
     print("="*70)
+    
+    # Load training data first (this initializes X_train and y_train in optimizer)
+    optimizer.load_training_data(df_test)
     
     # Fit optimizer (which scales y internally)
     metrics = optimizer.train_gp()
@@ -183,12 +178,15 @@ def test_bo_loop(optimizer):
     result = optimizer.run_bo_optimization(n_steps=3)
     
     print(f"\n✓ BO loop completed: {len(result['recommendations'])} iterations")
-    print(f"  Initial best FWHM: {result['initial_best_fwhm']:.1f} meV")
-    print(f"  Final best FWHM:   {result['final_best_fwhm']:.1f} meV")
+    if 'best_fwhm_progression' in result:
+        best_prog = result['best_fwhm_progression']
+        print(f"  Initial best FWHM: {best_prog[0]:.1f} meV")
+        print(f"  Final best FWHM:   {best_prog[-1]:.1f} meV")
     
     print(f"\n✓ Convergence history:")
-    for i, best in enumerate(result['best_fwhm_progression']):
-        print(f"  Iter {i}: {best:.1f} meV")
+    if 'best_fwhm_progression' in result:
+        for i, best in enumerate(result['best_fwhm_progression']):
+            print(f"  Iter {i}: {best:.1f} meV")
 
 
 def test_constant_switching():

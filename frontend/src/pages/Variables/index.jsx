@@ -10,19 +10,6 @@ const Variables = () => {
 
   const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#2dd4bf', '#fb923c', '#f472b6'];
 
-  const fallbackNumericalData = [
-    { title: 'Temperature (°C)', data: [{name: '20-40', value: 15}, {name: '40-60', value: 22}, {name: '60-80', value: 35}, {name: '80-100', value: 20}, {name: '100-120', value: 10}] },
-    { title: 'Time (min)', data: [{name: '0-10', value: 8}, {name: '10-20', value: 30}, {name: '20-30', value: 12}, {name: '30-40', value: 15}, {name: '40-50', value: 14}, {name: '50-60', value: 5}] },
-    { title: 'Concentration (M)', data: [{name: '0-0.05', value: 10}, {name: '0.05-0.1', value: 20}, {name: '0.1-0.15', value: 32}, {name: '0.15-0.2', value: 25}, {name: '0.2-0.25', value: 15}, {name: '0.25-0.3', value: 5}] },
-  ];
-
-  const fallbackCategoricalData = [
-    { title: 'Material Type', categories: 3, items: [{name: 'Perovskite', value: 8}, {name: 'Quantum Dot', value: 6}, {name: 'Organic', value: 4}], total: 18 },
-    { title: 'Substrate Type', categories: 4, items: [{name: 'Glass', value: 6}, {name: 'SiO2', value: 5}, {name: 'ITO', value: 4}, {name: 'PET', value: 3}], total: 18 },
-    { title: 'Dopant Type', categories: 3, items: [{name: 'X', value: 7}, {name: 'Y', value: 6}, {name: 'Z', value: 5}], total: 18 },
-    { title: 'Annealing Ambient', categories: 2, items: [{name: 'N2', value: 12}, {name: 'Air', value: 6}], total: 18 },
-  ];
-
   const fetchDistributions = async () => {
     setLoading(true);
     try {
@@ -41,8 +28,8 @@ const Variables = () => {
     fetchDistributions();
   }, []);
 
-  const numericalData = distData?.numerical?.length ? distData.numerical : fallbackNumericalData;
-  const categoricalData = distData?.categorical?.length ? distData.categorical : fallbackCategoricalData;
+  const numericalData = distData?.numerical?.length ? distData.numerical : [];
+  const categoricalData = distData?.categorical?.length ? distData.categorical : [];
 
   return (
     <div className="animate-fade-in flex flex-col h-full bg-[#F5F6FA] min-h-screen">

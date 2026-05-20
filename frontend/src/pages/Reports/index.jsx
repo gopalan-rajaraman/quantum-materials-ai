@@ -49,42 +49,28 @@ const Reports = () => {
           fwhm: currentMin
         };
       })
-    : [
-        { iteration: 1, fwhm: 60 },
-        { iteration: 2, fwhm: 45 },
-        { iteration: 3, fwhm: 35 },
-        { iteration: 4, fwhm: 25 },
-        { iteration: 5, fwhm: 22 },
-        { iteration: 6, fwhm: 19 },
-        { iteration: 7, fwhm: 18 },
-        { iteration: 8, fwhm: 16.5 },
-        { iteration: 9, fwhm: 16.2 },
-        { iteration: 10, fwhm: 16.0 },
-      ];
+    : [];
 
-  const bestFwhm = currentMin !== Infinity ? `${currentMin.toFixed(2)} meV` : '21.00 meV';
-  const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : 120;
-  const iterationsCount = rawPredictions.length > 0 ? rawPredictions.length : 10;
-  const r2Value = modelInfo?.R2_score !== undefined ? `${(modelInfo.R2_score * 100).toFixed(1)}%` : '91.7%';
-  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)} meV` : '2.1 meV';
-  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '3.4 meV';
+  const bestFwhm = currentMin !== Infinity ? `${currentMin.toFixed(2)} meV` : (dashboardStats?.best_fwhm != null ? `${dashboardStats.best_fwhm.toFixed(2)} meV` : '—');
+  const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : '—';
+  const iterationsCount = rawPredictions.length > 0 ? rawPredictions.length : (dashboardStats?.n_training_samples ?? '—');
+  const r2Value = modelInfo?.R2_score !== undefined ? `${(modelInfo.R2_score * 100).toFixed(1)}%` : '—';
+  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)} meV` : '—';
+  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '—';
 
   const recentReports = datasetsList.length > 0
     ? datasetsList.map((ds, idx) => ({
         name: `${ds.name.replace(/\.[^/.]+$/, "")}_Report`,
         id: ds.id || `EXP-${101 + idx}`,
         type: 'Experiment Summary',
-        date: ds.date || '20 May 2026',
-        fwhm: ds.status === 'locked' ? '21.00 meV' : '26.30 meV'
+        date: ds.date || '—',
+        fwhm: ds.status === 'locked' ? bestFwhm : '—'
       }))
-    : [
-        { name: 'Perovskite_PL_Study_Report', id: 'EXP-018', type: 'Experiment Summary', date: '16 May 2026, 10:45 AM', fwhm: '21.00 meV' },
-        { name: 'Quantum_dot_Tuning_Report', id: 'EXP-017', type: 'Experiment Summary', date: '15 May 2026, 03:45 PM', fwhm: '28.10 meV' },
-        { name: 'Material_Screening_Report', id: 'EXP-016', type: 'Experiment Summary', date: '14 May 2026, 11:20 AM', fwhm: '26.30 meV' },
-      ];
+    : [];
 
   const userStr = localStorage.getItem('user');
-  const loggedInUser = userStr ? JSON.parse(userStr) : { username: 'Khushboo' };
+  const loggedInUser = userStr ? JSON.parse(userStr) : {};
+  const generatedOn = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
@@ -405,7 +391,7 @@ const Reports = () => {
                   </div>
                   <div className="flex-1 grid grid-cols-2">
                     <span className="text-[12px] font-bold text-slate-500">Generated On</span>
-                    <span className="text-[12px] font-semibold text-slate-800">20 May 2026, 10:45 AM</span>
+                    <span className="text-[12px] font-semibold text-slate-800">{generatedOn}</span>
                   </div>
                 </div>
                 <div className="flex items-start">

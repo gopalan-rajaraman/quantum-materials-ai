@@ -42,6 +42,11 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Get logged-in username from localStorage
+  const userStr = localStorage.getItem('user');
+  const loggedInUser = userStr ? JSON.parse(userStr) : {};
+  const username = loggedInUser?.username || loggedInUser?.email?.split('@')[0] || 'Researcher';
+
   const fetchAll = async () => {
     setLoading(true);
     try {
@@ -172,7 +177,7 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#0D0B2E] flex items-center gap-2">
-            Welcome back, Khushboo! <span className="animate-bounce">👋</span>
+            Welcome back, {username}! <span className="animate-bounce">👋</span>
           </h1>
           <p className="text-sm text-[#8C8CA1] font-medium mt-1">Here's what's happening with your experiments.</p>
         </div>
@@ -320,19 +325,25 @@ const Dashboard = () => {
             <div className="flex items-center justify-between py-2 border-b border-slate-50 mb-4">
               <div>
                 <span className="text-[11px] font-semibold text-[#8C8CA1] block">Total Runs</span>
-                <span className="text-[16px] font-bold text-[#0D0B2E]">84</span>
+                <span className="text-[16px] font-bold text-[#0D0B2E]">{stats?.total_runs ?? completedRuns}</span>
               </div>
               <div className="border-l border-slate-100 h-8" />
               <div>
                 <span className="text-[11px] font-semibold text-[#8C8CA1] block flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" /> Completed
                 </span>
-                <span className="text-[16px] font-bold text-[#0D0B2E]">77</span>
+                <span className="text-[16px] font-bold text-[#0D0B2E]">{stats?.completed_runs ?? completedRuns}</span>
               </div>
               <div className="border-l border-slate-100 h-8" />
               <div>
                 <span className="text-[11px] font-semibold text-[#8C8CA1] block">Success Rate</span>
-                <span className="text-[16px] font-bold text-[#5D3EBC]">91.7%</span>
+                <span className="text-[16px] font-bold text-[#5D3EBC]">
+                  {stats?.success_rate != null
+                    ? `${(stats.success_rate * 100).toFixed(1)}%`
+                    : stats?.completed_runs != null && stats?.total_runs
+                      ? `${((stats.completed_runs / stats.total_runs) * 100).toFixed(1)}%`
+                      : '—'}
+                </span>
               </div>
             </div>
 
@@ -382,11 +393,13 @@ const Dashboard = () => {
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {/* Highlight label above line chart matching mockup */}
-              <div className="absolute right-2 top-3 bg-[#0D0B2E] text-white text-[9px] font-bold px-2 py-1 rounded shadow-sm select-none pointer-events-none">
-                <span className="block text-[8px] text-slate-400 font-medium">May 16</span>
-                84 Runs
-              </div>
+              {/* Highlight label showing latest data point */}
+              {overviewChartData.length > 0 && (
+                <div className="absolute right-2 top-3 bg-[#0D0B2E] text-white text-[9px] font-bold px-2 py-1 rounded shadow-sm select-none pointer-events-none">
+                  <span className="block text-[8px] text-slate-400 font-medium">{overviewChartData[overviewChartData.length - 1]?.name || ''}</span>
+                  {overviewChartData[overviewChartData.length - 1]?.value ?? ''} Runs
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -427,7 +440,9 @@ const Dashboard = () => {
                 </ResponsiveContainer>
                 {/* Center Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center leading-none select-none">
-                  <span className="text-[20px] font-black text-[#0D0B2E]">18</span>
+                  <span className="text-[20px] font-black text-[#0D0B2E]">
+                    {variableSummaryData.reduce((sum, item) => sum + (item.value || 0), 0) || ''}
+                  </span>
                   <span className="text-[10px] font-semibold text-[#8C8CA1] mt-0.5">Total</span>
                 </div>
               </div>

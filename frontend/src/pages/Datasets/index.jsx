@@ -29,6 +29,11 @@ const Datasets = () => {
     }
   };
 
+  // Get logged-in user from localStorage
+  const userStr = localStorage.getItem('user');
+  const loggedInUser = userStr ? JSON.parse(userStr) : {};
+  const loggedInUsername = loggedInUser?.username || loggedInUser?.email?.split('@')[0] || '—';
+
   useEffect(() => {
     fetchDatasets();
   }, []);
@@ -251,9 +256,9 @@ const Datasets = () => {
                   <td className="py-4 px-6">
                     <StatusBadge status={ds.status} />
                   </td>
-                  <td className="py-4 px-6 text-[12px] text-slate-500 font-medium">{ds.date || '20 May 2026'}</td>
-                  <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{ds.rows ? (parseInt(ds.rows, 10) * 12).toFixed(1) + " KB" : "12.0 KB"}</td>
-                  <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || 'Khushboo'}</td>
+                  <td className="py-4 px-6 text-[12px] text-slate-500 font-medium">{ds.date || '—'}</td>
+                  <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{ds.rows ? (parseInt(ds.rows, 10) * 12).toFixed(1) + " KB" : '—'}</td>
+                  <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || loggedInUsername}</td>
                   <td className="py-4 px-6">
                     <div className="flex justify-center">
                       <button className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors border border-slate-200 bg-white shadow-sm">
@@ -305,15 +310,15 @@ const Datasets = () => {
           <h3 className="text-[14px] font-bold text-[#1e1b4b] mb-6">Account Details</h3>
           <div className="flex items-center space-x-4 mb-8">
             <div className="w-12 h-12 rounded-full bg-[#4C3BDE] flex items-center justify-center text-white text-lg font-bold shadow-sm">
-              {(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username?.[0] : 'K')?.toUpperCase()}
+              {loggedInUsername?.[0]?.toUpperCase() || '?'}
             </div>
             <div>
               <p className="text-[11px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Name</p>
-              <p className="text-[14px] font-bold text-slate-800">{localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username : 'Khushboo'}</p>
+              <p className="text-[14px] font-bold text-slate-800">{loggedInUsername}</p>
             </div>
             <div className="ml-4">
               <p className="text-[11px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Email</p>
-              <p className="text-[13px] font-medium text-slate-600">{localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).email : 'khushboo.research@boloop.com'}</p>
+              <p className="text-[13px] font-medium text-slate-600">{loggedInUser?.email || '—'}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-y-6">
@@ -323,7 +328,7 @@ const Datasets = () => {
             </div>
             <div>
               <p className="text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Member Since</p>
-              <p className="text-[13px] font-bold text-slate-800">15 May 2026</p>
+              <p className="text-[13px] font-bold text-slate-800">{loggedInUser?.created_at || loggedInUser?.member_since || '—'}</p>
             </div>
           </div>
         </div>
