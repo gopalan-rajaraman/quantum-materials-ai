@@ -13,6 +13,7 @@ import Datasets from './pages/Datasets';
 import Variables from './pages/Variables';
 import Reports from './pages/Reports';
 import Models from './pages/Models';
+import Settings from './pages/Settings';
 import VerifyEmail from './pages/VerifyEmail';
 
 // Protected Route Component
@@ -55,6 +56,7 @@ const AppLayout = () => {
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>
