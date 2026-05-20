@@ -351,3 +351,23 @@ def reload_model():
         return {'message': 'Model reloaded successfully'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/bo-progress")
+def get_bo_progress():
+    """Get current BO Loop progress (steps completed)."""
+    if optimizer_instance is None or not optimizer_instance._fitted:
+        raise HTTPException(status_code=503, detail="Model not fitted")
+    
+    try:
+        # Get the number of training samples as a proxy for BO steps
+        n_steps = len(optimizer_instance.y_train) - optimizer_instance._training_info.get('initial_samples', 0)
+        
+        return {
+            'total_steps': n_steps,
+            'min_required_steps': 10,
+            'can_access_results': n_steps >= 10,
+            'current_best_fwhm': float(optimizer_instance.y_train.min()) if len(optimizer_instance.y_train) > 0 else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
