@@ -102,12 +102,39 @@ const Optimization = () => {
         </div>
         <button 
           onClick={() => navigate('/results')}
-          className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-indigo-600 font-medium rounded-xl shadow-sm transition-all"
+          disabled={boProgress && !boProgress.can_access_results}
+          className={`flex items-center space-x-2 px-5 py-2.5 border font-medium rounded-xl shadow-sm transition-all ${
+            boProgress && !boProgress.can_access_results
+              ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+              : 'bg-white border-slate-200 hover:bg-slate-50 text-indigo-600'
+          }`}
         >
           <Activity className="w-5 h-5" />
           <span>View Convergence Results</span>
         </button>
       </div>
+
+      {boProgress && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <Target className="w-5 h-5 text-indigo-600" />
+              <span className="font-semibold text-slate-900">BO Loop Progress</span>
+            </div>
+            <span className="text-sm font-bold text-indigo-600">{boProgress.total_steps} / {boProgress.min_required_steps} steps completed</span>
+          </div>
+          <div className="w-full bg-white rounded-full h-4 shadow-inner">
+            <div 
+              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full transition-all" 
+              style={{ width: `${Math.min(100, (boProgress.total_steps / boProgress.min_required_steps) * 100)}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between mt-3 text-xs text-slate-600">
+            <span>Current Best FWHM: {boProgress.current_best_fwhm ? boProgress.current_best_fwhm.toFixed(2) + ' meV' : 'N/A'}</span>
+            <span>{boProgress.can_access_results ? '✓ Results unlocked!' : `Complete ${boProgress.min_required_steps - boProgress.total_steps} more steps to unlock results`}</span>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Visualizations */}
