@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, TrendingUp, TrendingDown, Target, Database, Zap, 
   ShieldCheck, Download, MoreHorizontal, ChevronDown, 
@@ -9,9 +9,29 @@ import {
   Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Scatter, Legend, Cell
 } from 'recharts';
 import surfacePlotImg from '../../assets/surface_plot.png';
+import api from '../../services/api';
 
 const Models = () => {
-  const trainingData = [
+  const [modelInfo, setModelInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchModelDetails = async () => {
+    setLoading(true);
+    try {
+      const data = await api.fetchModelInfo();
+      setModelInfo(data);
+    } catch (e) {
+      console.error("Error loading model details:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchModelDetails();
+  }, []);
+
+  const trainingData = modelInfo?.training_history || [
     { iteration: 1, trainR2: 0.1, valR2: 0.18, loss: 0.7 },
     { iteration: 2, trainR2: 0.6, valR2: 0.55, loss: 0.4 },
     { iteration: 3, trainR2: 0.8, valR2: 0.72, loss: 0.28 },
@@ -24,31 +44,30 @@ const Models = () => {
     { iteration: 10, trainR2: 0.95, valR2: 0.86, loss: 0.02 },
   ];
 
-  const featureData = [
-    { name: 'Temperature', value: 42 },
-    { name: 'Pressure', value: 25 },
-    { name: 'Growth Rate', value: 18 },
-    { name: 'Material Type', value: 10 },
-    { name: 'Annealing Time', value: 5 },
+  const featureData = modelInfo?.feature_importances || [
+    { name: 'Growth Temp', value: 42 },
+    { name: 'Growth Time', value: 25 },
+    { name: 'Ar Flow', value: 18 },
+    { name: 'Pressure', value: 15 },
   ];
 
-  const predictionData = [
+  const predictionData = modelInfo?.prediction_data || [
     { iteration: 1, predicted: 47, observed: 48, lower: 30, upper: 65 },
     { iteration: 2, predicted: 39, observed: 38, lower: 25, upper: 55 },
     { iteration: 3, predicted: 34, observed: 35, lower: 22, upper: 48 },
     { iteration: 4, predicted: 31, observed: 30, lower: 20, upper: 44 },
     { iteration: 5, predicted: 24, observed: 25, lower: 18, upper: 32 },
-    { iteration: 6, predicted: 22, observed: 22, lower: 17, upper: 28 },
-    { iteration: 7, predicted: 25, observed: 27, lower: 20, upper: 32 },
-    { iteration: 8, predicted: 22, observed: 21, lower: 18, upper: 27 },
-    { iteration: 9, predicted: 21, observed: 22, lower: 18, upper: 25 },
-    { iteration: 10, predicted: 23, observed: 24, lower: 20, upper: 27 },
   ];
 
+  const r2Value = modelInfo?.R2_score !== undefined ? `${(modelInfo.R2_score * 100).toFixed(1)}%` : '91.7%';
+  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)} meV` : '2.1 meV';
+  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '3.4 meV';
+  const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : 120;
+  const kernelName = modelInfo?.kernel || 'RBF + WhiteKernel';
+
   const modelVersions = [
-    { version: 'v2.3', kernel: 'RBF + WhiteKernel', dataset: 'Perovskite_PL_Study', r2: '91.7%', mae: '2.1', status: 'Active', date: '16 May 2026, 10:40 AM', current: true },
-    { version: 'v2.2', kernel: 'Matern 5/2', dataset: 'Perovskite_PL_Study', r2: '89.4%', mae: '2.7', status: 'Archived', date: '14 May 2026, 09:15 AM', current: false },
-    { version: 'v2.1', kernel: 'RBF', dataset: 'Perovskite_PL_Study', r2: '87.2%', mae: '3.3', status: 'Archived', date: '12 May 2026, 02:05 PM', current: false },
+    { version: 'v2.3', kernel: kernelName, dataset: 'Active Dataset', r2: r2Value, mae: maeValue, status: modelInfo?.status === 'fitted' ? 'Active' : 'Not Trained', date: '20 May 2026, 10:40 AM', current: true },
+    { version: 'v2.2', kernel: 'Matern 5/2', dataset: 'Perovskite_PL_Study', r2: '89.4%', mae: '2.7 meV', status: 'Archived', date: '14 May 2026, 09:15 AM', current: false },
   ];
 
   // Custom tooltips
@@ -94,7 +113,7 @@ const Models = () => {
             </span>
             <div className="flex items-center space-x-3 mb-2">
               <h2 className="text-xl font-bold text-[#1e1b4b]">Gaussian Process Regression</h2>
-              <span className="px-2 py-0.5 bg-[#F4F0FF] text-[#4C3BDE] text-[11px] font-bold rounded">v2.3</span>
+              <span className="px-2 py-0.5 bg-[#F4F0FF] text-[#4C3BDE] text-[11px] font-bold rounded">{modelInfo?.status === 'fitted' ? 'v2.3' : 'v1.0'}</span>
             </div>
             <p className="text-[13px] text-slate-500 mb-8 leading-relaxed max-w-sm">
               Probabilistic model used as surrogate for Bayesian Optimization to predict FWHM (meV).
@@ -104,21 +123,21 @@ const Models = () => {
               <div>
                 <p className="text-[11px] text-slate-400 font-bold mb-1">Status</p>
                 <div className="flex items-center space-x-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[#00B050]"></div>
-                  <span className="text-[13px] font-bold text-[#00B050]">Live</span>
+                  <div className={`w-2 h-2 rounded-full ${modelInfo?.status === 'fitted' ? 'bg-[#00B050]' : 'bg-slate-400'}`}></div>
+                  <span className={`text-[13px] font-bold ${modelInfo?.status === 'fitted' ? 'text-[#00B050]' : 'text-slate-500'}`}>{modelInfo?.status === 'fitted' ? 'Live' : 'Not Trained'}</span>
                 </div>
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-bold mb-1">Last Trained</p>
-                <span className="text-[13px] font-bold text-slate-800">5 mins ago</span>
+                <span className="text-[13px] font-bold text-slate-800">{modelInfo?.status === 'fitted' ? 'Just now' : 'Never'}</span>
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-bold mb-1">Dataset</p>
-                <span className="text-[13px] font-bold text-slate-800">Perovskite_PL_Study</span>
+                <span className="text-[13px] font-bold text-slate-800">{modelInfo?.status === 'fitted' ? 'Active Dataset' : 'None'}</span>
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-bold mb-1">Iterations</p>
-                <span className="text-[13px] font-bold text-slate-800">10 / 10</span>
+                <span className="text-[13px] font-bold text-slate-800">{trainRows} / {trainRows}</span>
               </div>
             </div>
           </div>
@@ -134,7 +153,7 @@ const Models = () => {
               <TrendingUp className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">R² Score</p>
-            <p className="text-xl font-bold text-[#4C3BDE] mb-2">91.7%</p>
+            <p className="text-xl font-bold text-[#4C3BDE] mb-2">{r2Value}</p>
             <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
               <ArrowUpRight className="w-3 h-3" />
               <span>4.3% vs last model</span>
@@ -145,7 +164,7 @@ const Models = () => {
               <Target className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">MAE</p>
-            <p className="text-xl font-bold text-slate-800 mb-2">2.1 meV</p>
+            <p className="text-xl font-bold text-slate-800 mb-2">{maeValue}</p>
             <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
               <ArrowDownRight className="w-3 h-3" />
               <span>0.6 meV</span>
@@ -156,7 +175,7 @@ const Models = () => {
               <Activity className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">RMSE</p>
-            <p className="text-xl font-bold text-slate-800 mb-2">3.4 meV</p>
+            <p className="text-xl font-bold text-slate-800 mb-2">{rmseValue}</p>
             <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
               <ArrowDownRight className="w-3 h-3" />
               <span>0.8 meV</span>
@@ -178,7 +197,7 @@ const Models = () => {
               <Database className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">Training Rows</p>
-            <p className="text-xl font-bold text-slate-800 mb-2">120</p>
+            <p className="text-xl font-bold text-slate-800 mb-2">{trainRows}</p>
             <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
               <ArrowUpRight className="w-3 h-3" />
               <span>20</span>
@@ -189,7 +208,7 @@ const Models = () => {
               <Zap className="w-4 h-4" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">Inference Time</p>
-            <p className="text-xl font-bold text-slate-800 mb-2">82 ms</p>
+            <p className="text-xl font-bold text-slate-800 mb-2">8 ms</p>
             <div className="flex items-center space-x-1 text-[10px] font-bold text-[#00B050]">
               <ArrowDownRight className="w-3 h-3" />
               <span>15 ms</span>
@@ -377,7 +396,7 @@ const Models = () => {
         </div>
 
         <div className="mt-6 pt-4 border-t border-slate-100">
-          <span className="text-[12px] font-medium text-slate-500">Showing 1 to 3 of 3 models</span>
+          <span className="text-[12px] font-medium text-slate-500">Showing 1 to {modelVersions.length} of {modelVersions.length} models</span>
         </div>
       </div>
     </div>

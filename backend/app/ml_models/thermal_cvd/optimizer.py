@@ -43,6 +43,8 @@ class ThermalCVDOptimizer:
         Args:
             df: Raw dataset with all columns
         """
+        self.df_raw = df
+        
         # Fit encoder
         self.encoder.fit_on_data(df)
 

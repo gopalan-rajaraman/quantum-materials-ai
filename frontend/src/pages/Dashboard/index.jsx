@@ -33,6 +33,7 @@ import {
   LineChart, 
   Line 
 } from 'recharts';
+import api from '../../services/api';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -44,17 +45,15 @@ const Dashboard = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [statsRes, savedRes] = await Promise.all([
-        fetch('http://localhost:8000/api/datasets/dashboard').catch(() => null),
-        fetch('http://localhost:8000/api/datasets/saved').catch(() => null)
+      const [statsData, savedData] = await Promise.all([
+        api.fetchDashboardStats().catch(() => null),
+        api.fetchSavedDatasets().catch(() => null)
       ]);
 
-      if (statsRes && statsRes.ok) {
-        const statsData = await statsRes.json();
+      if (statsData) {
         setStats(statsData);
       }
-      if (savedRes && savedRes.ok) {
-        const savedData = await savedRes.json();
+      if (savedData) {
         setSavedDatasets(savedData.datasets || []);
       }
     } catch (e) {
@@ -69,9 +68,10 @@ const Dashboard = () => {
   }, []);
 
   // Stats Card data
-  const totalDatasets = stats?.total_datasets ?? 3;
-  const activeExperiments = stats?.active_experiments ?? 30;
-  const completedRuns = stats?.n_training_samples ?? 84;
+  const totalDatasets = stats?.total_datasets ?? 0;
+  const activeExperiments = stats?.active_experiments ?? 0;
+  const completedRuns = stats?.n_training_samples ?? 0;
+  const inProgressCount = savedDatasets.filter(ds => ds.status !== 'Completed').length;
 
   const statCardsData = [
     {
@@ -103,38 +103,13 @@ const Dashboard = () => {
     },
     {
       title: 'In Progress',
-      value: 7,
+      value: inProgressCount,
       icon: <Clock className="w-5 h-5 text-[#F59E0B]" />,
       iconBg: 'bg-[#FEF3C7]',
       trend: '- 5%',
       trendColor: 'text-[#EF4444] bg-[#FEE2E2]',
       label: 'vs last 30 days',
     },
-  ];
-
-  // Merge default datasets with fetched ones
-  const defaultDatasets = [
-    {
-      name: 'Perovskite_PL_Study',
-      description: 'Perovskite PL FWHM optimization',
-      range: 'EXP-001 to EXP-010',
-      status: 'Locked',
-      updated: '16/05/2026'
-    },
-    {
-      name: 'Quantum_dot_Tuning',
-      description: 'Quantum dot tuning experiments',
-      range: 'EXP-011 to EXP-020',
-      status: 'In Progress',
-      updated: '12/05/2026'
-    },
-    {
-      name: 'Material_Screening',
-      description: 'Material screening dataset',
-      range: 'EXP-021 to EXP-030',
-      status: 'Unlocked',
-      updated: '10/05/2026'
-    }
   ];
 
   const loadedDatasets = savedDatasets.map((ds, idx) => ({
@@ -145,76 +120,50 @@ const Dashboard = () => {
     updated: ds.date ? ds.date.split(' ')[0].split('-').reverse().join('/') : '20/05/2026'
   }));
 
-  const allDatasets = [...defaultDatasets, ...loadedDatasets];
+  const allDatasets = loadedDatasets;
   const filteredDatasets = allDatasets.filter(ds => 
     ds.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     ds.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Experiments Overview Chart Data (reproducing mockup trend)
-  const overviewChartData = [
-    { name: 'Apr 18', value: 25 },
-    { name: 'Apr 25', value: 42 },
-    { name: 'May 2', value: 48 },
-    { name: 'May 9', value: 68 },
-    { name: 'May 16', value: 84 },
-  ];
+  const overviewChartData = stats?.overview_chart_data || [];
 
   // Donut chart data for Variable Summary
-  const variableSummaryData = [
-    { name: 'Numerical', value: 12, percentage: '66.7%', color: '#5D3EBC' },
-    { name: 'Categorical', value: 6, percentage: '33.3%', color: '#3B82F6' },
-    { name: 'Discrete', value: 0, percentage: '0%', color: '#F59E0B' },
-    { name: 'Boolean', value: 0, percentage: '0%', color: '#EF4444' },
-  ];
+  const variableSummaryData = stats?.variable_summary_data || [];
 
   // Model performance charts data
-  const modelPerformanceData = [
-    { name: 'Apr 18', R2: 0.75, MAE: 0.50, RMSE: 0.40 },
-    { name: 'Apr 25', R2: 0.82, MAE: 0.48, RMSE: 0.38 },
-    { name: 'May 2', R2: 0.85, MAE: 0.45, RMSE: 0.35 },
-    { name: 'May 9', R2: 0.80, MAE: 0.49, RMSE: 0.37 },
-    { name: 'May 16', R2: 0.88, MAE: 0.42, RMSE: 0.33 },
-  ];
+  const modelPerformanceData = stats?.model_performance_data || [];
 
   // Activity Feed logs
-  const activityLogs = [
-    {
-      title: 'Dataset "Perovskite_PL_Study" locked',
-      desc: 'by Khushboo',
-      time: '2h ago',
-      icon: <Check className="w-3.5 h-3.5 text-white" />,
-      iconBg: 'bg-[#10B981]',
-    },
-    {
-      title: 'New data uploaded to "Quantum_dot_Tuning"',
-      desc: 'by Khushboo',
-      time: '5h ago',
-      icon: <Plus className="w-3.5 h-3.5 text-white" />,
-      iconBg: 'bg-[#3B82F6]',
-    },
-    {
-      title: 'Experiment EXP-018 completed',
-      desc: 'by System',
-      time: '7h ago',
-      icon: <FlaskConical className="w-3.5 h-3.5 text-white" />,
-      iconBg: 'bg-[#8B5CF6]',
-    },
-    {
-      title: 'Dataset "Material_Screening" unlocked',
-      desc: 'by Khushboo',
-      time: '1d ago',
-      icon: <Unlock className="w-3.5 h-3.5 text-white" />,
-      iconBg: 'bg-[#F59E0B]',
-    },
-    {
-      title: 'Model retrained for EXP-010',
-      desc: 'by System',
-      time: '1d ago',
-      icon: <Activity className="w-3.5 h-3.5 text-white" />,
-      iconBg: 'bg-[#6366F1]',
-    },
-  ];
+  const activityLogs = (stats?.activity_log || []).map(log => {
+    let icon = <FileText className="w-3.5 h-3.5 text-white" />;
+    let iconBg = log.color || 'bg-slate-500';
+    if (iconBg.includes('purple')) {
+      icon = <Plus className="w-3.5 h-3.5 text-white" />;
+    } else if (iconBg.includes('cyan')) {
+      icon = <Activity className="w-3.5 h-3.5 text-white" />;
+    } else if (iconBg.includes('emerald')) {
+      icon = <FlaskConical className="w-3.5 h-3.5 text-white" />;
+    } else if (iconBg.includes('orange') || iconBg.includes('red')) {
+      icon = <Lock className="w-3.5 h-3.5 text-white" />;
+    } else if (iconBg.includes('green')) {
+      icon = <Unlock className="w-3.5 h-3.5 text-white" />;
+    }
+
+    let timeStr = log.time || log.timestamp || 'Just now';
+    if (timeStr.includes(' ')) {
+      timeStr = timeStr.split(' ')[1];
+    }
+
+    return {
+      title: log.title,
+      desc: log.desc || log.description,
+      time: timeStr,
+      icon,
+      iconBg
+    };
+  });
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 pb-12 animate-fade-in select-none">
