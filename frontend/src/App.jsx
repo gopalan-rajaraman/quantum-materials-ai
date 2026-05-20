@@ -43,12 +43,12 @@ const AppLayout = () => {
       <Sidebar />
       <main className="flex-1 overflow-y-auto bg-slate-50 p-6">
         <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/datasets" element={<Datasets />} />
-          <Route path="/datasets/upload" element={<Upload />} />
-          <Route path="/experiments" element={<Experiments />} />
-          <Route path="/optimization" element={<Optimization />} />
-          <Route path="/results" element={<Results />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/datasets" element={<ProtectedRoute><Datasets /></ProtectedRoute>} />
+          <Route path="/datasets/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+          <Route path="/experiments" element={<ProtectedRoute><Experiments /></ProtectedRoute>} />
+          <Route path="/optimization" element={<ProtectedRoute><Optimization /></ProtectedRoute>} />
+          <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>
