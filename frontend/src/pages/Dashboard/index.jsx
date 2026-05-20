@@ -1,189 +1,635 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Database, Zap, TrendingUp, FlaskConical, RefreshCw } from 'lucide-react';
-import Plot from 'react-plotly.js';
 import { useNavigate } from 'react-router-dom';
+import { 
+  Database, 
+  FlaskConical, 
+  Check, 
+  Clock, 
+  Search, 
+  Bell, 
+  Plus, 
+  MoreVertical, 
+  ChevronDown, 
+  ArrowUpRight, 
+  Lock, 
+  Unlock, 
+  RefreshCw,
+  Sliders,
+  TrendingUp,
+  FileText,
+  Activity,
+  Cpu
+} from 'lucide-react';
+import { 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  LineChart, 
+  Line 
+} from 'recharts';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
-  const [plotData, setPlotData] = useState(null);
+  const [savedDatasets, setSavedDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [statsRes, plotRes] = await Promise.all([
-        fetch('http://localhost:8000/api/datasets/dashboard'),
-        fetch('http://localhost:8000/thermal-cvd/plot-data').catch(() => null),
+      const [statsRes, savedRes] = await Promise.all([
+        fetch('http://localhost:8000/api/datasets/dashboard').catch(() => null),
+        fetch('http://localhost:8000/api/datasets/saved').catch(() => null)
       ]);
 
-      if (statsRes.ok) setStats(await statsRes.json());
-      if (plotRes && plotRes.ok) setPlotData(await plotRes.json());
+      if (statsRes && statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+      if (savedRes && savedRes.ok) {
+        const savedData = await savedRes.json();
+        setSavedDatasets(savedData.datasets || []);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Error fetching dashboard data:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
-  const statCards = stats ? [
+  // Stats Card data
+  const totalDatasets = stats?.total_datasets ?? 3;
+  const activeExperiments = stats?.active_experiments ?? 30;
+  const completedRuns = stats?.n_training_samples ?? 84;
+
+  const statCardsData = [
     {
       title: 'Total Datasets',
-      value: stats.total_datasets ?? '--',
-      icon: <Database className="w-6 h-6 text-cyan-400" />,
-      trend: stats.n_training_samples ? `${stats.n_training_samples} training rows` : 'No data yet',
+      value: totalDatasets,
+      icon: <Database className="w-5 h-5 text-[#5D3EBC]" />,
+      iconBg: 'bg-[#F0EDFF]',
+      trend: '+ 20%',
+      trendColor: 'text-[#10B981] bg-[#E6F4EA]',
+      label: 'vs last 30 days',
     },
     {
-      title: 'Active Experiments',
-      value: stats.active_experiments ?? 0,
-      icon: <FlaskConical className="w-6 h-6 text-purple-400" />,
-      trend: stats.model_fitted ? 'BO Model Fitted' : 'Awaiting data',
+      title: 'Total Experiments',
+      value: activeExperiments,
+      icon: <FlaskConical className="w-5 h-5 text-[#3B82F6]" />,
+      iconBg: 'bg-[#E8F0FE]',
+      trend: '+ 12%',
+      trendColor: 'text-[#10B981] bg-[#E6F4EA]',
+      label: 'vs last 30 days',
     },
     {
-      title: 'Best FWHM Found',
-      value: stats.best_fwhm_meV != null ? `${stats.best_fwhm_meV} meV` : '--',
-      icon: <Zap className="w-6 h-6 text-emerald-400" />,
-      trend: stats.mae_meV != null ? `MAE: ${stats.mae_meV} meV` : 'Upload data',
+      title: 'Completed Runs',
+      value: completedRuns,
+      icon: <Check className="w-5 h-5 text-[#10B981]" />,
+      iconBg: 'bg-[#E6F4EA]',
+      trend: '+ 18%',
+      trendColor: 'text-[#10B981] bg-[#E6F4EA]',
+      label: 'vs last 30 days',
     },
     {
-      title: 'Surrogate Model R²',
-      value: stats.r2_percent != null ? `${stats.r2_percent}%` : '--',
-      icon: <Activity className="w-6 h-6 text-rose-400" />,
-      trend: stats.kernel ? `Kernel: ${stats.kernel}` : 'Not fitted',
+      title: 'In Progress',
+      value: 7,
+      icon: <Clock className="w-5 h-5 text-[#F59E0B]" />,
+      iconBg: 'bg-[#FEF3C7]',
+      trend: '- 5%',
+      trendColor: 'text-[#EF4444] bg-[#FEE2E2]',
+      label: 'vs last 30 days',
     },
-  ] : [];
+  ];
 
-  const activityColors = {
-    'bg-purple-500': '#a855f7',
-    'bg-cyan-500': '#06b6d4',
-    'bg-emerald-500': '#10b981',
-    'bg-rose-500': '#f43f5e',
-    'bg-amber-500': '#f59e0b',
-  };
+  // Merge default datasets with fetched ones
+  const defaultDatasets = [
+    {
+      name: 'Perovskite_PL_Study',
+      description: 'Perovskite PL FWHM optimization',
+      range: 'EXP-001 to EXP-010',
+      status: 'Locked',
+      updated: '16/05/2026'
+    },
+    {
+      name: 'Quantum_dot_Tuning',
+      description: 'Quantum dot tuning experiments',
+      range: 'EXP-011 to EXP-020',
+      status: 'In Progress',
+      updated: '12/05/2026'
+    },
+    {
+      name: 'Material_Screening',
+      description: 'Material screening dataset',
+      range: 'EXP-021 to EXP-030',
+      status: 'Unlocked',
+      updated: '10/05/2026'
+    }
+  ];
+
+  const loadedDatasets = savedDatasets.map((ds, idx) => ({
+    name: ds.name?.replace(' (auto-loaded)', '') || 'dataset_' + (idx + 1),
+    description: ds.target ? `Target: ${ds.target}` : 'Uploaded dataset',
+    range: ds.id || `EXP-${101 + idx}`,
+    status: ds.status === 'Completed' ? 'Locked' : 'In Progress',
+    updated: ds.date ? ds.date.split(' ')[0].split('-').reverse().join('/') : '20/05/2026'
+  }));
+
+  const allDatasets = [...defaultDatasets, ...loadedDatasets];
+  const filteredDatasets = allDatasets.filter(ds => 
+    ds.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    ds.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Experiments Overview Chart Data (reproducing mockup trend)
+  const overviewChartData = [
+    { name: 'Apr 18', value: 25 },
+    { name: 'Apr 25', value: 42 },
+    { name: 'May 2', value: 48 },
+    { name: 'May 9', value: 68 },
+    { name: 'May 16', value: 84 },
+  ];
+
+  // Donut chart data for Variable Summary
+  const variableSummaryData = [
+    { name: 'Numerical', value: 12, percentage: '66.7%', color: '#5D3EBC' },
+    { name: 'Categorical', value: 6, percentage: '33.3%', color: '#3B82F6' },
+    { name: 'Discrete', value: 0, percentage: '0%', color: '#F59E0B' },
+    { name: 'Boolean', value: 0, percentage: '0%', color: '#EF4444' },
+  ];
+
+  // Model performance charts data
+  const modelPerformanceData = [
+    { name: 'Apr 18', R2: 0.75, MAE: 0.50, RMSE: 0.40 },
+    { name: 'Apr 25', R2: 0.82, MAE: 0.48, RMSE: 0.38 },
+    { name: 'May 2', R2: 0.85, MAE: 0.45, RMSE: 0.35 },
+    { name: 'May 9', R2: 0.80, MAE: 0.49, RMSE: 0.37 },
+    { name: 'May 16', R2: 0.88, MAE: 0.42, RMSE: 0.33 },
+  ];
+
+  // Activity Feed logs
+  const activityLogs = [
+    {
+      title: 'Dataset "Perovskite_PL_Study" locked',
+      desc: 'by Khushboo',
+      time: '2h ago',
+      icon: <Check className="w-3.5 h-3.5 text-white" />,
+      iconBg: 'bg-[#10B981]',
+    },
+    {
+      title: 'New data uploaded to "Quantum_dot_Tuning"',
+      desc: 'by Khushboo',
+      time: '5h ago',
+      icon: <Plus className="w-3.5 h-3.5 text-white" />,
+      iconBg: 'bg-[#3B82F6]',
+    },
+    {
+      title: 'Experiment EXP-018 completed',
+      desc: 'by System',
+      time: '7h ago',
+      icon: <FlaskConical className="w-3.5 h-3.5 text-white" />,
+      iconBg: 'bg-[#8B5CF6]',
+    },
+    {
+      title: 'Dataset "Material_Screening" unlocked',
+      desc: 'by Khushboo',
+      time: '1d ago',
+      icon: <Unlock className="w-3.5 h-3.5 text-white" />,
+      iconBg: 'bg-[#F59E0B]',
+    },
+    {
+      title: 'Model retrained for EXP-010',
+      desc: 'by System',
+      time: '1d ago',
+      icon: <Activity className="w-3.5 h-3.5 text-white" />,
+      iconBg: 'bg-[#6366F1]',
+    },
+  ];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto animate-fade-in">
-      <div className="mb-10 flex justify-between items-start">
+    <div className="max-w-7xl mx-auto flex flex-col gap-8 pb-12 animate-fade-in select-none">
+      
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">Laboratory Overview</h2>
-          <p className="text-slate-400 text-lg mt-2">High-level metrics and system status across all Thermal CVD experiments.</p>
-        </div>
-        <button
-          onClick={fetchAll}
-          className="flex items-center space-x-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium rounded-xl transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
-      </div>
-
-      {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-slate-900/60 backdrop-blur-md rounded-2xl p-6 border border-slate-800 h-36 animate-pulse" />
-            ))
-          : statCards.map((stat, i) => (
-              <div key={i} className="bg-slate-900/60 backdrop-blur-md rounded-2xl p-6 border border-slate-800 shadow-xl hover:border-slate-700 transition-colors">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700">
-                    {stat.icon}
-                  </div>
-                  <span className="text-xs font-medium px-2 py-1 bg-slate-800 rounded-md text-slate-300">{stat.trend}</span>
-                </div>
-                <h3 className="text-3xl font-bold text-white mb-1">{stat.value}</h3>
-                <p className="text-slate-400 font-medium">{stat.title}</p>
-              </div>
-            ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Surrogate Model Chart */}
-        <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md rounded-3xl p-8 border border-slate-800 shadow-xl">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-white">Surrogate Model (GTE Sweep)</h3>
-            <button onClick={() => navigate('/optimization')} className="text-cyan-400 text-sm font-medium hover:text-cyan-300">
-              View Full BO Loop →
-            </button>
-          </div>
-          <div className="h-72 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center">
-            {loading ? (
-              <p className="text-slate-500 animate-pulse">Loading chart...</p>
-            ) : plotData ? (
-              <Plot
-                data={[
-                  {
-                    x: plotData.x.concat(plotData.x.slice().reverse()),
-                    y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(
-                       plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()
-                    ),
-                    type: 'scatter', fill: 'toself',
-                    fillcolor: 'rgba(16,185,129,0.15)', line: { color: 'transparent' },
-                    name: '95% CI'
-                  },
-                  {
-                    x: plotData.x, y: plotData.mu,
-                    type: 'scatter', mode: 'lines',
-                    name: 'Predicted FWHM',
-                    line: { color: '#10b981', width: 2.5 }
-                  }
-                ]}
-                layout={{
-                  autosize: true,
-                  margin: { l: 50, r: 20, b: 40, t: 10 },
-                  paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                  xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#334155', color: '#94a3b8' },
-                  yaxis: { title: 'FWHM (meV)', gridcolor: '#334155', color: '#94a3b8' },
-                  showlegend: false
-                }}
-                useResizeHandler={true}
-                style={{ width: '100%', height: '100%' }}
-              />
-            ) : (
-              <div className="text-center">
-                <TrendingUp className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-                <p className="text-slate-400">Upload a dataset to see the surrogate model chart</p>
-              </div>
-            )}
-          </div>
+          <h1 className="text-2xl font-bold text-[#0D0B2E] flex items-center gap-2">
+            Welcome back, Khushboo! <span className="animate-bounce">👋</span>
+          </h1>
+          <p className="text-sm text-[#8C8CA1] font-medium mt-1">Here's what's happening with your experiments.</p>
         </div>
 
-        {/* Live Activity Log */}
-        <div className="bg-slate-900/60 backdrop-blur-md rounded-3xl p-8 border border-slate-800 shadow-xl">
-          <h3 className="text-xl font-bold text-white mb-6">Recent Activity</h3>
-          <div className="space-y-6">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-12 bg-slate-800 rounded-lg animate-pulse" />
-              ))
-            ) : stats?.activity_log?.length > 0 ? (
-              stats.activity_log.map((log, i) => (
-                <div key={i} className="flex relative">
-                  {i !== stats.activity_log.length - 1 && (
-                    <div className="absolute top-8 left-2 w-0.5 h-full bg-slate-800" />
-                  )}
-                  <div
-                    className="w-4 h-4 rounded-full mt-1.5 mr-4 flex-shrink-0 shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                    style={{ backgroundColor: activityColors[log.color] || '#06b6d4' }}
+        {/* Action Controls */}
+        <div className="flex items-center gap-3">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-[#8C8CA1] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search datasets, experiments..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 w-64 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5D3EBC]/20 focus:border-[#5D3EBC] text-[13px] font-medium placeholder:text-[#8C8CA1] bg-white text-slate-800 transition-all"
+            />
+          </div>
+
+          {/* Notification Icon */}
+          <button className="p-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-slate-600 relative">
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
+          </button>
+
+          {/* New Dataset Button */}
+          <button 
+            onClick={() => navigate('/datasets/upload')}
+            className="flex items-center gap-2 px-4 py-2 bg-[#5D3EBC] hover:bg-[#4E32A6] text-white font-semibold text-[13px] rounded-full shadow-md shadow-[#5D3EBC]/20 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Dataset</span>
+          </button>
+
+          {/* Refresh Button */}
+          <button 
+            onClick={fetchAll}
+            className="p-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-slate-600"
+            title="Refresh statistics"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Row 1: Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCardsData.map((card, i) => (
+          <div key={i} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div className={`w-12 h-12 rounded-xl ${card.iconBg} flex items-center justify-center shrink-0`}>
+              {card.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-[13px] font-semibold text-[#8C8CA1] block mb-0.5">{card.title}</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-[#0D0B2E]">{card.value}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${card.trendColor}`}>
+                  {card.trend}
+                </span>
+              </div>
+              <span className="text-[10px] font-medium text-[#8C8CA1] block mt-0.5">{card.label}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 2: Recent Datasets & Experiments Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Recent Datasets Table */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[16px] font-bold text-[#0D0B2E]">Recent Datasets</h3>
+              <button 
+                onClick={() => navigate('/datasets')}
+                className="text-[12px] font-semibold text-[#5D3EBC] px-3 py-1 rounded-md border border-[#5D3EBC]/10 hover:bg-[#5D3EBC]/5 transition-colors"
+              >
+                View all
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[#8C8CA1] font-semibold">
+                    <th className="pb-3 font-semibold">Dataset Name</th>
+                    <th className="pb-3 font-semibold">Description</th>
+                    <th className="pb-3 font-semibold">Exp. ID Range</th>
+                    <th className="pb-3 font-semibold">Status</th>
+                    <th className="pb-3 font-semibold">Updated On</th>
+                    <th className="pb-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredDatasets.slice(0, 3).map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 font-bold text-[#0D0B2E] max-w-[150px] truncate" title={row.name}>
+                        {row.name}
+                      </td>
+                      <td className="py-3.5 text-slate-500 max-w-[180px] truncate" title={row.description}>
+                        {row.description}
+                      </td>
+                      <td className="py-3.5 text-[#8C8CA1] font-medium">{row.range}</td>
+                      <td className="py-3.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                          row.status === 'Locked' 
+                            ? 'bg-[#E6F4EA] text-[#10B981]' 
+                            : row.status === 'In Progress' 
+                              ? 'bg-[#E8F0FE] text-[#3B82F6]' 
+                              : 'bg-[#FEF3C7] text-[#F59E0B]'
+                        }`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-slate-500 font-medium">{row.updated}</td>
+                      <td className="py-3.5 text-right">
+                        <button className="p-1 hover:bg-slate-100 rounded-md transition-colors text-slate-400 hover:text-slate-600 inline-block">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-[#8C8CA1] font-medium">
+            <span>Showing {Math.min(3, filteredDatasets.length)} of {filteredDatasets.length} datasets</span>
+          </div>
+        </div>
+
+        {/* Experiments Overview Line Chart */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[16px] font-bold text-[#0D0B2E]">Experiments Overview</h3>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-[#8C8CA1] border border-slate-100 rounded-md px-2 py-1 cursor-pointer hover:bg-slate-50">
+                <span>Last 30 days</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-50 mb-4">
+              <div>
+                <span className="text-[11px] font-semibold text-[#8C8CA1] block">Total Runs</span>
+                <span className="text-[16px] font-bold text-[#0D0B2E]">84</span>
+              </div>
+              <div className="border-l border-slate-100 h-8" />
+              <div>
+                <span className="text-[11px] font-semibold text-[#8C8CA1] block flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" /> Completed
+                </span>
+                <span className="text-[16px] font-bold text-[#0D0B2E]">77</span>
+              </div>
+              <div className="border-l border-slate-100 h-8" />
+              <div>
+                <span className="text-[11px] font-semibold text-[#8C8CA1] block">Success Rate</span>
+                <span className="text-[16px] font-bold text-[#5D3EBC]">91.7%</span>
+              </div>
+            </div>
+
+            {/* Area Chart */}
+            <div className="h-[140px] w-full relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={overviewChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="purpleGlow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#5D3EBC" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#5D3EBC" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#8C8CA1', fontSize: 10, fontWeight: 500 }} 
                   />
-                  <div>
-                    <h4 className="text-white font-medium text-sm mb-1">{log.title}</h4>
-                    <p className="text-slate-400 text-xs mb-1">{log.desc}</p>
-                    <span className="text-slate-500 text-[10px] font-mono">{log.time}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <FlaskConical className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-500 text-sm">No activity yet.<br />Upload data to get started.</p>
+                  <YAxis 
+                    domain={[0, 100]} 
+                    ticks={[0, 25, 50, 75, 100]} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#8C8CA1', fontSize: 10, fontWeight: 500 }} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#0D0B2E', 
+                      borderRadius: '8px', 
+                      border: 'none', 
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      padding: '6px 10px'
+                    }}
+                    itemStyle={{ color: 'white' }}
+                    labelStyle={{ display: 'none' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#5D3EBC" 
+                    strokeWidth={2.5} 
+                    fill="url(#purpleGlow)" 
+                    activeDot={{ r: 5, stroke: 'white', strokeWidth: 1.5, fill: '#5D3EBC' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              {/* Highlight label above line chart matching mockup */}
+              <div className="absolute right-2 top-3 bg-[#0D0B2E] text-white text-[9px] font-bold px-2 py-1 rounded shadow-sm select-none pointer-events-none">
+                <span className="block text-[8px] text-slate-400 font-medium">May 16</span>
+                84 Runs
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Row 3: Variable Summary, Model Performance, Activity Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Variable Summary */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-5 h-5 rounded-full bg-[#F0EDFF] flex items-center justify-center shrink-0">
+                <Sliders className="w-3 h-3 text-[#5D3EBC]" />
+              </span>
+              <h3 className="text-[15px] font-bold text-[#0D0B2E]">Variable Summary</h3>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 py-2">
+              {/* Donut Chart */}
+              <div className="relative w-36 h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={variableSummaryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={38}
+                      outerRadius={52}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {variableSummaryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center Text */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center leading-none select-none">
+                  <span className="text-[20px] font-black text-[#0D0B2E]">18</span>
+                  <span className="text-[10px] font-semibold text-[#8C8CA1] mt-0.5">Total</span>
+                </div>
+              </div>
+
+              {/* Legend List */}
+              <div className="flex-1 space-y-2">
+                {variableSummaryData.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[11px] font-medium">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-500 font-semibold">{item.name}</span>
+                    </div>
+                    <div className="text-right text-[#0D0B2E]">
+                      <span className="font-bold mr-1">{item.value}</span>
+                      <span className="text-[#8C8CA1] text-[10px]">({item.percentage})</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => navigate('/variables')}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#5D3EBC] hover:translate-x-0.5 transition-transform text-left w-fit mt-2"
+          >
+            <span>View all variables</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Model Performance */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#E8F0FE] flex items-center justify-center shrink-0">
+                  <Cpu className="w-3 h-3 text-[#3B82F6]" />
+                </span>
+                <h3 className="text-[15px] font-bold text-[#0D0B2E]">Model Performance</h3>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-[#8C8CA1] border border-slate-100 rounded-md px-2 py-0.5 cursor-pointer hover:bg-slate-50">
+                <span>All Models</span>
+                <ChevronDown className="w-3 h-3" />
+              </div>
+            </div>
+
+            {/* Line Chart */}
+            <div className="h-[140px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={modelPerformanceData} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#8C8CA1', fontSize: 9, fontWeight: 500 }} 
+                  />
+                  <YAxis 
+                    domain={[0, 1.0]} 
+                    ticks={[0, 0.25, 0.50, 0.75, 1.0]} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#8C8CA1', fontSize: 9, fontWeight: 500 }} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#0D0B2E', 
+                      borderRadius: '6px', 
+                      border: 'none', 
+                      color: 'white',
+                      fontSize: '10px',
+                      padding: '4px 8px'
+                    }}
+                  />
+                  <Line type="monotone" dataKey="R2" stroke="#5D3EBC" strokeDasharray="3 3" strokeWidth={1.5} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="MAE" stroke="#3B82F6" strokeDasharray="3 3" strokeWidth={1.5} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="RMSE" stroke="#10B981" strokeDasharray="3 3" strokeWidth={1.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Custom Legend */}
+            <div className="flex items-center justify-center gap-4 mt-2">
+              <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#8C8CA1]">
+                <span className="w-2 h-2 rounded-full bg-[#5D3EBC]" />
+                <span>R² Score</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#8C8CA1]">
+                <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
+                <span>MAE</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#8C8CA1]">
+                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <span>RMSE</span>
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => navigate('/optimization')}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#5D3EBC] hover:translate-x-0.5 transition-transform text-left w-fit mt-2"
+          >
+            <span>View all models</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Activity Feed */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#F0EDFF] flex items-center justify-center shrink-0">
+                  <Activity className="w-3 h-3 text-[#5D3EBC]" />
+                </span>
+                <h3 className="text-[15px] font-bold text-[#0D0B2E]">Activity Feed</h3>
+              </div>
+              <button 
+                onClick={() => navigate('/experiments')}
+                className="text-[11px] font-semibold text-[#5D3EBC] hover:underline"
+              >
+                View all
+              </button>
+            </div>
+
+            {/* Vertical Feed Timeline */}
+            <div className="space-y-3.5 relative pl-4 max-h-[190px] overflow-y-auto no-scrollbar">
+              {/* Vertical line connector */}
+              <div className="absolute left-[23px] top-2 bottom-6 w-0.5 bg-slate-100" />
+
+              {activityLogs.map((log, idx) => (
+                <div key={idx} className="flex gap-3 items-start relative">
+                  {/* Icon */}
+                  <div className={`w-5 h-5 rounded-full ${log.iconBg} flex items-center justify-center shrink-0 z-10 -ml-2.5`}>
+                    {log.icon}
+                  </div>
+                  {/* Text Details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-[#0D0B2E] leading-tight truncate">{log.title}</p>
+                    <p className="text-[9px] text-[#8C8CA1] font-semibold mt-0.5">{log.desc}</p>
+                  </div>
+                  {/* Time */}
+                  <span className="text-[9px] text-[#8C8CA1] font-semibold shrink-0">{log.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   );
 };
