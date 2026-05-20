@@ -307,27 +307,79 @@ const Upload = () => {
                 <h2 className="text-2xl font-bold text-slate-900 mb-6">Graphical Representation of Variables</h2>
                 
                 <div className="mb-6 flex space-x-4 border-b border-slate-200">
-                  <button className="px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-medium">Numerical Distributions</button>
+                  <button 
+                    onClick={() => setActiveTab('numerical')}
+                    className={`px-4 py-2 border-b-2 font-medium transition-colors ${
+                      activeTab === 'numerical' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Numerical Constants
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('categorical')}
+                    className={`px-4 py-2 border-b-2 font-medium transition-colors ${
+                      activeTab === 'categorical' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Categorical Constants
+                  </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto max-h-[400px]">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 pr-2">
-                    {columnsInfo.numerical.map((col, idx) => (
-                      <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                        <p className="text-sm font-semibold text-slate-700 mb-4 text-center truncate" title={col}>{col}</p>
-                        <div className="h-40">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={distributions[col] || []}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                              <XAxis dataKey="name" tick={{fontSize: 10}} axisLine={false} tickLine={false} />
-                              <Tooltip cursor={{fill: '#f1f5f9'}} />
-                              <Bar dataKey="value" fill="#818cf8" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
+                  {activeTab === 'numerical' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 pr-2">
+                      {columnsInfo.numerical.map((col, idx) => (
+                        <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <p className="text-sm font-semibold text-slate-700 mb-4 text-center truncate" title={col}>{col}</p>
+                          <div className="h-40">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={distributions[col] || []}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <XAxis dataKey="name" tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                <Tooltip cursor={{fill: '#f1f5f9'}} />
+                                <Bar dataKey="value" fill="#818cf8" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 pr-2">
+                      {columnsInfo.categorical.map((col, idx) => (
+                        <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <p className="text-sm font-semibold text-slate-700 mb-4 text-center truncate" title={col}>{col}</p>
+                          <div className="h-40">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RechartsPieChart>
+                                <Pie
+                                  data={distributions[col] || []}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={30}
+                                  outerRadius={60}
+                                  paddingAngle={2}
+                                  dataKey="value"
+                                >
+                                  {(distributions[col] || []).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                  ))}
+                                </Pie>
+                                <Tooltip />
+                              </RechartsPieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                            {(distributions[col] || []).slice(0, 4).map((entry, index) => (
+                              <span key={index} className="text-xs text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                                {entry.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-200">
