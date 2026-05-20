@@ -32,6 +32,7 @@ class ThermalCVDOptimizer:
         self._training_info = {
             'timestamp': None,
             'n_training_samples': 0,
+            'initial_samples': 0,
             'n_search_points': 5000,
         }
 
