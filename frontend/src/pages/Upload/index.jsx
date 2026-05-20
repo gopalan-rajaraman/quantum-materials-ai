@@ -15,10 +15,13 @@ const Upload = () => {
   const [columnsInfo, setColumnsInfo] = useState({ numerical: [], categorical: [] });
   const [distributions, setDistributions] = useState({});
   const [selectedVariables, setSelectedVariables] = useState({});
+  const [activeTab, setActiveTab] = useState('numerical');
   
   const [isLocking, setIsLocking] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [lockError, setLockError] = useState(null);
+
+  const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#2dd4bf', '#fb923c', '#f472b6'];
 
   const handleDrag = (e) => {
     e.preventDefault();
