@@ -142,89 +142,175 @@ const Signup = () => {
       {/* Right side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-md bg-white p-10 rounded-3xl shadow-xl shadow-indigo-100">
-          <div className="text-center mb-10">
+          <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-slate-900 mb-3">Create your account</h2>
             <p className="text-slate-500">Join BO Loop to start optimizing your experiments.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
-                <User className="w-4 h-4 text-slate-400" />
-                <span>Full Name</span>
-              </label>
-              <input 
-                type="text" 
-                placeholder="Enter your full name" 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
-                required
-              />
+          {success ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Registration Successful!</h3>
+              <p className="text-slate-600 mb-4">A verification email has been sent to your email address. Please verify your account to continue.</p>
+              <p className="text-sm text-slate-500">Redirecting to login...</p>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
 
-            <div>
-              <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
-                <Mail className="w-4 h-4 text-slate-400" />
-                <span>Email</span>
-              </label>
-              <input 
-                type="email" 
-                placeholder="Enter your email" 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
-                <Lock className="w-4 h-4 text-slate-400" />
-                <span>Password</span>
-              </label>
-              <div className="relative">
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <User className="w-4 h-4 text-slate-400" />
+                  <span>Full Name</span>
+                </label>
                 <input 
-                  type={showPassword ? 'text' : 'password'} 
-                  placeholder="Create a password" 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50 pr-10"
+                  type="text" 
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder="Enter your full name" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
                   required
                 />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
-            </div>
 
-            <div>
-              <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
-                <Lock className="w-4 h-4 text-slate-400" />
-                <span>Confirm Password</span>
-              </label>
-              <div className="relative">
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <Mail className="w-4 h-4 text-slate-400" />
+                  <span>Email ID</span>
+                </label>
                 <input 
-                  type={showConfirmPassword ? 'text' : 'password'} 
-                  placeholder="Confirm your password" 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50 pr-10"
+                  type="email" 
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="Enter your email" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
                   required
                 />
-                <button 
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
-            </div>
 
-            <button 
-              type="submit" 
-              className="w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 rounded-xl font-semibold transition-all mt-4 shadow-lg shadow-indigo-500/30"
-            >
-              Create Account
-            </button>
-          </form>
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <GraduationCap className="w-4 h-4 text-slate-400" />
+                  <span>Department</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  placeholder="e.g., Materials Science, Physics" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <Building2 className="w-4 h-4 text-slate-400" />
+                  <span>Institute Name</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="institute"
+                  value={formData.institute}
+                  onChange={handleChange}
+                  placeholder="e.g., IIT Bombay, MIT" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <Briefcase className="w-4 h-4 text-slate-400" />
+                  <span>Role</span>
+                </label>
+                <select 
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50"
+                  required
+                >
+                  <option value="">Select your role</option>
+                  <option value="student">Student</option>
+                  <option value="researcher">Researcher</option>
+                  <option value="professor">Professor</option>
+                  <option value="postdoc">Postdoctoral Fellow</option>
+                  <option value="industry">Industry Professional</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <Lock className="w-4 h-4 text-slate-400" />
+                  <span>Password</span>
+                </label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Create a password (min 8 characters)" 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50 pr-10"
+                    required
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center text-sm font-medium text-slate-700 mb-1.5 space-x-2">
+                  <Lock className="w-4 h-4 text-slate-400" />
+                  <span>Confirm Password</span>
+                </label>
+                <div className="relative">
+                  <input 
+                    type={showConfirmPassword ? 'text' : 'password'} 
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Confirm your password" 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-slate-50/50 pr-10"
+                    required
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 rounded-xl font-semibold transition-all mt-4 shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </button>
+            </form>
+          )}
 
           <div className="mt-8 text-center">
             <p className="text-slate-600 text-sm">
