@@ -9,6 +9,7 @@ import Experiments from './pages/Experiments';
 import Results from './pages/Results';
 import Signup from './pages/Signup';
 import Datasets from './pages/Datasets';
+import VerifyEmail from './pages/VerifyEmail';
 
 const AppLayout = () => {
   const location = useLocation();
