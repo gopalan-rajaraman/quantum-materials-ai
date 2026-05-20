@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -8,6 +8,7 @@ import Optimization from './pages/Optimization';
 import Experiments from './pages/Experiments';
 import Results from './pages/Results';
 import Signup from './pages/Signup';
+import Login from './pages/Login';
 import Datasets from './pages/Datasets';
 import VerifyEmail from './pages/VerifyEmail';
 
