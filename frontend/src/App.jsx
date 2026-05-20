@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import Datasets from './pages/Datasets';
 import Variables from './pages/Variables';
 import Reports from './pages/Reports';
+import Models from './pages/Models';
 import VerifyEmail from './pages/VerifyEmail';
 
 // Protected Route Component
@@ -53,6 +54,7 @@ const AppLayout = () => {
           <Route path="/optimization" element={<ProtectedRoute><Optimization /></ProtectedRoute>} />
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>
