@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -396,82 +396,89 @@ const Upload = () => {
 
             {step === 2 && (
               <div className="animate-fade-in flex flex-col h-full">
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Graphical Representation of Variables</h2>
+                <div className="bg-[#1e1b4b] text-white px-4 py-2 rounded-t-lg rounded-br-lg inline-block mb-6 shadow-sm self-start">
+                  <h2 className="text-[13px] font-bold tracking-wide">4. Graphical Representation of Numerical & Categorical Constants</h2>
+                </div>
                 
-                <div className="mb-6 flex space-x-4 border-b border-slate-100">
-                  <button 
-                    onClick={() => setActiveTab('numerical')}
-                    className={`px-4 py-2 border-b-2 font-medium text-[13px] transition-colors ${
-                      activeTab === 'numerical' ? 'border-[#4C3BDE] text-[#4C3BDE]' : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
+                <div className="mb-6 flex space-x-6 border-b border-slate-100 w-full">
+                  <button className="px-1 py-2 border-b-2 border-[#4C3BDE] text-[#4C3BDE] font-bold text-[13px]">
                     Numerical Constants
                   </button>
-                  <button 
-                    onClick={() => setActiveTab('categorical')}
-                    className={`px-4 py-2 border-b-2 font-medium text-[13px] transition-colors ${
-                      activeTab === 'categorical' ? 'border-[#4C3BDE] text-[#4C3BDE]' : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
+                  <button className="px-1 py-2 border-b-2 border-transparent text-slate-500 font-semibold text-[13px]">
                     Categorical Constants
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto max-h-[400px]">
-                  {activeTab === 'numerical' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 pr-2">
-                      {columnsInfo.numerical.map((col, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                          <p className="text-[13px] font-bold text-slate-800 mb-4 text-center truncate" title={col}>{col}</p>
-                          <div className="h-40">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={distributions[col] || []}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                                <Bar dataKey="value" fill="#4C3BDE" radius={[4, 4, 0, 0]} />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
+                <div className="flex-1 overflow-y-auto max-h-[500px] pr-2">
+                  <h3 className="font-bold text-slate-900 text-[14px]">Numerical Constants Distribution</h3>
+                  <p className="text-[11px] text-slate-500 mb-4">Distributions of numerical constants extracted from your template.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                    {columnsInfo.numerical.map((col, idx) => (
+                      <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                        <p className="text-[12px] font-bold text-slate-800 mb-4 text-center truncate" title={col}>{col}</p>
+                        <div className="h-40">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={distributions[col] || []} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                              <XAxis dataKey="name" tick={{fontSize: 9, fill: '#64748b'}} axisLine={{stroke: '#e2e8f0'}} tickLine={false} />
+                              <YAxis tick={{fontSize: 9, fill: '#64748b'}} axisLine={{stroke: '#e2e8f0'}} tickLine={false} label={{ value: 'Frequency', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fontSize: 9, fill: '#64748b'} }} />
+                              <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px'}} />
+                              <Bar dataKey="value" fill="#9f7aea" radius={[2, 2, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 pr-2">
-                      {columnsInfo.categorical.map((col, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                          <p className="text-[13px] font-bold text-slate-800 mb-4 text-center truncate" title={col}>{col}</p>
-                          <div className="h-40">
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-[#F8F6FF] rounded-lg p-3 flex items-center mb-8 border border-[#EBE5FF]">
+                    <Info className="w-4 h-4 text-[#4C3BDE] mr-3 flex-shrink-0" />
+                    <span className="text-[12px] text-[#4C3BDE] font-medium">These distributions will help the BO model understand the search space better.</span>
+                  </div>
+
+                  <h3 className="font-bold text-slate-900 text-[14px]">Categorical Constants Overview</h3>
+                  <p className="text-[11px] text-slate-500 mb-4">Breakdown of categorical constants and their categories.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    {columnsInfo.categorical.map((col, idx) => (
+                      <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col relative">
+                        <p className="text-[11px] font-bold text-slate-800 truncate mb-0.5">{col}</p>
+                        <p className="text-[10px] text-[#4C3BDE] font-semibold mb-4">{distributions[col]?.length || 0} Categories</p>
+                        <div className="flex-1 flex items-center justify-between">
+                          <div className="flex-1 space-y-1.5 pr-2">
+                            {(distributions[col] || []).slice(0, 4).map((entry, index) => (
+                              <div key={index} className="text-[9px] text-slate-600 truncate" title={entry.name}>
+                                {entry.name}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="w-16 h-16 flex-shrink-0 relative">
                             <ResponsiveContainer width="100%" height="100%">
                               <RechartsPieChart>
                                 <Pie
                                   data={distributions[col] || []}
                                   cx="50%"
                                   cy="50%"
-                                  innerRadius={30}
-                                  outerRadius={60}
+                                  innerRadius={18}
+                                  outerRadius={30}
                                   paddingAngle={2}
                                   dataKey="value"
+                                  stroke="none"
                                 >
                                   {(distributions[col] || []).map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                   ))}
                                 </Pie>
-                                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                               </RechartsPieChart>
                             </ResponsiveContainer>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-1 justify-center">
-                            {(distributions[col] || []).slice(0, 4).map((entry, index) => (
-                              <span key={index} className="text-[10px] text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                                {entry.name}
-                              </span>
-                            ))}
-                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="absolute bottom-3 right-4 text-[9px] font-bold text-slate-700">
+                          Total: {parsedData.length}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-100">
