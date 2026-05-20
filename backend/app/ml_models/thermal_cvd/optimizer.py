@@ -49,6 +49,10 @@ class ThermalCVDOptimizer:
         # Build training features and targets
         self.X_train, self.y_train = self.encoder.encode_observation(df)
 
+        # Set initial samples on first load
+        if self._training_info['initial_samples'] == 0:
+            self._training_info['initial_samples'] = len(self.y_train)
+
         self._training_info['n_training_samples'] = len(self.y_train)
         self._training_info['timestamp'] = datetime.now().isoformat()
 

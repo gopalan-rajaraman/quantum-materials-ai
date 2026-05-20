@@ -7,11 +7,26 @@ const Results = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [boProgress, setBoProgress] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchOptimization = async () => {
+    const checkProgressAndFetch = async () => {
       try {
+        // First check BO progress
+        const progressRes = await fetch('http://localhost:8000/thermal-cvd/bo-progress');
+        if (progressRes.ok) {
+          const progressData = await progressRes.json();
+          setBoProgress(progressData);
+          
+          if (!progressData.can_access_results) {
+            setError(`Complete ${progressData.min_required_steps} BO Loop iterations to access results. Current: ${progressData.total_steps} steps completed.`);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // If progress is sufficient, fetch optimization results
         const res = await fetch('http://localhost:8000/thermal-cvd/optimize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -32,7 +47,7 @@ const Results = () => {
       }
     };
     
-    fetchOptimization();
+    checkProgressAndFetch();
   }, []);
 
   if (loading) {
