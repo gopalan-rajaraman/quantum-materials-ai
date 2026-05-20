@@ -39,9 +39,9 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans">
+    <div className="min-h-screen bg-[#F5F6FA] text-slate-900 flex font-sans">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-slate-50 p-6">
+      <main className="flex-1 overflow-y-auto bg-[#F5F6FA] p-8">
         <Routes>
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/datasets" element={<ProtectedRoute><Datasets /></ProtectedRoute>} />
