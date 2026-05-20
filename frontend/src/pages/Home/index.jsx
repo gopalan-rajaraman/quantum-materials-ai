@@ -17,6 +17,9 @@ const Home = () => {
         AI-driven Experimental Optimization Platform utilizing Gaussian Process surrogate models and Active Learning to accelerate material discovery.
       </p>
       <div className="flex space-x-4">
+        <Link to="/signup" className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition-colors shadow-lg shadow-indigo-500/20">
+          Sign Up
+        </Link>
         <Link to="/upload" className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-lg transition-colors shadow-lg shadow-cyan-500/20">
           Start New Experiment
         </Link>
