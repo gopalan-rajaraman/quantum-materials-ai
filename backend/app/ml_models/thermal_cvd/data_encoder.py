@@ -26,12 +26,12 @@ class ThermalCVDEncoder:
     # Target
     TARGET = 'PL_FWHM'
 
-    # Variable ranges (literature-based for thermal CVD of WS2)
+    # Variable ranges — matched to notebook Step 3
     VARIABLE_RANGES = {
-        'GTE': (550, 1050),      # Growth Temperature [°C]
+        'GTE': (500, 1100),      # Growth Temperature [°C]
         'GTI': (5, 60),          # Growth Time [min]
-        'FRA': (0, 200),         # Ar Flow Rate [sccm]
-        'Pressure': (5, 760),    # Pressure [Torr]
+        'FRA': (0, 600),         # Ar Flow Rate [sccm]
+        'Pressure': (1, 760),    # Chamber Pressure [Torr]
     }
 
     def __init__(self, fill_unknown: str = 'Unknown'):
