@@ -22,6 +22,7 @@ const AppLayout = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
         </Routes>
       </div>
