@@ -4,30 +4,38 @@ MongoDB data models for BO Loop application.
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from bson import ObjectId
 
 
-class PyObjectId(ObjectId):
-    """Custom ObjectId for Pydantic models."""
+class PyObjectId(str):
+    """Custom ObjectId for Pydantic models (Pydantic v2 compatible)."""
+    
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        """Pydantic v2 core schema method."""
+        from pydantic_core import core_schema
+        
+        return core_schema.with_info_plain_validator_function(
+            cls.validate,
+            serialization=core_schema.plain_serializer_func_ser_schema(
+                lambda x: str(x),
+                return_schema=core_schema.str_schema(),
+                info_arg=False,
+            ),
+        )
+    
     @classmethod
     def validate(cls, v):
+        """Validate ObjectId."""
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+        return str(v)
 
 
 class UserModel(BaseModel):
     """User model for authentication and account management."""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     full_name: str
     email: str
     password_hash: str
@@ -35,18 +43,18 @@ class UserModel(BaseModel):
     member_since: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
 
 
 class DatasetModel(BaseModel):
     """Dataset model for storing experiment datasets."""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     name: str
     description: str = ""
-    user_id: PyObjectId
+    user_id: Optional[PyObjectId] = None
     status: str = "unlocked"  # unlocked, in_progress, locked
     experiment_id_range: str = ""
     total_experiments: int = 0
@@ -59,16 +67,16 @@ class DatasetModel(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
 
 
 class ExperimentModel(BaseModel):
     """Individual experiment model."""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    dataset_id: PyObjectId
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    dataset_id: Optional[PyObjectId] = None
     experiment_id: str
     status: str = "planned"  # planned, running, completed, failed
     parameters: Dict[str, Any] = {}  # GTE, GTI, FRA, Pressure, etc.
@@ -77,31 +85,31 @@ class ExperimentModel(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = None
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
 
 
 class ActivityLogModel(BaseModel):
     """Activity log for tracking user actions."""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     user_id: Optional[PyObjectId] = None
     title: str
     description: str
     color: str = "bg-cyan-500"
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
 
 
 class BORecommendationModel(BaseModel):
     """Bayesian Optimization recommendation record."""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    dataset_id: PyObjectId
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    dataset_id: Optional[PyObjectId] = None
     parameters: Dict[str, Any] = {}  # Recommended parameters
     predicted_fwhm: float
     uncertainty: float
@@ -111,7 +119,7 @@ class BORecommendationModel(BaseModel):
     experiment_id: Optional[PyObjectId] = None
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
