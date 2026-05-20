@@ -21,6 +21,8 @@ const Upload = () => {
   const [isLocking, setIsLocking] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [lockError, setLockError] = useState(null);
+  const [confirmedExpIds, setConfirmedExpIds] = useState(new Set());
+  const [showLockConfirmation, setShowLockConfirmation] = useState(false);
 
   const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#2dd4bf', '#fb923c', '#f472b6'];
 
