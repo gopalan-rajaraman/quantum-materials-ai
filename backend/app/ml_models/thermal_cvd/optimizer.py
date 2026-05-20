@@ -175,6 +175,14 @@ class ThermalCVDOptimizer:
             n_suggestions=n_suggestions,
         )
 
+        # Inverse-transform predicted FWHM and uncertainty from scaled space to meV
+        # Matches notebook: y_next_real = scaler_y.inverse_transform([[y_next_sim]])[0, 0]
+        for rec in recommendations:
+            rec.predicted_FWHM = float(
+                self.scaler_y.inverse_transform([[rec.predicted_FWHM]])[0, 0]
+            )
+            rec.uncertainty = float(rec.uncertainty * self.scaler_y.scale_[0])
+
         return self.bo_engine.recommendations_to_dicts(recommendations)
 
     def run_bo_optimization(self, n_steps: int = 10) -> Dict[str, Any]:
@@ -309,11 +317,23 @@ class ThermalCVDOptimizer:
         return self.encoder.get_encoding_info()
 
     def get_model_info(self) -> Dict[str, Any]:
-        """Get model status and metrics."""
+        """Get model status and metrics in meV units."""
         if not self._fitted:
             return {'status': 'not fitted'}
 
-        metrics = self.gp_model.get_metrics(self.X_train, self.y_train)
+        # Predict in scaled space, then inverse-transform for meV metrics
+        # Matches notebook: y_pred = scaler_y.inverse_transform(y_pred_scaled)
+        y_pred_scaled, _ = self.gp_model.predict(self.X_train, return_std=True)
+        y_pred_raw = self.scaler_y.inverse_transform(
+            y_pred_scaled.reshape(-1, 1)
+        ).ravel()
+
+        metrics = self.gp_model.get_metrics(
+            self.X_train,
+            self.y_train_scaled,    # GP was trained on scaled y
+            y_true_raw=self.y_train,  # raw meV for human-readable MAE/RMSE
+            y_pred_raw=y_pred_raw,
+        )
         return {
             'status': 'fitted',
             'kernel': self.gp_model.get_kernel_info(),

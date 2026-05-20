@@ -28,10 +28,11 @@ class ThermalCVDGPModel:
         self.n_restarts = n_restarts
 
         # Matérn 5/2 kernel with additive white noise
+        # Matches notebook Step 7: C(1.0,(1e-3,1e3)) * Matern(nu=2.5) + WhiteKernel(0.1,(1e-5,1e1))
         self.kernel = (
             ConstantKernel(1.0, (1e-3, 1e3))
             * Matern(length_scale=1.0, length_scale_bounds=(1e-2, 1e2), nu=2.5)
-            + WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-5, 1e2))
+            + WhiteKernel(noise_level=0.1, noise_level_bounds=(1e-5, 1e1))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None
@@ -45,21 +46,26 @@ class ThermalCVDGPModel:
             X_train: Scaled feature matrix (n_samples, n_features)
             y_train: Target values (PL FWHM in meV)
         """
+        # normalize_y=False: y is already StandardScaler-transformed before being passed here
+        # (matches notebook: gp.fit(X_scaled, y_scaled) with normalize_y=False)
+        # Using normalize_y=True would double-normalize and corrupt kernel hyperparameters
         self.gp = GaussianProcessRegressor(
             kernel=self.kernel,
             n_restarts_optimizer=self.n_restarts,
-            normalize_y=True,
+            normalize_y=False,
             random_state=self.random_state,
         )
         self.gp.fit(X_train, y_train)
         self._fitted = True
 
     def fast_fit(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
-        """Lightweight fit with fewer restarts for use inside the BO loop."""
+        """Lightweight fit for use inside the BO loop.
+        Matches notebook Step 9: n_restarts_optimizer=5, normalize_y=False.
+        """
         gp = GaussianProcessRegressor(
             kernel=self.kernel,
-            n_restarts_optimizer=2,
-            normalize_y=True,
+            n_restarts_optimizer=5,
+            normalize_y=False,
             random_state=self.random_state,
         )
         gp.fit(X_train, y_train)

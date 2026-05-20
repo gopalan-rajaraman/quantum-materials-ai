@@ -84,6 +84,9 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
         if data_file and Path(data_file).exists():
             df = pd.read_excel(data_file)
 
+            # Replace 'NS' (Not Specified) with NaN — matches notebook Step 2
+            df = df.replace('NS', np.nan)
+
             # Clean column names (replace spaces with underscores if needed)
             df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
 
@@ -91,7 +94,15 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
             if 'PL_FWHM' not in df.columns and 'PL FWHM' in df.columns:
                 df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
 
-            # Coerce known numeric columns (handles 'NS' or empty strings)
+            # Filter to Thermal CVD only — matches notebook Step 2:
+            # df = df_raw[df_raw[COL_MAP['TOCVD']] == 'Thermal CVD'].copy().reset_index(drop=True)
+            if 'TOCVD' in df.columns:
+                df = df[df['TOCVD'] == 'Thermal CVD'].copy().reset_index(drop=True)
+                print(f'Filtered to Thermal CVD: {len(df)} rows')
+            else:
+                print('Warning: TOCVD column not found, using all rows')
+
+            # Coerce known numeric columns (handles empty strings)
             num_cols = ['FRH', 'HR', 'FRP1', 'FRP2', 'CP1', 'CP2', 'GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
             for col in num_cols:
                 if col in df.columns:
@@ -158,6 +169,8 @@ def get_model_info():
             feature_importances = sorted(feature_importances, key=lambda x: x["value"], reverse=True)
             
         # 2. Training History
+        # Uses y_train_scaled because the GP was trained on scaled y
+        # Matches notebook Step 7: gp.fit(X_scaled, y_scaled)
         training_history = []
         n_total = len(opt.y_train)
         steps = [max(1, int(n_total * p)) for p in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]]
@@ -168,15 +181,26 @@ def get_model_info():
         
         for idx, step in enumerate(steps):
             X_sub = opt.X_train[:step]
-            y_sub = opt.y_train[:step]
+            y_sub_scaled = opt.y_train_scaled[:step]  # scaled y matches GP training space
+            y_sub_raw = opt.y_train[:step]             # raw meV for loss reporting
             
             if step >= 5:
                 try:
-                    temp_gp = GaussianProcessRegressor(kernel=opt.gp_model.gp.kernel, alpha=opt.gp_model.gp.alpha, random_state=42)
-                    temp_gp.fit(X_sub, y_sub)
-                    y_pred = temp_gp.predict(X_sub)
-                    r2 = max(0.0, r2_fn(y_sub, y_pred))
-                    mae_val = mean_absolute_error(y_sub, y_pred)
+                    # Use the optimized kernel from the fitted GP, normalize_y=False (matches notebook)
+                    temp_gp = GaussianProcessRegressor(
+                        kernel=opt.gp_model.gp.kernel_,
+                        normalize_y=False,
+                        random_state=42
+                    )
+                    temp_gp.fit(X_sub, y_sub_scaled)
+                    y_pred_scaled = temp_gp.predict(X_sub)
+                    # R2 in scaled space (numerically stable)
+                    r2 = max(0.0, r2_fn(y_sub_scaled, y_pred_scaled))
+                    # MAE in raw meV space (inverse-transform predictions)
+                    y_pred_raw = opt.scaler_y.inverse_transform(
+                        y_pred_scaled.reshape(-1, 1)
+                    ).ravel()
+                    mae_val = mean_absolute_error(y_sub_raw, y_pred_raw)
                     training_history.append({
                         "iteration": idx + 1,
                         "trainR2": round(r2, 2),
