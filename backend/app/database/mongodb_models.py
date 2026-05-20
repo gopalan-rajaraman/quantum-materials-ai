@@ -18,8 +18,8 @@ class PyObjectId(str):
         
         return core_schema.with_info_plain_validator_function(
             cls.validate,
-            serialization=core_schema.plain_serializer_func_ser_schema(
-                lambda x: str(x),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                str,
                 return_schema=core_schema.str_schema(),
                 info_arg=False,
             ),
