@@ -10,6 +10,7 @@ import Results from './pages/Results';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Datasets from './pages/Datasets';
+import Variables from './pages/Variables';
 import VerifyEmail from './pages/VerifyEmail';
 
 // Protected Route Component
@@ -47,6 +48,7 @@ const AppLayout = () => {
           <Route path="/datasets" element={<ProtectedRoute><Datasets /></ProtectedRoute>} />
           <Route path="/datasets/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
           <Route path="/experiments" element={<ProtectedRoute><Experiments /></ProtectedRoute>} />
+          <Route path="/variables" element={<ProtectedRoute><Variables /></ProtectedRoute>} />
           <Route path="/optimization" element={<ProtectedRoute><Optimization /></ProtectedRoute>} />
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
         </Routes>

@@ -248,9 +248,8 @@ const Upload = () => {
   const StepsSidebar = () => {
     const steps = [
       { id: 1, name: 'Upload Template' },
-      { id: 2, name: 'Review Data' },
-      { id: 3, name: 'Extract Variables' },
-      { id: 4, name: 'Confirm & Lock' }
+      { id: 2, name: 'Extract Variables' },
+      { id: 3, name: 'Confirm & Lock' }
     ];
 
     return (
@@ -387,7 +386,7 @@ const Upload = () => {
                 {file && parsedData.length > 0 && (
                    <div className="mt-8 flex justify-end">
                      <button onClick={() => setStep(2)} className="bg-[#4C3BDE] hover:bg-[#3D2EB0] text-white px-8 py-2.5 rounded-lg font-semibold transition-all text-[13px] shadow-sm">
-                       Review Data
+                       Extract Variables
                      </button>
                    </div>
                 )}
@@ -395,100 +394,6 @@ const Upload = () => {
             )}
 
             {step === 2 && (
-              <div className="animate-fade-in flex flex-col h-full">
-                <div className="bg-[#1e1b4b] text-white px-4 py-2 rounded-t-lg rounded-br-lg inline-block mb-6 shadow-sm self-start">
-                  <h2 className="text-[13px] font-bold tracking-wide">4. Graphical Representation of Numerical & Categorical Constants</h2>
-                </div>
-                
-                <div className="mb-6 flex space-x-6 border-b border-slate-100 w-full">
-                  <button className="px-1 py-2 border-b-2 border-[#4C3BDE] text-[#4C3BDE] font-bold text-[13px]">
-                    Numerical Constants
-                  </button>
-                  <button className="px-1 py-2 border-b-2 border-transparent text-slate-500 font-semibold text-[13px]">
-                    Categorical Constants
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto max-h-[500px] pr-2">
-                  <h3 className="font-bold text-slate-900 text-[14px]">Numerical Constants Distribution</h3>
-                  <p className="text-[11px] text-slate-500 mb-4">Distributions of numerical constants extracted from your template.</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                    {columnsInfo.numerical.map((col, idx) => (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-                        <p className="text-[12px] font-bold text-slate-800 mb-4 text-center truncate" title={col}>{col}</p>
-                        <div className="h-40">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={distributions[col] || []} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                              <XAxis dataKey="name" tick={{fontSize: 9, fill: '#64748b'}} axisLine={{stroke: '#e2e8f0'}} tickLine={false} />
-                              <YAxis tick={{fontSize: 9, fill: '#64748b'}} axisLine={{stroke: '#e2e8f0'}} tickLine={false} label={{ value: 'Frequency', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fontSize: 9, fill: '#64748b'} }} />
-                              <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px'}} />
-                              <Bar dataKey="value" fill="#9f7aea" radius={[2, 2, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-[#F8F6FF] rounded-lg p-3 flex items-center mb-8 border border-[#EBE5FF]">
-                    <Info className="w-4 h-4 text-[#4C3BDE] mr-3 flex-shrink-0" />
-                    <span className="text-[12px] text-[#4C3BDE] font-medium">These distributions will help the BO model understand the search space better.</span>
-                  </div>
-
-                  <h3 className="font-bold text-slate-900 text-[14px]">Categorical Constants Overview</h3>
-                  <p className="text-[11px] text-slate-500 mb-4">Breakdown of categorical constants and their categories.</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    {columnsInfo.categorical.map((col, idx) => (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col relative">
-                        <p className="text-[11px] font-bold text-slate-800 truncate mb-0.5">{col}</p>
-                        <p className="text-[10px] text-[#4C3BDE] font-semibold mb-4">{distributions[col]?.length || 0} Categories</p>
-                        <div className="flex-1 flex items-center justify-between">
-                          <div className="flex-1 space-y-1.5 pr-2">
-                            {(distributions[col] || []).slice(0, 4).map((entry, index) => (
-                              <div key={index} className="text-[9px] text-slate-600 truncate" title={entry.name}>
-                                {entry.name}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="w-16 h-16 flex-shrink-0 relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <RechartsPieChart>
-                                <Pie
-                                  data={distributions[col] || []}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={18}
-                                  outerRadius={30}
-                                  paddingAngle={2}
-                                  dataKey="value"
-                                  stroke="none"
-                                >
-                                  {(distributions[col] || []).map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                  ))}
-                                </Pie>
-                              </RechartsPieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-                        <div className="absolute bottom-3 right-4 text-[9px] font-bold text-slate-700">
-                          Total: {parsedData.length}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-100">
-                  <button onClick={() => setStep(1)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 text-[13px]">Back</button>
-                  <button onClick={() => setStep(3)} className="px-8 py-2.5 bg-[#4C3BDE] text-white rounded-lg font-semibold hover:bg-[#3D2EB0] text-[13px] shadow-sm">Next</button>
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
               <div className="animate-fade-in flex flex-col h-full">
                 <h2 className="text-xl font-bold text-slate-900 mb-1">Define Constants & Variables</h2>
                 <p className="text-slate-500 mb-6 text-[13px]">Specify which parameters are constants and which will vary during experiments.</p>
@@ -645,9 +550,9 @@ const Upload = () => {
                 </div>
 
                 <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-100">
-                  <button onClick={() => setStep(2)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-all text-[13px]">Back</button>
+                  <button onClick={() => setStep(1)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-all text-[13px]">Back</button>
                   <button 
-                    onClick={() => setStep(4)} 
+                    onClick={() => setStep(3)} 
                     className="px-8 py-2.5 bg-[#4C3BDE] text-white rounded-lg font-semibold hover:bg-[#3D2EB0] transition-all shadow-sm text-[13px]"
                   >
                     Confirm & Lock Dataset
@@ -656,7 +561,7 @@ const Upload = () => {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 3 && (
               <div className="animate-fade-in flex flex-col h-full">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-1">Confirm Experimental IDs</h2>
@@ -721,7 +626,7 @@ const Upload = () => {
 
                 <div className="flex justify-between items-center pt-4 border-t border-slate-100">
                   <button 
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(2)}
                     className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-all text-[13px]"
                   >
                     Back
