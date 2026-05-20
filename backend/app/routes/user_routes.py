@@ -51,12 +51,20 @@ async def register_user(user_data: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Generate verification token
+    import secrets
+    verification_token = secrets.token_urlsafe(32)
+    
     # Create new user
     user = {
         "full_name": user_data.full_name,
         "email": user_data.email,
+        "department": user_data.department,
+        "institute": user_data.institute,
+        "role": user_data.role or "user",
         "password_hash": hash_password(user_data.password),
-        "role": "user",
+        "is_verified": False,
+        "verification_token": verification_token,
         "member_since": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow().isoformat()
     }
@@ -64,9 +72,15 @@ async def register_user(user_data: UserCreate):
     result = await collection.insert_one(user)
     user["_id"] = str(result.inserted_id)
     user.pop("password_hash", None)
+    user.pop("verification_token", None)
+    
+    # TODO: Send verification email here
+    # For now, we'll log the verification link
+    verification_link = f"http://localhost:5173/verify-email?token={verification_token}"
+    print(f"Verification link for {user_data.email}: {verification_link}")
     
     return {
-        "message": "User registered successfully",
+        "message": "User registered successfully. Please check your email for verification.",
         "user": user
     }
 
