@@ -331,18 +331,16 @@ const Signup = () => {
             {/* Illustration */}
             <div style={{
               borderRadius:18,
-              overflow:'hidden',
               background:'rgba(255,255,255,0.35)',
               backdropFilter:'blur(6px)',
               border:'1px solid rgba(255,255,255,0.6)',
               marginBottom:24,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              padding:8,
+              padding:0,
             }}>
               <img
                 src="/researcher.png"
                 alt="Researchers at work"
-                style={{ width:'100%', maxHeight:200, objectFit:'cover', borderRadius:12 }}
+                style={{ width:'100%', objectFit:'contain', borderRadius:12, display:'block' }}
                 onError={e => {
                   // Fallback SVG illustration if image fails
                   e.target.style.display = 'none';
