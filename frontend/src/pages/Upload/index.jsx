@@ -3,6 +3,7 @@ import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChar
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
+import api from '../../services/api';
 
 const Upload = () => {
   const navigate = useNavigate();
@@ -223,19 +224,8 @@ const Upload = () => {
     setIsLocking(true);
     setLockError(null);
     try {
-      const formData = new FormData();
-      formData.append('files', file);
+      await api.uploadDataset([file]);
 
-      const res = await fetch('http://localhost:8000/api/datasets/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || 'Upload failed');
-      }
-      
       setIsLocked(true);
     } catch (err) {
       console.error(err);
