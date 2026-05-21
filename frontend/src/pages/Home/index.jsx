@@ -283,18 +283,7 @@ const ParticleBackground = () => (
       }}/>
     ))}
 
-    {/* SVG wave at bottom of hero */}
-    <svg viewBox="0 0 800 100" preserveAspectRatio="none"
-      style={{ position:'absolute', bottom: 0, left: 0, width:'100%', height: 80, opacity: 0.18 }}>
-      <path d="M0,40 Q200,10 400,40 Q600,70 800,40 L800,100 L0,100 Z"
-        fill="url(#waveGrad)"/>
-      <defs>
-        <linearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#6366f1"/>
-          <stop offset="100%" stopColor="#38bdf8"/>
-        </linearGradient>
-      </defs>
-    </svg>
+
   </div>
 );
 
