@@ -97,8 +97,8 @@ const Datasets = () => {
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-[#1e1b4b] mb-1">My Datasets</h1>
-          <p className="text-slate-500 text-sm">Manage, explore and organize all your experiment datasets.</p>
+          <h1 className="text-2xl font-bold text-[#1e1b4b] mb-4">My Datasets</h1>
+          <p className="text-[15px] text-slate-500 leading-relaxed">Manage, explore and organize all your experiment datasets.</p>
         </div>
         <button 
           onClick={() => navigate('/datasets/upload')}

@@ -77,8 +77,8 @@ const Reports = () => {
       {/* Header section */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-[#1e1b4b] mb-1">Reports</h1>
-          <p className="text-slate-500 text-sm">Generate, view and export detailed reports from your BO Loop experiments.</p>
+          <h1 className="text-2xl font-bold text-[#1e1b4b] mb-4">Reports</h1>
+          <p className="text-[15px] text-slate-500 leading-relaxed">Generate, view and export detailed reports from your BO Loop experiments.</p>
         </div>
         <div className="flex space-x-4">
           <div className="relative">

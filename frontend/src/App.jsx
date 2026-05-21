@@ -44,7 +44,7 @@ const AppLayout = () => {
   return (
     <div className="min-h-screen bg-[#F5F6FA] text-slate-900 flex font-sans">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-[#F5F6FA] p-0">
+      <main className={`flex-1 overflow-y-auto bg-[#F5F6FA] ${location.pathname === '/' ? 'p-0' : 'p-8 pt-12 lg:p-10 lg:pt-14'}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

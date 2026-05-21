@@ -179,7 +179,7 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-[#0D0B2E] flex items-center gap-2">
             Welcome back, {username}! <span className="animate-bounce">👋</span>
           </h1>
-          <p className="text-sm text-[#8C8CA1] font-medium mt-1">Here's what's happening with your experiments.</p>
+          <p className="text-[15px] text-[#8C8CA1] font-medium mt-4 leading-relaxed">Here's what's happening with your experiments.</p>
         </div>
 
         {/* Action Controls */}
@@ -196,11 +196,6 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Notification Icon */}
-          <button className="p-2.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-slate-600 relative">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
-          </button>
 
           {/* New Dataset Button */}
           <button 
@@ -272,7 +267,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredDatasets.slice(0, 3).map((row, idx) => (
+                  {(searchQuery ? filteredDatasets : filteredDatasets.slice(0, 3)).map((row, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                       <td className="py-3.5 font-bold text-[#0D0B2E] max-w-[150px] truncate" title={row.name}>
                         {row.name}
@@ -306,7 +301,7 @@ const Dashboard = () => {
           </div>
 
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-[#8C8CA1] font-medium">
-            <span>Showing {Math.min(3, filteredDatasets.length)} of {filteredDatasets.length} datasets</span>
+            <span>Showing {searchQuery ? filteredDatasets.length : Math.min(3, filteredDatasets.length)} of {filteredDatasets.length} datasets</span>
           </div>
         </div>
 

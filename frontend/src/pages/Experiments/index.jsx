@@ -43,8 +43,8 @@ const Experiments = () => {
     <div className="w-full max-w-[1200px] mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-[26px] font-bold text-[#0D0B2E] mb-1">Experiments</h2>
-          <p className="text-slate-500 text-[14px]">Manage and track all historical Bayesian Optimization runs.</p>
+          <h1 className="text-2xl font-bold text-[#1e1b4b] mb-4">Experiments</h1>
+          <p className="text-[15px] text-slate-500 leading-relaxed">Manage and track all historical Bayesian Optimization runs.</p>
         </div>
         <div className="flex items-center space-x-3">
           <button
