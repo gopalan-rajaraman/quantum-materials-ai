@@ -201,6 +201,14 @@ const SignUpForm = () => {
     finally { setLoading(false); }
   };
 
+  const handleGoogleLogin = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      navigate('/dashboard');
+    }, 1500);
+  };
+
   if (success) return (
     <div style={{ textAlign:'center', padding:'40px 0' }}>
       <div style={{ width:70, height:70, borderRadius:'50%', background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
@@ -275,9 +283,9 @@ const SignUpForm = () => {
         <div style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }}></div>
       </div>
 
-      <button type="button" className="google-btn">
+      <button type="button" className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
         <GoogleIcon />
-        Continue with Google
+        {loading ? 'Connecting...' : 'Continue with Google'}
       </button>
     </form>
   );
@@ -306,6 +314,14 @@ const SignInForm = () => {
       else setError(data.detail || 'Login failed');
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
+  };
+
+  const handleGoogleLogin = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      navigate('/dashboard');
+    }, 1500);
   };
 
   return (
@@ -348,9 +364,9 @@ const SignInForm = () => {
         <div style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }}></div>
       </div>
 
-      <button type="button" className="google-btn">
+      <button type="button" className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
         <GoogleIcon />
-        Continue with Google
+        {loading ? 'Connecting...' : 'Continue with Google'}
       </button>
     </form>
   );
@@ -396,7 +412,7 @@ const LeftPanel = () => (
         <img
           src="/researcher.png"
           alt="Researchers at work"
-          style={{ width:'100%', height:'auto', maxHeight:'80vh', objectFit:'contain', display:'block', mixBlendMode: 'multiply' }}
+          style={{ width:'100%', height:'auto', maxHeight:'80vh', objectFit:'contain', display:'block', mixBlendMode: 'darken' }}
           onError={e => { e.target.style.display='none'; }}
         />
       </div>
