@@ -138,6 +138,22 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const IconFlask = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 2v7.31L2.08 18.2a2 2 0 0 0 1.6 3.24h16.64a2 2 0 0 0 1.6-3.24L14 9.31V2"/><path d="M8.5 2h7"/><path d="M14 9.31L19.46 17H4.54L10 9.31Z"/>
+  </svg>
+);
+const IconChart = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="18" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="2" y="13" width="4" height="8" rx="1"/>
+  </svg>
+);
+const IconUsers = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
 /* ─── Field wrapper ──────────────────────────────────────────── */
 const Field = ({ label, icon, children, mb = 11 }) => (
   <div style={{ marginBottom: mb }}>
@@ -343,10 +359,10 @@ const SignInForm = () => {
 /* ─── Left Panel (constant) ──────────────────────────────────── */
 const LeftPanel = () => (
   <div style={{
-    flex: '0 0 46%', minWidth:360, maxWidth:550,
-    background:'linear-gradient(160deg,#ede9fe 0%,#e0e7ff 50%,#ddd6fe 100%)',
+    width: '50%', flexShrink: 0,
+    background:'linear-gradient(160deg,#f8faff 0%,#eef2ff 50%,#e0e7ff 100%)',
     display:'flex', flexDirection:'column',
-    padding:'40px 48px',
+    padding:'40px 60px',
     position:'relative', overflow:'hidden',
     borderRight:'none',
   }}>
@@ -363,27 +379,51 @@ const LeftPanel = () => (
     ))}
 
     {/* Logo */}
-    <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:24, position:'relative', zIndex:1 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:40, position:'relative', zIndex:10 }}>
       <IconHexagon/>
-      <span style={{ fontSize:17, fontWeight:800, color:'#1e1b4b' }}>ResearchHub</span>
+      <span style={{ fontSize:18, fontWeight:800, color:'#1e1b4b' }}>ResearchHub</span>
     </div>
 
     {/* Content Container */}
-    <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', flex: 1 }}>
+    <div style={{ position:'relative', zIndex:10, display:'flex', flexDirection:'column', flex: 1, paddingBottom: '40px' }}>
       {/* Headline */}
-      <h1 style={{ margin:'0 0 24px', fontSize:32, fontWeight:900, color:'#1e1b4b', lineHeight:1.15, letterSpacing:'-0.025em' }}>
+      <h1 style={{ margin:'0 0 16px', fontSize:44, fontWeight:900, color:'#1e1b4b', lineHeight:1.15, letterSpacing:'-0.02em' }}>
         Built for<br/>Researchers.
       </h1>
 
-      {/* Illustration */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
-        <img
-          src="/researcher.png"
-          alt="Researchers at work"
-          style={{ width:'100%', height:'auto', maxHeight:'420px', objectFit:'contain', display:'block', mixBlendMode: 'multiply' }}
-          onError={e => { e.target.style.display='none'; }}
-        />
+      {/* Paragraph */}
+      <p style={{ margin:'0 0 40px', fontSize:16, color:'#475569', lineHeight:1.6, maxWidth:380 }}>
+        Create your account and join a global community of scientists accelerating real-world impact through research.
+      </p>
+
+      {/* Feature List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {[
+          { icon: <IconFlask/>, title: 'Advanced Research Tools', desc: 'Powerful tools for every step.' },
+          { icon: <IconChart/>, title: 'Analyze & Visualize', desc: 'Turn complex data into insights.' },
+          { icon: <IconUsers/>, title: 'Collaborate Seamlessly', desc: 'Work together and share knowledge.' }
+        ].map((f, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.04)', flexShrink: 0 }}>
+              {f.icon}
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 3px', fontSize: '15px', fontWeight: 700, color: '#1e1b4b' }}>{f.title}</h4>
+              <p style={{ margin: 0, fontSize: '13.5px', color: '#64748b' }}>{f.desc}</p>
+            </div>
+          </div>
+        ))}
       </div>
+    </div>
+
+    {/* Illustration - Anchored to bottom right */}
+    <div style={{ position: 'absolute', bottom: -20, right: -40, width: '100%', maxWidth: '650px', zIndex: 5, pointerEvents: 'none' }}>
+      <img
+        src="/researcher.png"
+        alt="Researchers at work"
+        style={{ width:'100%', height:'auto', display:'block', mixBlendMode: 'multiply' }}
+        onError={e => { e.target.style.display='none'; }}
+      />
     </div>
   </div>
 );
@@ -405,13 +445,13 @@ const AuthPage = () => {
 
         {/* RIGHT — tab-switched */}
         <div style={{
-          flex:1, display:'flex', flexDirection:'column',
+          width: '50%', flexShrink: 0, display:'flex', flexDirection:'column',
           alignItems:'center', justifyContent:'center',
           padding:'30px 40px',
           background:'white',
           overflowY:'auto',
         }}>
-          <div style={{ width:'100%', maxWidth:400 }}>
+          <div style={{ width:'100%', maxWidth:480 }}>
 
             {/* Tabs */}
             <div style={{ display:'flex', borderBottom:'1px solid #e2e8f0', marginBottom:20 }}>
