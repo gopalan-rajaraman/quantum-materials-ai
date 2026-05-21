@@ -326,7 +326,7 @@ const LeftPanel = () => (
       </h1>
 
       {/* Illustration */}
-      <div style={{ borderRadius:16, background:'rgba(255,255,255,0.35)', backdropFilter:'blur(6px)', border:'1px solid rgba(255,255,255,0.6)', flex:1, overflow:'hidden' }}>
+      <div style={{ flex:1, overflow:'hidden' }}>
         <img
           src="/researcher.png"
           alt="Researchers at work"
