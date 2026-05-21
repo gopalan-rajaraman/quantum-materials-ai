@@ -29,7 +29,7 @@ const Home = () => {
       </header>
 
       <main className="relative z-10 mx-auto w-full max-w-7xl px-6 pb-16 sm:px-10">
-        <section className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <section className="space-y-12">
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-sky-700 shadow-sm shadow-sky-200/70">
               <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-500"></span>
@@ -66,51 +66,6 @@ const Home = () => {
               <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm shadow-slate-200/70">
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-600">Reliable Insights</p>
                 <p className="mt-3 text-sm leading-6 text-slate-600">Uncertainty quantification you can trust.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative rounded-[2rem] border border-slate-200 bg-white/90 p-8 shadow-2xl shadow-slate-300/40">
-            <div className="absolute -right-8 top-8 h-24 w-24 rounded-full bg-cyan-100/70 blur-3xl"></div>
-            <div className="absolute -left-8 bottom-12 h-24 w-24 rounded-full bg-violet-100/70 blur-3xl"></div>
-            <div className="relative space-y-8">
-              <div className="rounded-3xl bg-slate-50 p-6 shadow-sm shadow-slate-200/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Built for Researchers</p>
-                    <h2 className="mt-3 text-2xl font-semibold text-slate-950">Powered by AI</h2>
-                  </div>
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100">
-                    <span className="text-sm font-semibold">AI</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-slate-50 p-5 shadow-sm shadow-slate-200/60">
-                  <p className="text-sm text-slate-500">Experiment performance</p>
-                  <p className="mt-3 text-3xl font-semibold text-slate-950">92%</p>
-                </div>
-                <div className="rounded-3xl bg-slate-50 p-5 shadow-sm shadow-slate-200/60">
-                  <p className="text-sm text-slate-500">Discovery speed</p>
-                  <p className="mt-3 text-3xl font-semibold text-slate-950">3.4x</p>
-                </div>
-              </div>
-
-              <div className="rounded-[2rem] border border-slate-200 bg-slate-100 p-6 shadow-sm shadow-slate-200/60">
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                  <span>Confidence score</span>
-                  <span className="text-slate-950 font-semibold">0.87</span>
-                </div>
-                <div className="mt-4 flex items-center gap-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/20">
-                    87%
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Recommended run</p>
-                    <p className="text-lg font-semibold text-slate-950">Thermal CVD batch 5</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
