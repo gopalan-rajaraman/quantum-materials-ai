@@ -32,7 +32,8 @@ const Datasets = () => {
   // Get logged-in user from localStorage
   const userStr = localStorage.getItem('user');
   const loggedInUser = userStr ? JSON.parse(userStr) : {};
-  const loggedInUsername = loggedInUser?.username || loggedInUser?.email?.split('@')[0] || '—';
+  const loggedInUsername = loggedInUser?.username || loggedInUser?.name || loggedInUser?.email?.split('@')[0] || '—';
+  const loggedInRole = loggedInUser?.role || 'Researcher';
 
   useEffect(() => {
     fetchDatasets();
@@ -324,7 +325,7 @@ const Datasets = () => {
           <div className="grid grid-cols-2 gap-y-6">
             <div>
               <p className="text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Role</p>
-              <p className="text-[13px] font-bold text-slate-800">Researcher</p>
+              <p className="text-[13px] font-bold text-slate-800">{loggedInRole}</p>
             </div>
             <div>
               <p className="text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Member Since</p>

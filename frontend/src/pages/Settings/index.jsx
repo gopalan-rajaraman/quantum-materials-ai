@@ -9,6 +9,12 @@ const Settings = () => {
   const [optGoal, setOptGoal] = useState('Minimize FWHM');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
+  const userStr = localStorage.getItem('user');
+  const loggedInUser = userStr ? JSON.parse(userStr) : {};
+  const displayName = loggedInUser.username || loggedInUser.name || 'Khushboo';
+  const displayEmail = loggedInUser.email || 'khushboo.research@boloop.com';
+  const displayRole = loggedInUser.role || 'Researcher';
+
   return (
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
       {/* Header */}
@@ -41,7 +47,7 @@ const Settings = () => {
               </div>
               <div className="flex-1 flex items-center justify-between">
                 <span className="text-[13px] font-bold text-slate-500">Name</span>
-                <span className="text-[13px] font-bold text-slate-800">Khushboo</span>
+                <span className="text-[13px] font-bold text-slate-800">{displayName}</span>
               </div>
             </div>
 
@@ -51,7 +57,7 @@ const Settings = () => {
               </div>
               <div className="flex-1 flex items-center justify-between">
                 <span className="text-[13px] font-bold text-slate-500">Email</span>
-                <span className="text-[13px] font-bold text-slate-800">khushboo.research@boloop.com</span>
+                <span className="text-[13px] font-bold text-slate-800">{displayEmail}</span>
               </div>
             </div>
 
@@ -62,7 +68,7 @@ const Settings = () => {
               <div className="flex-1 flex items-center justify-between">
                 <span className="text-[13px] font-bold text-slate-500">Role</span>
                 <span className="px-3 py-1 bg-[#F4F0FF] text-[#4C3BDE] text-[11px] font-bold rounded-md border border-[#4C3BDE]/10">
-                  Researcher
+                  {displayRole}
                 </span>
               </div>
             </div>

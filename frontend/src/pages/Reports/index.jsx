@@ -74,6 +74,31 @@ const Reports = () => {
       }))
     : [];
 
+  const filteredReports = recentReports.filter(report => {
+    const matchesSearch = String(report.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || String(report.id || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesExp = selectedExperiment === 'All' || String(report.id) === String(selectedExperiment);
+    const matchesType = reportType === 'All' || report.type === reportType;
+    return matchesSearch && matchesExp && matchesType;
+  });
+
+  const handleClearFilters = () => {
+    setSelectedExperiment('All');
+    setReportType('All');
+    setSearchQuery('');
+  };
+
+  const handleDownloadCSV = () => {
+    const csvContent = "data:text/csv;charset=utf-8,Report Name,Experiment ID,Type,Generated On,Best FWHM\n" + 
+      filteredReports.map(r => `${r.name},${r.id},${r.type},${r.date},${r.fwhm}`).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "reports.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const userStr = localStorage.getItem('user');
   const loggedInUser = userStr ? JSON.parse(userStr) : {};
   const generatedOn = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
