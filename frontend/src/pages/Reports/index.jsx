@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, RefreshCcw, FileText, CheckCircle2, TrendingUp, FlaskConical, 
   Database, Cpu, Sparkles, Download, MoreVertical, Info, Calendar, 
@@ -14,6 +15,11 @@ const Reports = () => {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [datasetsList, setDatasetsList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const [selectedExperiment, setSelectedExperiment] = useState('All');
+  const [reportType, setReportType] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -86,6 +92,8 @@ const Reports = () => {
             <input 
               type="text" 
               placeholder="Search reports..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-[250px] focus:outline-none focus:ring-1 focus:ring-[#4C3BDE]"
             />
           </div>
@@ -97,8 +105,17 @@ const Reports = () => {
         <div className="flex-1">
           <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Select Experiment</label>
           <div className="relative">
-            <select className="w-full appearance-none border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 bg-white focus:outline-none cursor-pointer">
-              <option>All Experiments</option>
+            <select 
+              value={selectedExperiment}
+              onChange={(e) => setSelectedExperiment(e.target.value)}
+              className="w-full appearance-none border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 bg-white focus:outline-none cursor-pointer"
+            >
+              <option value="All">All Experiments</option>
+              {datasetsList.map((ds, idx) => (
+                <option key={idx} value={ds.id || `EXP-${101 + idx}`}>
+                  {ds.id || `EXP-${101 + idx}`} - {ds.name}
+                </option>
+              ))}
             </select>
             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
@@ -119,14 +136,23 @@ const Reports = () => {
         <div className="flex-1">
           <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Report Type</label>
           <div className="relative">
-            <select className="w-full appearance-none border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 bg-white focus:outline-none cursor-pointer">
-              <option>All Types</option>
+            <select 
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value)}
+              className="w-full appearance-none border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 bg-white focus:outline-none cursor-pointer"
+            >
+              <option value="All">All Types</option>
+              <option value="Experiment Summary">Experiment Summary</option>
+              <option value="Optimization Progress">Optimization Progress</option>
             </select>
             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
         </div>
         <div className="flex-shrink-0">
-          <button className="flex items-center space-x-2 text-[#4C3BDE] px-4 py-2 hover:bg-[#F8F6FF] rounded-lg transition-colors text-sm font-semibold">
+          <button 
+            onClick={handleClearFilters}
+            className="flex items-center space-x-2 text-[#4C3BDE] px-4 py-2 hover:bg-[#F8F6FF] rounded-lg transition-colors text-sm font-semibold"
+          >
             <RefreshCcw className="w-4 h-4" />
             <span>Clear Filters</span>
           </button>
@@ -289,7 +315,7 @@ const Reports = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentReports.map((report, idx) => (
+                    {filteredReports.map((report, idx) => (
                       <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                         <td className="py-4 px-2 text-[13px] font-bold text-slate-800">{report.name}</td>
                         <td className="py-4 px-2 text-[13px] text-slate-600 font-medium">{report.id}</td>
@@ -317,7 +343,7 @@ const Reports = () => {
 
               {/* Pagination */}
               <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
-                <span className="text-[12px] font-medium text-slate-500">Showing 1 to {recentReports.length} of {recentReports.length} reports</span>
+                <span className="text-[12px] font-medium text-slate-500">Showing {filteredReports.length > 0 ? 1 : 0} to {filteredReports.length} of {recentReports.length} reports</span>
               </div>
             </div>
           </div>
@@ -360,7 +386,10 @@ const Reports = () => {
                 </div>
               </div>
 
-              <button className="w-full py-3 bg-[#F8F6FF] text-[#4C3BDE] rounded-xl font-bold text-[13px] hover:bg-[#F0EBFF] transition-colors flex items-center justify-center space-x-2 border border-[#4C3BDE]/10">
+              <button 
+                onClick={() => navigate('/results')}
+                className="w-full py-3 bg-[#F8F6FF] text-[#4C3BDE] rounded-xl font-bold text-[13px] hover:bg-[#F0EBFF] transition-colors flex items-center justify-center space-x-2 border border-[#4C3BDE]/10"
+              >
                 <span>View Full Analysis</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -424,11 +453,17 @@ const Reports = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-auto">
-                <button className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg border border-[#ff4d4f]/30 text-[#ff4d4f] hover:bg-[#fff1f0] transition-colors text-[13px] font-bold">
+                <button 
+                  onClick={() => window.print()}
+                  className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg border border-[#ff4d4f]/30 text-[#ff4d4f] hover:bg-[#fff1f0] transition-colors text-[13px] font-bold"
+                >
                   <Download className="w-4 h-4" />
                   <span>Download PDF</span>
                 </button>
-                <button className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg border border-[#00B050]/30 text-[#00B050] hover:bg-[#E8FFF3] transition-colors text-[13px] font-bold">
+                <button 
+                  onClick={handleDownloadCSV}
+                  className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg border border-[#00B050]/30 text-[#00B050] hover:bg-[#E8FFF3] transition-colors text-[13px] font-bold"
+                >
                   <Download className="w-4 h-4" />
                   <span>Download CSV</span>
                 </button>
