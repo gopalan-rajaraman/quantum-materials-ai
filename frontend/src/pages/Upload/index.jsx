@@ -152,12 +152,10 @@ const Upload = () => {
     // Default variable selections
     const initialVars = {};
     [...numerical, ...categorical].slice(0, 8).forEach(col => {
-      initialVars[col] = { 
-        selected: true, 
-        min: '', 
-        max: '', 
+      initialVars[col] = {
+        selected: true,
         unit: units[col] || '',
-        isConstant: false 
+        isConstant: false
       };
     });
     setSelectedVariables(initialVars);
@@ -444,39 +442,15 @@ const Upload = () => {
                           </div>
                           
                           {columnsInfo.numerical.includes(v) ? (
-                            <div className="grid grid-cols-4 gap-3">
+                            <div className="grid grid-cols-3 gap-3">
                               <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Min Value</label>
-                                <input 
-                                  type="number" 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  placeholder="0"
-                                  value={selectedVariables[v]?.min || ''}
-                                  onChange={(e) => updateVariableField(v, 'min', e.target.value)}
-                                />
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit (fixed)</label>
+                                <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700">
+                                  {selectedVariables[v]?.unit || variableUnits[v] || '—'}
+                                </div>
                               </div>
                               <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Max Value</label>
-                                <input 
-                                  type="number" 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  placeholder="100"
-                                  value={selectedVariables[v]?.max || ''}
-                                  onChange={(e) => updateVariableField(v, 'max', e.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit</label>
-                                <input 
-                                  type="text" 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  placeholder="°C"
-                                  value={selectedVariables[v]?.unit || variableUnits[v] || ''}
-                                  onChange={(e) => updateVariableField(v, 'unit', e.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Type</label>
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Variable Type</label>
                                 <select 
                                   className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
                                   value={selectedVariables[v]?.isConstant ? 'constant' : 'variable'}
@@ -485,6 +459,12 @@ const Upload = () => {
                                   <option value="variable">Variable</option>
                                   <option value="constant">Constant</option>
                                 </select>
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Notes</label>
+                                <div className="w-full rounded-lg p-2 text-[11px] bg-slate-50 text-slate-600 border border-slate-200">
+                                  Enter values directly in the experiment form using fixed units only.
+                                </div>
                               </div>
                             </div>
                           ) : (
