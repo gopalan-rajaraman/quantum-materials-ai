@@ -391,39 +391,15 @@ const LeftPanel = () => (
         Built for<br/>Researchers.
       </h1>
 
-      {/* Paragraph */}
-      <p style={{ margin:'0 0 40px', fontSize:16, color:'#475569', lineHeight:1.6, maxWidth:380 }}>
-        Create your account and join a global community of scientists accelerating real-world impact through research.
-      </p>
-
-      {/* Feature List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {[
-          { icon: <IconFlask/>, title: 'Advanced Research Tools', desc: 'Powerful tools for every step.' },
-          { icon: <IconChart/>, title: 'Analyze & Visualize', desc: 'Turn complex data into insights.' },
-          { icon: <IconUsers/>, title: 'Collaborate Seamlessly', desc: 'Work together and share knowledge.' }
-        ].map((f, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.04)', flexShrink: 0 }}>
-              {f.icon}
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 3px', fontSize: '15px', fontWeight: 700, color: '#1e1b4b' }}>{f.title}</h4>
-              <p style={{ margin: 0, fontSize: '13.5px', color: '#64748b' }}>{f.desc}</p>
-            </div>
-          </div>
-        ))}
+      {/* Illustration */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '20px' }}>
+        <img
+          src="/researcher.png"
+          alt="Researchers at work"
+          style={{ width:'100%', height:'auto', maxHeight:'80vh', objectFit:'contain', display:'block', mixBlendMode: 'multiply' }}
+          onError={e => { e.target.style.display='none'; }}
+        />
       </div>
-    </div>
-
-    {/* Illustration - Anchored to bottom right */}
-    <div style={{ position: 'absolute', bottom: -20, right: -40, width: '100%', maxWidth: '650px', zIndex: 5, pointerEvents: 'none' }}>
-      <img
-        src="/researcher.png"
-        alt="Researchers at work"
-        style={{ width:'100%', height:'auto', display:'block', mixBlendMode: 'multiply' }}
-        onError={e => { e.target.style.display='none'; }}
-      />
     </div>
   </div>
 );
