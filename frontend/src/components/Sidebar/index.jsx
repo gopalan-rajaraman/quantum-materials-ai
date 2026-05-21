@@ -40,10 +40,17 @@ const Sidebar = () => {
         {/* Brand Logo */}
         <div className="flex items-center space-x-3 px-2 py-4 mb-6">
           <div className="relative flex items-center justify-center">
-            <Hexagon className="w-8 h-8 text-[#8B5CF6] fill-[#8B5CF6]/20 stroke-[2]" />
-            <div className="absolute w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" />
+            <Hexagon className="w-10 h-10 text-[#6366f1] fill-[#6366f1]" />
+            <div className="absolute">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="2"/>
+                <ellipse cx="12" cy="12" rx="10" ry="4.5"/>
+                <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(60 12 12)"/>
+                <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(120 12 12)"/>
+              </svg>
+            </div>
           </div>
-          <span className="text-xl font-bold tracking-tight text-white">BO Loop</span>
+          <span className="text-[14px] font-bold tracking-tight text-white leading-tight">Quantum<br/>Materials AI</span>
         </div>
 
         {/* Navigation Items */}

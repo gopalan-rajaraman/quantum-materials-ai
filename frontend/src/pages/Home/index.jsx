@@ -381,7 +381,7 @@ const Home = () => {
         <header style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           padding: '14px 40px',
           background: 'rgba(255,255,255,0.72)',
           backdropFilter: 'blur(14px)',
@@ -390,20 +390,6 @@ const Home = () => {
           top: 0,
           zIndex: 100,
         }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{
-              width:34, height:34,
-              background: 'linear-gradient(135deg,#6366f1,#38bdf8)',
-              borderRadius: '50%',
-              display:'flex', alignItems:'center', justifyContent:'center',
-            }}>
-              <AtomNavIcon />
-            </div>
-            <span style={{ fontWeight:700, fontSize:15, color:'#1e1b4b', letterSpacing:'-0.01em' }}>
-              Quantum Materials AI
-            </span>
-          </div>
-
           <nav style={{ display:'flex', alignItems:'center', gap:8 }}>
             <Link to="/login" style={{
               padding:'8px 18px', fontSize:14, fontWeight:500,
