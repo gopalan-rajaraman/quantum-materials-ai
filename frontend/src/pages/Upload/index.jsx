@@ -477,7 +477,18 @@ const Upload = () => {
                               </div>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-4 gap-3">
+                              <div>
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Value</label>
+                                <select 
+                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
+                                >
+                                  <option value="">Select a class</option>
+                                  {distributions[v]?.map((d, dIdx) => (
+                                    <option key={dIdx} value={d.name}>{d.name}</option>
+                                  ))}
+                                </select>
+                              </div>
                               <div className="col-span-2">
                                 <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Available Classes</label>
                                 <div className="flex gap-1.5 flex-wrap">
