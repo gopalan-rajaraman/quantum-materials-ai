@@ -442,15 +442,24 @@ const Upload = () => {
                           </div>
                           
                           {columnsInfo.numerical.includes(v) ? (
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-4 gap-3">
                               <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit (fixed)</label>
-                                <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700">
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Value</label>
+                                <input 
+                                  type="number" 
+                                  step="any"
+                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
+                                  placeholder="Enter value"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit (Fixed)</label>
+                                <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700 font-semibold flex items-center">
                                   {selectedVariables[v]?.unit || variableUnits[v] || '—'}
                                 </div>
                               </div>
                               <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Variable Type</label>
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Type</label>
                                 <select 
                                   className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
                                   value={selectedVariables[v]?.isConstant ? 'constant' : 'variable'}
@@ -461,9 +470,9 @@ const Upload = () => {
                                 </select>
                               </div>
                               <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Notes</label>
-                                <div className="w-full rounded-lg p-2 text-[11px] bg-slate-50 text-slate-600 border border-slate-200">
-                                  Enter values directly in the experiment form using fixed units only.
+                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Note</label>
+                                <div className="w-full rounded-lg p-2 text-[10px] bg-blue-50 text-blue-700 border border-blue-100">
+                                  Unit is locked. Use the fixed unit only.
                                 </div>
                               </div>
                             </div>
