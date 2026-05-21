@@ -273,7 +273,7 @@ const Signup = () => {
           width:'48%', minWidth:420,
           background:'linear-gradient(160deg,#ede9fe 0%,#e0e7ff 50%,#ddd6fe 100%)',
           display:'flex', flexDirection:'column',
-          padding:'28px 40px 24px',
+          padding:'20px 32px 18px',
           position:'relative', overflow:'hidden',
         }}>
           {/* Decorative blobs */}
@@ -304,7 +304,7 @@ const Signup = () => {
           ))}
 
           {/* Logo */}
-          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:32, position:'relative', zIndex:1 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:20, position:'relative', zIndex:1 }}>
             <IconHexagon />
             <span style={{ fontSize:16, fontWeight:800, color:'#1e1b4b' }}>ResearchHub</span>
           </div>
@@ -313,7 +313,7 @@ const Signup = () => {
           <div style={{ position:'relative', zIndex:1, flex:1 }}>
             <h1 style={{
               margin:'0 0 14px',
-              fontSize:34, fontWeight:900,
+              fontSize:28, fontWeight:900,
               color:'#1e1b4b', lineHeight:1.15,
               letterSpacing:'-0.025em',
             }}>
@@ -321,12 +321,7 @@ const Signup = () => {
               Researchers.<br/>
               <span style={{ color:'#6366f1' }}>Designed for<br/>Discovery.</span>
             </h1>
-            <p style={{
-              margin:'0 0 22px', fontSize:13, color:'#6b7280', lineHeight:1.65, maxWidth:300,
-            }}>
-              Create your account and join a global community of scientists accelerating
-              real-world impact through research.
-            </p>
+
 
             {/* Illustration */}
             <div style={{
@@ -387,13 +382,7 @@ const Signup = () => {
               />
             </div>
 
-            {/* 4 Feature items */}
-            <div style={{ display:'flex', gap:10 }}>
-              <FeatItem icon={<IconFlask/>} title="Advanced Research Tools" desc="Powerful tools for every step."/>
-              <FeatItem icon={<IconChart/>} title="Analyze & Visualize" desc="Turn complex data into insights."/>
-              <FeatItem icon={<IconPeople/>} title="Collaborate Seamlessly" desc="Work together and share knowledge."/>
-              <FeatItem icon={<IconShield/>} title="Secure & Reliable" desc="Your data is safe with us."/>
-            </div>
+
           </div>
 
           {/* Footer */}
@@ -406,7 +395,7 @@ const Signup = () => {
         <div style={{
           flex:1, display:'flex', flexDirection:'column',
           alignItems:'center', justifyContent:'center',
-          padding:'32px 48px',
+          padding:'20px 40px',
           background:'white',
           overflowY:'auto',
         }}>
@@ -579,38 +568,7 @@ const Signup = () => {
                   {loading ? 'Creating Account…' : 'Create Account'}
                 </button>
 
-                {/* Social icons row */}
-                <div style={{
-                  display:'flex', justifyContent:'center', gap:18, marginTop:18,
-                }}>
-                  {[<IconLinkedIn/>, <IconEmail2/>, <IconTwitter/>, <IconInstagram/>].map((icon,i) => (
-                    <button key={i} type="button" style={{
-                      width:36, height:36, borderRadius:'50%',
-                      border:'1px solid #e2e8f0', background:'white',
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      cursor:'pointer', transition:'border-color 0.2s, box-shadow 0.2s',
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor='#6366f1'; e.currentTarget.style.boxShadow='0 0 0 3px rgba(99,102,241,0.10)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.boxShadow='none'; }}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
 
-                {/* Footer links */}
-                <div style={{
-                  display:'flex', justifyContent:'center', gap:24,
-                  marginTop:18, paddingTop:16,
-                  borderTop:'1px solid #f1f5f9',
-                }}>
-                  <span style={{ fontSize:11.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:4 }}>
-                    <IconEmail2/> support@researchhub.io
-                  </span>
-                  <span style={{ fontSize:11.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:4 }}>
-                    🌐 www.researchhub.io
-                  </span>
-                </div>
 
               </form>
             )}
