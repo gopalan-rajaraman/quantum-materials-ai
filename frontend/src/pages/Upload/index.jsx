@@ -205,19 +205,31 @@ const Upload = () => {
     });
   };
 
-  const confirmAllExpIds = () => {
-    const firstColumn = Object.keys(parsedData[0])[0];
-    const allIds = parsedData.map(row => row[firstColumn]);
-    setConfirmedExpIds(new Set(allIds));
-  };
+  const SAMPLES_PER_EXPERIMENT = 10;
 
   const getExperimentalIds = () => {
     if (parsedData.length === 0) return [];
-    const firstColumn = Object.keys(parsedData[0])[0];
-    return parsedData.map(row => ({
-      id: row[firstColumn],
-      data: row
-    }));
+    const totalExperiments = Math.ceil(parsedData.length / SAMPLES_PER_EXPERIMENT);
+    const experiments = [];
+    for (let i = 0; i < totalExperiments; i++) {
+      const startIdx = i * SAMPLES_PER_EXPERIMENT;
+      const endIdx = Math.min(startIdx + SAMPLES_PER_EXPERIMENT, parsedData.length);
+      const samples = parsedData.slice(startIdx, endIdx);
+      experiments.push({
+        id: `EXP-${i + 1}`,
+        label: `EXP-${i + 1}`,
+        sampleCount: samples.length,
+        startRow: startIdx + 1,
+        endRow: endIdx,
+        samples: samples
+      });
+    }
+    return experiments;
+  };
+
+  const confirmAllExpIds = () => {
+    const allIds = getExperimentalIds().map(exp => exp.id);
+    setConfirmedExpIds(new Set(allIds));
   };
 
   const handleLockDataset = async () => {
@@ -522,7 +534,7 @@ const Upload = () => {
                   <div className="flex space-x-8">
                     <div className="text-center px-4">
                       <p className="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Total Experiments</p>
-                      <p className="text-lg font-bold text-[#4C3BDE]">{parsedData.length}</p>
+                      <p className="text-lg font-bold text-[#4C3BDE]">{getExperimentalIds().length}</p>
                     </div>
                     <div className="text-center px-4">
                       <p className="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Variables to Vary</p>
@@ -580,7 +592,7 @@ const Upload = () => {
                       <div 
                         key={idx}
                         onClick={() => toggleExpIdConfirmation(exp.id)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
                           confirmedExpIds.has(exp.id) 
                             ? 'bg-[#E8FFF3] border-[#00B050]/20' 
                             : 'bg-white border-slate-100 hover:border-[#4C3BDE]/30 shadow-sm'
@@ -598,8 +610,8 @@ const Upload = () => {
                               )}
                             </div>
                             <div>
-                              <p className="font-bold text-[13px] text-slate-900">EXP-{idx + 1}</p>
-                              <p className="text-[11px] text-slate-500 font-mono mt-0.5">{exp.id}</p>
+                              <p className="font-bold text-[13px] text-slate-900">{exp.label}</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">{exp.sampleCount} samples (Rows {exp.startRow}–{exp.endRow})</p>
                             </div>
                           </div>
                         </div>
