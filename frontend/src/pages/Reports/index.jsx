@@ -31,7 +31,7 @@ const Reports = () => {
       ]);
       setModelInfo(modelData);
       setDashboardStats(statsData);
-      setDatasetsList(savedData || []);
+      setDatasetsList(savedData?.datasets || []);
     } catch (e) {
       console.error("Error loading reports data:", e);
     } finally {
@@ -66,7 +66,7 @@ const Reports = () => {
 
   const recentReports = datasetsList.length > 0
     ? datasetsList.map((ds, idx) => ({
-        name: `${ds.name.replace(/\.[^/.]+$/, "")}_Report`,
+        name: `${(ds.name || '').replace(/\.[^/.]+$/, "")}_Report`,
         id: ds.id || `EXP-${101 + idx}`,
         type: 'Experiment Summary',
         date: ds.date || '—',
