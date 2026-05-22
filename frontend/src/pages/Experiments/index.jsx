@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Database, CheckCircle2, Clock, Plus, RefreshCw, Star, Eye, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Search, Filter, Database, CheckCircle2, Clock, RefreshCw, Star, Eye, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Experiments = () => {
@@ -53,13 +53,6 @@ const Experiments = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
-          </button>
-          <button
-            onClick={() => navigate('/upload')}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-[#4C3BDE] hover:bg-[#3D2EB0] text-white font-semibold rounded-lg transition-all shadow-sm text-[14px]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Experiment</span>
           </button>
         </div>
       </div>

@@ -438,8 +438,11 @@ def get_plot_data():
         X_search_list = [optimizer_instance.encoder.encode_variables(vd)[0] for vd in var_dicts]
         X_sweep = np.array(X_search_list)
         
-        # Calculate MU, SIGMA
-        mu, sigma = optimizer_instance.gp_model.predict(X_sweep, return_std=True)
+        # Calculate MU, SIGMA in scaled GP output space
+        mu_scaled, sigma_scaled = optimizer_instance.gp_model.predict(X_sweep, return_std=True)
+        mu_mev = optimizer_instance.scaler_y.inverse_transform(mu_scaled.reshape(-1, 1)).ravel()
+        mu_mev = np.maximum(mu_mev, 0.0)
+        sigma_mev = sigma_scaled * optimizer_instance.scaler_y.scale_[0]
         
         # Calculate EI using scaled y_best to match the BO pipeline
         y_best_scaled = optimizer_instance.y_train_scaled.min()
@@ -449,8 +452,8 @@ def get_plot_data():
         
         return {
             'x': gte_range.tolist(),
-            'mu': mu.tolist(),
-            'sigma': sigma.tolist(),
+            'mu': mu_mev.tolist(),
+            'sigma': sigma_mev.tolist(),
             'ei': ei_vals.tolist(),
             'fixed_params': {
                 'GTI': best['GTI_minutes'],

@@ -11,6 +11,8 @@ const Optimization = () => {
   const [boProgress, setBoProgress] = useState(null);
   
   const [fwhmResult, setFwhmResult] = useState('');
+  const predictedFwhm = suggestions.length > 0 ? Number(suggestions[0].predicted_FWHM_meV) : NaN;
+  const predictedUncertainty = suggestions.length > 0 ? Number(suggestions[0].uncertainty_meV) : NaN;
   const [actualGte, setActualGte] = useState('');
   const [actualGti, setActualGti] = useState('');
   const [actualFra, setActualFra] = useState('');
@@ -298,7 +300,10 @@ const Optimization = () => {
                   <div className="mt-8 pt-6 border-t border-slate-200">
                     <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex flex-col justify-center items-center">
                       <span className="text-emerald-700 font-medium text-sm mb-1">Model Predicts FWHM</span>
-                      <span className="text-emerald-700 font-bold text-2xl">{suggestions[0].predicted_FWHM_meV} <span className="text-lg opacity-70 font-normal">± {suggestions[0].uncertainty_meV} meV</span></span>
+                      <span className="text-emerald-700 font-bold text-2xl">
+                        {Number.isFinite(predictedFwhm) ? predictedFwhm.toFixed(2) : 'N/A'}
+                        <span className="text-lg opacity-70 font-normal"> ± {Number.isFinite(predictedUncertainty) ? predictedUncertainty.toFixed(2) : 'N/A'} meV</span>
+                      </span>
                     </div>
                   </div>
                 </>

@@ -110,13 +110,15 @@ class BayesianOptimizationEngine:
             # Predict FWHM at this point
             mu, sigma = gp.predict(X_search[idx : idx + 1], return_std=True)
 
+            pred_mev = float(mu[0])
+            pred_mev = max(pred_mev, 0.0)
             rec = BORecommendation(
                 step=rank,
                 GTE=float(var_dict['GTE']),
                 GTI=float(var_dict['GTI']),
                 FRA=float(var_dict['FRA']),
                 Pressure=float(var_dict['Pressure']),
-                predicted_FWHM=float(mu[0]),
+                predicted_FWHM=pred_mev,
                 uncertainty=float(sigma[0]),
                 EI_value=float(ei_values[idx]),
             )
@@ -193,7 +195,7 @@ class BayesianOptimizationEngine:
                 GTI=float(var_dict['GTI']),
                 FRA=float(var_dict['FRA']),
                 Pressure=float(var_dict['Pressure']),
-                predicted_FWHM=y_new,
+                predicted_FWHM=max(y_new, 0.0),
                 uncertainty=float(sigma_new[0]),
                 EI_value=float(ei_vals[idx_best]),
             )

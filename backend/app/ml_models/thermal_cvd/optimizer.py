@@ -142,13 +142,17 @@ class ThermalCVDOptimizer:
 
         # Inverse-transform to meV units
         mu_mev = float(self.scaler_y.inverse_transform([[mu_scaled[0]]])[0, 0])
+        mu_mev = max(mu_mev, 0.0)
         sigma_mev = float(sigma_scaled[0] * self.scaler_y.scale_[0])
+
+        lower_bound = max(mu_mev - 1.96 * sigma_mev, 0.0)
+        upper_bound = max(mu_mev + 1.96 * sigma_mev, 0.0)
 
         return {
             'predicted_FWHM_meV': mu_mev,
             'uncertainty_meV': sigma_mev,
-            'lower_bound_meV': mu_mev - 1.96 * sigma_mev,
-            'upper_bound_meV': mu_mev + 1.96 * sigma_mev,
+            'lower_bound_meV': lower_bound,
+            'upper_bound_meV': upper_bound,
         }
 
     def suggest_next_experiment(self, n_suggestions: int = 5) -> List[Dict]:
@@ -181,6 +185,7 @@ class ThermalCVDOptimizer:
             rec.predicted_FWHM = float(
                 self.scaler_y.inverse_transform([[rec.predicted_FWHM]])[0, 0]
             )
+            rec.predicted_FWHM = max(rec.predicted_FWHM, 0.0)
             rec.uncertainty = float(rec.uncertainty * self.scaler_y.scale_[0])
 
         return self.bo_engine.recommendations_to_dicts(recommendations)
@@ -205,15 +210,17 @@ class ThermalCVDOptimizer:
             n_steps=n_steps,
         )
 
-        # Inverse-transform convergence history to meV
+        # Inverse-transform convergence history to meV with non-negative clipping
         best_fwhm_mev = [
-            float(self.scaler_y.inverse_transform([[v]])[0, 0])
+            max(float(self.scaler_y.inverse_transform([[v]])[0, 0]), 0.0)
             for v in history['best_fwhm_progression']
         ]
         proposed_fwhm_mev = [
-            float(self.scaler_y.inverse_transform([[v]])[0, 0])
+            max(float(self.scaler_y.inverse_transform([[v]])[0, 0]), 0.0)
             for v in history['proposed_fwhm']
         ]
+        best_predicted_raw = max(float(self.scaler_y.inverse_transform([[bo_engine.best_y]])[0, 0]), 0.0)
+        initial_best = float(self.y_train.min())
 
         return {
             'recommendations': bo_engine.recommendations_to_dicts(recommendations),
@@ -223,14 +230,10 @@ class ThermalCVDOptimizer:
                 'uncertainty': [float(v) for v in history['uncertainty_progression']],
             },
             'summary': {
-                'best_predicted_FWHM': float(
-                    self.scaler_y.inverse_transform([[bo_engine.best_y]])[0, 0]
-                ),
-                'initial_best': float(self.y_train.min()),
-                'improvement_meV': float(
-                    self.y_train.min() -
-                    self.scaler_y.inverse_transform([[bo_engine.best_y]])[0, 0]
-                ),
+                'best_predicted_FWHM': best_predicted_raw,
+                'initial_best': initial_best,
+                'improvement_meV': float(initial_best - best_predicted_raw),
+                'observed_fwhm': [float(y) for y in self.y_train],
             },
         }
 
@@ -255,6 +258,8 @@ class ThermalCVDOptimizer:
         )
         y_new_scaled = float(mu_scaled[0])
         y_new_mev = float(self.scaler_y.inverse_transform([[y_new_scaled]])[0, 0])
+        y_new_mev = max(y_new_mev, 0.0)
+        y_new_scaled = float(self.scaler_y.transform([[y_new_mev]])[0, 0])
         sigma_mev = float(sigma_scaled[0] * self.scaler_y.scale_[0])
 
         # Append to training set (both raw and scaled)
@@ -323,10 +328,19 @@ class ThermalCVDOptimizer:
 
         # Predict in scaled space, then inverse-transform for meV metrics
         # Matches notebook: y_pred = scaler_y.inverse_transform(y_pred_scaled)
-        y_pred_scaled, _ = self.gp_model.predict(self.X_train, return_std=True)
+        y_pred_scaled, sigma_scaled = self.gp_model.predict(self.X_train, return_std=True)
         y_pred_raw = self.scaler_y.inverse_transform(
             y_pred_scaled.reshape(-1, 1)
         ).ravel()
+        y_pred_raw = np.maximum(y_pred_raw, 0.0)
+
+        mean_sigma_scaled = float(np.mean(sigma_scaled)) if sigma_scaled is not None else 0.0
+        confidence = float(np.clip(np.exp(-mean_sigma_scaled), 0.0, 1.0))
+
+        import time
+        start_time = time.perf_counter()
+        self.gp_model.predict(self.X_train[:1], return_std=True)
+        inference_time_ms = float((time.perf_counter() - start_time) * 1000)
 
         metrics = self.gp_model.get_metrics(
             self.X_train,
@@ -337,6 +351,8 @@ class ThermalCVDOptimizer:
         return {
             'status': 'fitted',
             'kernel': self.gp_model.get_kernel_info(),
+            'confidence': confidence,
+            'inference_time_ms': round(inference_time_ms, 2),
             **metrics,
             **self._training_info,
         }

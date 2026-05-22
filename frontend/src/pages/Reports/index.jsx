@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, RefreshCcw, FileText, CheckCircle2, TrendingUp, FlaskConical, 
-  Database, Cpu, Sparkles, Download, MoreVertical, Info, Calendar, 
+  Database, Cpu, Sparkles, Download, Info, Calendar, 
   User, ChevronDown, ArrowRight, ChevronLeft, ChevronRight, Share2, Target, AlertCircle, Loader2
 } from 'lucide-react';
 import { 
@@ -20,6 +20,15 @@ const Reports = () => {
   const [selectedExperiment, setSelectedExperiment] = useState('All');
   const [reportType, setReportType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -85,6 +94,12 @@ const Reports = () => {
     setSelectedExperiment('All');
     setReportType('All');
     setSearchQuery('');
+    setStartDate(() => {
+      const d = new Date();
+      d.setDate(1);
+      return d.toISOString().slice(0, 10);
+    });
+    setEndDate(() => new Date().toISOString().slice(0, 10));
   };
 
   const handleDownloadCSV = () => {
@@ -147,15 +162,25 @@ const Reports = () => {
         </div>
         <div className="flex-1">
           <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Date Range</label>
-          <div className="relative">
-            <Calendar className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              value="May 1, 2026 - May 20, 2026" 
-              readOnly
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white cursor-pointer"
-            />
-            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <Calendar className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:border-[#4C3BDE]"
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:border-[#4C3BDE]"
+              />
+            </div>
           </div>
         </div>
         <div className="flex-1">
@@ -336,7 +361,6 @@ const Reports = () => {
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Generated On</th>
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Best FWHM</th>
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th className="text-center py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -349,16 +373,6 @@ const Reports = () => {
                         <td className="py-4 px-2 text-[13px] font-bold text-slate-800">{report.fwhm}</td>
                         <td className="py-4 px-2">
                           <span className="px-2.5 py-1 bg-[#E8FFF3] text-[#00B050] text-[11px] font-bold rounded-md">Completed</span>
-                        </td>
-                        <td className="py-4 px-2">
-                          <div className="flex justify-center items-center space-x-2">
-                            <button className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors border border-slate-200 bg-white shadow-sm">
-                              <Download className="w-4 h-4" />
-                            </button>
-                            <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors border border-slate-200 bg-white shadow-sm">
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     ))}

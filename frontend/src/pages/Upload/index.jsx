@@ -442,18 +442,7 @@ const Upload = () => {
                           </div>
                           
                           {columnsInfo.numerical.includes(v) ? (
-                            <div className="grid grid-cols-4 gap-3">
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Value</label>
-                                <input 
-                                  type="number" 
-                                  step="any"
-                                  value={selectedVariables[v]?.value || ''}
-                                  onChange={(e) => updateVariableField(v, 'value', e.target.value)}
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  placeholder="Enter value"
-                                />
-                              </div>
+                            <div className="grid grid-cols-3 gap-3">
                               <div>
                                 <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit (Fixed)</label>
                                 <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700 font-semibold flex items-center h-[34px]">
@@ -479,18 +468,7 @@ const Upload = () => {
                               </div>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-4 gap-3">
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Value</label>
-                                <select 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                >
-                                  <option value="">Select a class</option>
-                                  {distributions[v]?.map((d, dIdx) => (
-                                    <option key={dIdx} value={d.name}>{d.name}</option>
-                                  ))}
-                                </select>
-                              </div>
+                            <div className="grid grid-cols-3 gap-3">
                               <div className="col-span-2">
                                 <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Available Classes</label>
                                 <div className="flex gap-1.5 flex-wrap">
