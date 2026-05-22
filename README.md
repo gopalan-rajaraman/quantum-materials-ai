@@ -17,12 +17,13 @@ By replacing manual, trial-and-error recipe tuning with **Bayesian Optimization 
 1. [Overview & Scientific Rationale](#-overview--scientific-rationale)
 2. [Key Features](#-key-features)
 3. [System Architecture](#-system-architecture)
-4. [Folder Structure](#-folder-structure)
-5. [Technology Stack](#-technology-stack)
-6. [Active Learning Workflow](#-active-learning-workflow)
-7. [API Documentation](#-api-documentation)
-8. [Installation & Setup](#-installation--setup)
-9. [Verification & Testing](#-verification--testing)
+4. [Mathematical Formulation](#-mathematical-formulation)
+5. [Folder Structure](#-folder-structure)
+6. [Technology Stack](#-technology-stack)
+7. [Active Learning Workflow](#-active-learning-workflow)
+8. [API Documentation](#-api-documentation)
+9. [Installation & Setup](#-installation--setup)
+10. [Verification & Testing](#-verification--testing)
 
 ---
 
@@ -68,6 +69,21 @@ graph TD
     I -->|Record PL FWHM| J[Add New Experiment Form]
     J -->|POST /thermal-cvd/add-experiments| B
 ```
+
+---
+
+## 🧮 Mathematical Formulation
+
+**Expected Improvement:**
+
+$$ EI(x) = \mathbb{E}[\max(f_{best} - f(x), 0)] $$
+
+**Gaussian Process:**
+
+$$ f(x) \sim \mathcal{GP}(m(x), k(x, x')) $$
+
+**Short Explanation:**
+The Gaussian Process (GP) acts as a surrogate model to predict the synthesis quality (PL FWHM) across the parameter space, providing both a predictive mean $m(x)$ and an uncertainty (covariance) measure $k(x, x')$. The Expected Improvement (EI) acquisition function leverages these GP predictions to evaluate candidate experiments. It mathematically balances *exploitation* (evaluating regions where the predicted value is lower than our current best $f_{best}$) and *exploration* (evaluating regions of high uncertainty), systematically guiding the discovery of optimal CVD growth recipes.
 
 ---
 
