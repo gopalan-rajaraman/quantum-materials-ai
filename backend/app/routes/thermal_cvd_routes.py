@@ -40,6 +40,12 @@ class OptimizeRequest(BaseModel):
     n_steps: int = 10
 
 
+class SurfaceDataRequest(BaseModel):
+    var_x: str = "GTE"
+    var_y: str = "GTI"
+    grid_size: int = 20
+
+
 class ConstantUpdateRequest(BaseModel):
     column: str
     value: Any
@@ -435,10 +441,10 @@ def get_plot_data():
         # Calculate MU, SIGMA
         mu, sigma = optimizer_instance.gp_model.predict(X_sweep, return_std=True)
         
-        # Calculate EI
-        y_best = optimizer_instance.y_train.min()
+        # Calculate EI using scaled y_best to match the BO pipeline
+        y_best_scaled = optimizer_instance.y_train_scaled.min()
         ei_vals = optimizer_instance.bo_engine.expected_improvement(
-            X_sweep, optimizer_instance.gp_model.gp, y_best, xi=0.01
+            X_sweep, optimizer_instance.gp_model.gp, y_best_scaled, xi=0.01
         )
         
         return {
@@ -572,6 +578,54 @@ def get_variables_distribution():
         return {
             'numerical': numerical_results,
             'categorical': categorical_results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/surface-data")
+def get_surface_data(request: SurfaceDataRequest):
+    """Generate 2D grid data for GP Response Surface visualization."""
+    if optimizer_instance is None or not optimizer_instance._fitted:
+        raise HTTPException(status_code=503, detail="Model not fitted")
+        
+    try:
+        # Get optimal params to fix the other variables
+        best_rec = optimizer_instance.suggest_next_experiment(n_suggestions=1)[0]
+        
+        var_x = request.var_x
+        var_y = request.var_y
+        
+        # Get bounds
+        ranges = optimizer_instance.encoder.VARIABLE_RANGES
+        x_min, x_max = ranges[var_x]
+        y_min, y_max = ranges[var_y]
+        
+        x_vals = np.linspace(x_min, x_max, request.grid_size)
+        y_vals = np.linspace(y_min, y_max, request.grid_size)
+        
+        z_vals = []
+        for y_val in y_vals:
+            row = []
+            for x_val in x_vals:
+                var_dict = {
+                    'GTE': best_rec['GTE_celsius'],
+                    'GTI': best_rec['GTI_minutes'],
+                    'FRA': best_rec['FRA_sccm'],
+                    'Pressure': best_rec['Pressure_Torr']
+                }
+                var_dict[var_x] = float(x_val)
+                var_dict[var_y] = float(y_val)
+                
+                pred = optimizer_instance.predict_fwhm(**var_dict)
+                row.append(pred['predicted_FWHM_meV'])
+            z_vals.append(row)
+            
+        return {
+            "x": x_vals.tolist(),
+            "y": y_vals.tolist(),
+            "z": z_vals,
+            "x_label": var_x,
+            "y_label": var_y
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

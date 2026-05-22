@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, TrendingUp, TrendingDown, Target, Database, Zap, 
-  ShieldCheck, Download, MoreHorizontal, ChevronDown, 
+  ShieldCheck, ChevronDown, 
   ChevronLeft, ChevronRight, Activity, ArrowUpRight, ArrowDownRight 
 } from 'lucide-react';
 import { 
@@ -42,10 +42,6 @@ const Models = () => {
   const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '—';
   const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : '—';
   const kernelName = modelInfo?.kernel || 'RBF + WhiteKernel';
-
-  const modelVersions = [
-    { version: 'v2.3', kernel: kernelName, dataset: 'Active Dataset', r2: r2Value, mae: maeValue, status: modelInfo?.status === 'fitted' ? 'Active' : 'Not Trained', date: modelInfo?.trained_at || 'Not yet trained', current: true },
-  ];
 
   // Custom tooltips
   const CustomTooltipFeature = ({ active, payload }) => {
@@ -313,67 +309,6 @@ const Models = () => {
         </div>
       </div>
 
-      {/* Bottom Section: Model Versions Table */}
-      <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-6">
-        <h3 className="text-[14px] font-bold text-[#1e1b4b] mb-6">Model Versions</h3>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Version</th>
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Kernel</th>
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dataset</th>
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">R² Score</th>
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">MAE (meV)</th>
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trained On</th>
-                <th className="text-center py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {modelVersions.map((model, idx) => (
-                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="py-4 px-2 flex items-center space-x-2">
-                    <span className="text-[13px] font-bold text-slate-800">{model.version}</span>
-                    {model.current && (
-                      <span className="px-1.5 py-0.5 bg-[#4C3BDE] text-white text-[9px] font-bold rounded">Current</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-2 text-[13px] text-slate-600 font-medium">{model.kernel}</td>
-                  <td className="py-4 px-2 text-[13px] text-slate-600">{model.dataset}</td>
-                  <td className="py-4 px-2 text-[13px] font-bold text-slate-800">{model.r2}</td>
-                  <td className="py-4 px-2 text-[13px] font-bold text-slate-800">{model.mae}</td>
-                  <td className="py-4 px-2">
-                    <span className={`px-2.5 py-1 text-[11px] font-bold rounded-md ${
-                      model.status === 'Active' 
-                        ? 'bg-[#E8FFF3] text-[#00B050]' 
-                        : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {model.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-2 text-[12px] text-slate-500 font-medium">{model.date}</td>
-                  <td className="py-4 px-2">
-                    <div className="flex justify-center items-center space-x-2">
-                      <button className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors">
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-slate-100">
-          <span className="text-[12px] font-medium text-slate-500">Showing 1 to {modelVersions.length} of {modelVersions.length} models</span>
-        </div>
-      </div>
     </div>
   );
 };
