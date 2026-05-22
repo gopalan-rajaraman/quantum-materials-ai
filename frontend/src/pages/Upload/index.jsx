@@ -85,15 +85,6 @@ const Upload = () => {
     const dists = {};
     const units = {};
     
-    // Auto-detect units based on column names
-    const unitMapping = {
-      'GTE': '°C', 'GTI': 'min', 'FRA': 'sccm', 'Pressure': 'Torr',
-      'FRH': 'sccm', 'HR': 'sccm', 'FRP1': 'sccm', 'FRP2': 'sccm',
-      'CP1': 'W', 'CP2': 'W', 'Temperature': '°C', 'Time': 'min',
-      'Concentration': 'M', 'Power': 'W', 'Annealing_Temperature': '°C',
-      'Annealing_Time': 'min', 'PL_FWHM': 'meV', 'PL_Peak': 'eV'
-    };
-    
     Object.keys(sample).forEach(key => {
       let isNum = true;
       let min = Infinity;
@@ -118,8 +109,17 @@ const Upload = () => {
       if (isNum) {
         numerical.push(key);
         // Auto-detect unit
-        const cleanKey = key.replace(' ', '_').replace('_', '');
-        units[key] = unitMapping[cleanKey] || unitMapping[key] || '';
+        const normalizedKey = key.replace(/\s+/g, '_').toUpperCase();
+        let detectedUnit = '';
+        if (normalizedKey.includes('GTE') || normalizedKey.includes('TEMPERATURE') || normalizedKey.includes('TEMP')) detectedUnit = '°C';
+        else if (normalizedKey.includes('GTI') || normalizedKey.includes('TIME')) detectedUnit = 'min';
+        else if (normalizedKey.includes('FLOW') || normalizedKey.includes('FR')) detectedUnit = 'sccm';
+        else if (normalizedKey.includes('PRESSURE')) detectedUnit = 'Torr';
+        else if (normalizedKey.includes('FWHM')) detectedUnit = 'meV';
+        else if (normalizedKey.includes('PEAK') || normalizedKey.includes('POSITION')) detectedUnit = 'eV';
+        else if (normalizedKey.includes('POWER') || normalizedKey.includes('CP')) detectedUnit = 'W';
+        
+        units[key] = detectedUnit;
         
         // Simple histogram bins
         const binCount = 5;
@@ -448,14 +448,16 @@ const Upload = () => {
                                 <input 
                                   type="number" 
                                   step="any"
+                                  value={selectedVariables[v]?.value || ''}
+                                  onChange={(e) => updateVariableField(v, 'value', e.target.value)}
                                   className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
                                   placeholder="Enter value"
                                 />
                               </div>
                               <div>
                                 <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit (Fixed)</label>
-                                <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700 font-semibold flex items-center">
-                                  {selectedVariables[v]?.unit || variableUnits[v] || '—'}
+                                <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700 font-semibold flex items-center h-[34px]">
+                                  {variableUnits[v] || '—'}
                                 </div>
                               </div>
                               <div>
