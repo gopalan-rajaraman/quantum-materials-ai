@@ -11,8 +11,22 @@ const Optimization = () => {
   const [boProgress, setBoProgress] = useState(null);
   
   const [fwhmResult, setFwhmResult] = useState('');
+  const [actualGte, setActualGte] = useState('');
+  const [actualGti, setActualGti] = useState('');
+  const [actualFra, setActualFra] = useState('');
+  const [actualPressure, setActualPressure] = useState('');
+  
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (suggestions && suggestions.length > 0) {
+      setActualGte(suggestions[0].GTE_celsius);
+      setActualGti(suggestions[0].GTI_minutes);
+      setActualFra(suggestions[0].FRA_sccm);
+      setActualPressure(suggestions[0].Pressure_Torr);
+    }
+  }, [suggestions]);
 
   const fetchModelData = async () => {
     try {
@@ -64,10 +78,10 @@ const Optimization = () => {
     setSubmitting(true);
     try {
       const payload = {
-        GTE: suggestions[0].GTE_celsius,
-        GTI: suggestions[0].GTI_minutes,
-        FRA: suggestions[0].FRA_sccm,
-        Pressure: suggestions[0].Pressure_Torr,
+        GTE: parseFloat(actualGte),
+        GTI: parseFloat(actualGti),
+        FRA: parseFloat(actualFra),
+        Pressure: parseFloat(actualPressure),
         PL_FWHM: parseFloat(fwhmResult)
       };
 
@@ -300,19 +314,69 @@ const Optimization = () => {
             {suggestions.length > 0 && !loading && (
               <form onSubmit={handleAddExperiment} className="mt-8 space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
                 <h4 className="font-bold text-slate-900 text-center">Log Experimental Result</h4>
-                <p className="text-xs text-center text-slate-500 mb-4">Run the experiment above and enter the resulting PL FWHM to retrain the model.</p>
+                <p className="text-xs text-center text-slate-500 mb-4">Run the experiment and enter the actual parameters used along with the resulting PL FWHM to retrain the model.</p>
                 
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Growth Temp (GTE)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" step="any" required
+                        value={actualGte} onChange={(e) => setActualGte(e.target.value)}
+                        className="w-full text-right font-bold p-2 pr-10 border border-slate-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold pointer-events-none">°C</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Growth Time (GTI)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" step="any" required
+                        value={actualGti} onChange={(e) => setActualGti(e.target.value)}
+                        className="w-full text-right font-bold p-2 pr-12 border border-slate-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold pointer-events-none">min</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Ar Flow (FRA)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" step="any" required
+                        value={actualFra} onChange={(e) => setActualFra(e.target.value)}
+                        className="w-full text-right font-bold p-2 pr-14 border border-slate-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold pointer-events-none">sccm</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Pressure</label>
+                    <div className="relative">
+                      <input 
+                        type="number" step="any" required
+                        value={actualPressure} onChange={(e) => setActualPressure(e.target.value)}
+                        className="w-full text-right font-bold p-2 pr-12 border border-slate-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold pointer-events-none">Torr</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block text-center">Measured FWHM (meV)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    required
-                    value={fwhmResult}
-                    onChange={(e) => setFwhmResult(e.target.value)}
-                    placeholder="e.g., 34.50"
-                    className="w-full text-center text-lg font-bold p-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all"
-                  />
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block text-center">Measured FWHM</label>
+                  <div className="relative max-w-xs mx-auto">
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      required
+                      value={fwhmResult}
+                      onChange={(e) => setFwhmResult(e.target.value)}
+                      placeholder="e.g., 34.50"
+                      className="w-full text-center text-lg font-bold p-3 pr-14 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">meV</span>
+                  </div>
                 </div>
 
                 <button 
