@@ -18,6 +18,8 @@ const Upload = () => {
   const [selectedVariables, setSelectedVariables] = useState({});
   const [activeTab, setActiveTab] = useState('numerical');
   const [variableUnits, setVariableUnits] = useState({});
+  const [globalConstants, setGlobalConstants] = useState([]);
+
   
   const [isLocking, setIsLocking] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -149,9 +151,9 @@ const Upload = () => {
     setDistributions(dists);
     setVariableUnits(units);
 
-    // Default variable selections
+    // Default variable selections (all columns from sheet are variables)
     const initialVars = {};
-    [...numerical, ...categorical].slice(0, 8).forEach(col => {
+    [...numerical, ...categorical].forEach(col => {
       initialVars[col] = {
         selected: true,
         unit: units[col] || '',
@@ -189,6 +191,22 @@ const Upload = () => {
         isConstant: !prev[col]?.isConstant
       }
     }));
+  };
+
+  const addGlobalConstant = () => {
+    setGlobalConstants([...globalConstants, { name: '', value: '' }]);
+  };
+
+  const updateGlobalConstant = (index, field, value) => {
+    const newConstants = [...globalConstants];
+    newConstants[index][field] = value;
+    setGlobalConstants(newConstants);
+  };
+
+  const removeGlobalConstant = (index) => {
+    const newConstants = [...globalConstants];
+    newConstants.splice(index, 1);
+    setGlobalConstants(newConstants);
   };
 
   const toggleExpIdConfirmation = (expId) => {
@@ -398,131 +416,86 @@ const Upload = () => {
                 <h2 className="text-xl font-bold text-slate-900 mb-1">Define Constants & Variables</h2>
                 <p className="text-slate-500 mb-6 text-[13px]">Specify which parameters are constants and which will vary during experiments.</p>
                 
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-                    <h3 className="font-bold text-slate-900 mb-4 text-[13px]">All Parameters</h3>
-                    <div className="space-y-2 h-[320px] overflow-y-auto pr-2">
-                      {[...columnsInfo.numerical, ...columnsInfo.categorical].map((v, i) => (
-                        <label key={i} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 shadow-sm rounded-lg cursor-pointer hover:border-[#4C3BDE]/30 transition-colors">
-                          <div className="flex items-center space-x-2">
-                            <input 
-                              type="checkbox" 
-                              className="w-4 h-4 text-[#4C3BDE] rounded border-slate-200 focus:ring-[#4C3BDE]" 
-                              checked={selectedVariables[v]?.selected || false}
-                              onChange={() => toggleVariable(v)}
-                            />
-                            <span className="text-[12px] font-semibold text-slate-700 truncate" title={v}>{v}</span>
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left: Variables from Sheet */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] h-[400px] flex flex-col">
+                    <h3 className="font-bold text-slate-900 mb-1 text-[13px]">Variables from Sheet</h3>
+                    <p className="text-[11px] text-slate-500 mb-4">These parameters will vary in each experiment condition.</p>
+                    <div className="space-y-3 overflow-y-auto pr-2 flex-1">
+                      {Object.keys(selectedVariables).map((v, idx) => (
+                        <div key={idx} className="p-3 rounded-xl border border-slate-100 flex items-center justify-between bg-white shadow-sm hover:border-[#4C3BDE]/30 transition-colors">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#F8F6FF] flex items-center justify-center text-[#4C3BDE]">
+                              <BarChart2 className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="font-bold text-[13px] text-slate-800 block mb-0.5">{v}</span>
+                              <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                                {columnsInfo.numerical.includes(v) ? 'Numerical' : 'Categorical'}
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                            {columnsInfo.numerical.includes(v) ? 'Num' : 'Cat'}
-                          </span>
-                        </label>
+                          <span className="text-[10px] font-bold text-[#4C3BDE] bg-[#F8F6FF] px-2.5 py-1 rounded-md border border-[#4C3BDE]/20">Variable</span>
+                        </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="lg:col-span-2 bg-white rounded-xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] h-[360px] overflow-y-auto">
-                    <div className="space-y-4">
-                      {Object.keys(selectedVariables).filter(k => selectedVariables[k].selected).map((v, idx) => (
-                        <div key={idx} className={`p-4 rounded-xl border ${idx > 0 ? 'border-slate-100' : 'border-[#4C3BDE]/20 bg-[#F8F6FF]'}`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="font-bold text-[13px] text-slate-900">{v}</div>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => toggleVariableType(v)}
-                                className={`text-[11px] px-3 py-1 rounded-md font-bold transition-colors border ${
-                                  selectedVariables[v]?.isConstant 
-                                    ? 'bg-amber-50 text-amber-600 border-amber-100' 
-                                    : 'bg-white text-[#4C3BDE] border-[#4C3BDE]/20'
-                                }`}
-                              >
-                                {selectedVariables[v]?.isConstant ? 'Constant' : 'Variable to Vary'}
-                              </button>
-                            </div>
+                  {/* Right: Global Constants */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] h-[400px] flex flex-col">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="font-bold text-slate-900 text-[13px]">Global Constants</h3>
+                      <button onClick={addGlobalConstant} className="text-[11px] px-3 py-1 bg-[#F8F6FF] border border-[#4C3BDE]/20 font-bold text-[#4C3BDE] rounded-md hover:bg-[#4C3BDE] hover:text-white transition-colors">
+                        + Add Constant
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mb-4">These values will remain constant throughout the BO experiment.</p>
+                    
+                    <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                      {globalConstants.map((c, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                          <div className="col-span-5">
+                            <label className="text-[10px] text-slate-500 mb-1.5 block font-bold uppercase tracking-wide">Parameter</label>
+                            <select 
+                              className="w-full border border-slate-200 rounded-lg p-2.5 text-[13px] font-medium bg-white focus:ring-2 focus:ring-[#4C3BDE]/20 focus:border-[#4C3BDE] outline-none transition-all shadow-sm"
+                              value={c.name}
+                              onChange={(e) => updateGlobalConstant(idx, 'name', e.target.value)}
+                            >
+                              <option value="">Select Parameter</option>
+                              <option value="GTE">Growth Temp (GTE)</option>
+                              <option value="GTI">Growth Time (GTI)</option>
+                              <option value="FRA">Ar Flow (FRA)</option>
+                              <option value="Pressure">Pressure</option>
+                              <option value="Power">Power</option>
+                              <option value="Custom">Custom...</option>
+                            </select>
                           </div>
-                          
-                          {columnsInfo.numerical.includes(v) ? (
-                            <div className="grid grid-cols-4 gap-3">
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Value</label>
-                                <input 
-                                  type="number" 
-                                  step="any"
-                                  value={selectedVariables[v]?.value || ''}
-                                  onChange={(e) => updateVariableField(v, 'value', e.target.value)}
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  placeholder="Enter value"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Unit (Fixed)</label>
-                                <div className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 text-slate-700 font-semibold flex items-center h-[34px]">
-                                  {variableUnits[v] || '—'}
-                                </div>
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Type</label>
-                                <select 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  value={selectedVariables[v]?.isConstant ? 'constant' : 'variable'}
-                                  onChange={(e) => updateVariableField(v, 'isConstant', e.target.value === 'constant')}
-                                >
-                                  <option value="variable">Variable</option>
-                                  <option value="constant">Constant</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Note</label>
-                                <div className="w-full rounded-lg p-2 text-[10px] bg-blue-50 text-blue-700 border border-blue-100">
-                                  Unit is locked. Use the fixed unit only.
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-4 gap-3">
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Value</label>
-                                <select 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                >
-                                  <option value="">Select a class</option>
-                                  {distributions[v]?.map((d, dIdx) => (
-                                    <option key={dIdx} value={d.name}>{d.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="col-span-2">
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Available Classes</label>
-                                <div className="flex gap-1.5 flex-wrap">
-                                  {distributions[v]?.map((d, dIdx) => (
-                                    <span key={dIdx} className="bg-white text-[#4C3BDE] px-2 py-1 rounded text-[10px] font-bold border border-[#4C3BDE]/20">
-                                      {d.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wide font-semibold">Type</label>
-                                <select 
-                                  className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:ring-1 focus:ring-[#4C3BDE] focus:border-[#4C3BDE] outline-none"
-                                  value={selectedVariables[v]?.isConstant ? 'constant' : 'variable'}
-                                  onChange={(e) => updateVariableField(v, 'isConstant', e.target.value === 'constant')}
-                                >
-                                  <option value="variable">Variable</option>
-                                  <option value="constant">Constant</option>
-                                </select>
-                              </div>
-                            </div>
-                          )}
+                          <div className="col-span-5">
+                            <label className="text-[10px] text-slate-500 mb-1.5 block font-bold uppercase tracking-wide">Value</label>
+                            <input 
+                              type="number"
+                              step="any"
+                              className="w-full border border-slate-200 rounded-lg p-2.5 text-[13px] font-medium bg-white focus:ring-2 focus:ring-[#4C3BDE]/20 focus:border-[#4C3BDE] outline-none transition-all shadow-sm"
+                              placeholder="Enter value"
+                              value={c.value}
+                              onChange={(e) => updateGlobalConstant(idx, 'value', e.target.value)}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                             <button onClick={() => removeGlobalConstant(idx)} className="w-full p-2.5 text-red-500 bg-white hover:bg-red-50 hover:border-red-200 rounded-lg border border-slate-200 transition-colors flex justify-center items-center shadow-sm">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                             </button>
+                          </div>
                         </div>
                       ))}
-                      {activeVariablesCount === 0 && (
-                        <div className="text-center py-12">
-                          <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <BarChart2 className="w-6 h-6 text-slate-400" />
-                          </div>
-                          <p className="text-slate-500 text-[13px]">Select parameters from the left to define their properties.</p>
-                        </div>
+                      {globalConstants.length === 0 && (
+                         <div className="h-full flex flex-col items-center justify-center py-8">
+                           <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                             <Info className="w-5 h-5 text-slate-400" />
+                           </div>
+                           <p className="text-slate-500 text-[12px] font-medium">No constants defined yet.</p>
+                           <p className="text-slate-400 text-[11px] mt-1 text-center px-4">Click "Add Constant" to specify parameters that won't change.</p>
+                         </div>
                       )}
                     </div>
                   </div>
@@ -541,13 +514,13 @@ const Upload = () => {
                     <div className="text-center px-4">
                       <p className="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Variables to Vary</p>
                       <p className="text-lg font-bold text-[#4C3BDE]">
-                        {Object.values(selectedVariables).filter(v => v.selected && !v.isConstant).length}
+                        {Object.keys(selectedVariables).length}
                       </p>
                     </div>
                     <div className="text-center px-4">
                       <p className="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Constants</p>
                       <p className="text-lg font-bold text-[#4C3BDE]">
-                        {Object.values(selectedVariables).filter(v => v.selected && v.isConstant).length}
+                        {globalConstants.length}
                       </p>
                     </div>
                   </div>
