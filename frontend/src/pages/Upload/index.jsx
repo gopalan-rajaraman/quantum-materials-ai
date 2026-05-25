@@ -507,7 +507,7 @@ const Upload = () => {
                         
                         {/* Numerical Constants */}
                         <div className="col-span-2">
-                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">H2 Flow Rate (FRH)</label>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">H2 Flow Rate (FRH) [sccm]</label>
                           <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', e.target.value)} />
                         </div>
                       </div>
@@ -589,7 +589,7 @@ const Upload = () => {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                               confirmedExpIds.has(exp.id) 
                                 ? 'border-[#00B050] bg-[#00B050]' 
                                 : 'border-slate-300'
