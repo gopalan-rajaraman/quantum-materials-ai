@@ -74,9 +74,9 @@ const Reports = () => {
   const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '—';
 
   const recentReports = datasetsList.length > 0
-    ? datasetsList.map((ds, idx) => ({
+    ? [datasetsList[0]].map((ds, idx) => ({
         name: `${(ds.name || '').replace(/\.[^/.]+$/, "")}_Report`,
-        id: ds.id || `EXP-${101 + idx}`,
+        id: ds.id || `EXP-101`,
         type: 'Experiment Summary',
         date: ds.date || '—',
         fwhm: ds.status === 'locked' ? bestFwhm : '—'
@@ -85,7 +85,7 @@ const Reports = () => {
 
   const filteredReports = recentReports.filter(report => {
     const matchesSearch = String(report.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || String(report.id || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesExp = selectedExperiment === 'All' || String(report.id) === String(selectedExperiment);
+    const matchesExp = true; // Only one report is shown anyway
     const matchesType = reportType === 'All' || report.type === reportType;
     return matchesSearch && matchesExp && matchesType;
   });
@@ -145,17 +145,16 @@ const Reports = () => {
         <div className="flex-1">
           <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Select Experiment</label>
           <div className="relative">
-            <select 
+              <select 
               value={selectedExperiment}
               onChange={(e) => setSelectedExperiment(e.target.value)}
               className="w-full appearance-none border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 bg-white focus:outline-none cursor-pointer"
             >
-              <option value="All">All Experiments</option>
-              {datasetsList.map((ds, idx) => (
-                <option key={idx} value={ds.id || `EXP-${101 + idx}`}>
-                  {ds.id || `EXP-${101 + idx}`} - {ds.name}
+              {datasetsList.length > 0 && (
+                <option value={datasetsList[0].id || 'EXP-101'}>
+                  {datasetsList[0].id || 'EXP-101'} - {datasetsList[0].name}
                 </option>
-              ))}
+              )}
             </select>
             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
@@ -348,7 +347,7 @@ const Reports = () => {
                 <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
                   <FileText className="w-4 h-4" />
                 </div>
-                <h2 className="text-[15px] font-bold text-[#1e1b4b]">Recent Reports</h2>
+                <h2 className="text-[15px] font-bold text-[#1e1b4b]">Current Report</h2>
               </div>
               
               <div className="overflow-x-auto">
@@ -384,7 +383,7 @@ const Reports = () => {
 
               {/* Pagination */}
               <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
-                <span className="text-[12px] font-medium text-slate-500">Showing {filteredReports.length > 0 ? 1 : 0} to {filteredReports.length} of {recentReports.length} reports</span>
+                <span className="text-[12px] font-medium text-slate-500">Showing {filteredReports.length > 0 ? 1 : 0} of {recentReports.length} report</span>
               </div>
             </div>
           </div>
