@@ -208,17 +208,8 @@ const Upload = () => {
     }));
   };
 
-
   const toggleExpIdConfirmation = (expId) => {
-    setConfirmedExpIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(expId)) {
-        newSet.delete(expId);
-      } else {
-        newSet.add(expId);
-      }
-      return newSet;
-    });
+    setConfirmedExpIds(new Set([expId]));
   };
 
   const SAMPLES_PER_EXPERIMENT = 10;
@@ -557,24 +548,11 @@ const Upload = () => {
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-1">Confirm Experimental IDs</h2>
                   <p className="text-slate-500 text-[13px]">
-                    Please confirm each experimental ID before locking the dataset. This ensures data integrity for the ML model training.
+                    Please select an experimental ID to confirm it before locking the dataset.
                   </p>
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-5 mb-6">
-                  <div className="flex justify-between items-center mb-5">
-                    <div className="flex items-center space-x-4">
-                      <button 
-                        onClick={confirmAllExpIds}
-                        className="text-[11px] px-3 py-1.5 bg-white border border-[#4C3BDE]/20 text-[#4C3BDE] rounded-md font-bold hover:bg-[#F8F6FF] transition-colors"
-                      >
-                        Confirm All ({getExperimentalIds().length})
-                      </button>
-                      <span className="text-[12px] font-semibold text-slate-500">
-                        Confirmed: {confirmedExpIds.size} / {getExperimentalIds().length}
-                      </span>
-                    </div>
-                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {getExperimentalIds().map((exp, idx) => (
@@ -589,7 +567,7 @@ const Upload = () => {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                               confirmedExpIds.has(exp.id) 
                                 ? 'border-[#00B050] bg-[#00B050]' 
                                 : 'border-slate-300'
