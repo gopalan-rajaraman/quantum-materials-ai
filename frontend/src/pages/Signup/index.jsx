@@ -405,56 +405,210 @@ const LeftPanel = () => (
 );
 
 
+
 /* ─── Google Account Chooser Modal ──────────────────────────── */
 const GoogleAccountChooserModal = ({ isOpen, onClose, onSelect }) => {
+  const [step, setStep] = React.useState('CHOOSER');
+  const [account, setAccount] = React.useState(null);
+  const [customEmail, setCustomEmail] = React.useState('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setStep('CHOOSER');
+      setAccount(null);
+      setCustomEmail('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
   const accounts = [
     { name: 'Khushboo', email: 'chaudharykhus3107@gmail.com', img: 'K', color: '#8b5cf6' }
   ];
 
+  const handleAccountSelect = (acc) => {
+    setAccount(acc);
+    setStep('PERMISSION');
+  };
+
+  const handleCustomEmailNext = () => {
+    if (!customEmail) return;
+    setAccount({
+      name: customEmail.split('@')[0],
+      email: customEmail,
+      img: customEmail.charAt(0).toUpperCase(),
+      color: '#3b82f6'
+    });
+    setStep('PERMISSION');
+  };
+
+  const handleContinue = () => {
+    setStep('LOADING');
+    setTimeout(() => {
+      onSelect(account);
+    }, 2500);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-      <div style={{ position: 'relative', width: 420, background: 'white', borderRadius: 12, padding: '36px 0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', animation: 'fadeSlideIn 0.2s ease-out' }}>
-        <div style={{ padding: '0 36px', textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-          </div>
-          <h3 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: '#202124' }}>Choose an account</h3>
-          <p style={{ margin: '8px 0 0', fontSize: 15, color: '#5f6368' }}>to continue to ResearchHub</p>
-        </div>
-
-        <div style={{ borderTop: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0', padding: '12px 0' }}>
-          {accounts.map((acc, idx) => (
-            <div key={idx} onClick={() => onSelect(acc)} style={{ display: 'flex', alignItems: 'center', padding: '12px 36px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: acc.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 500, marginRight: 12 }}>
-                {acc.img}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#3c4043' }}>{acc.name}</div>
-                <div style={{ fontSize: 13, color: '#5f6368' }}>{acc.email}</div>
-              </div>
-            </div>
-          ))}
-          <div onClick={() => onSelect({ name: 'Other' })} style={{ display: 'flex', alignItems: 'center', padding: '12px 36px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: '#3c4043' }}>Use another account</div>
-          </div>
-        </div>
+      <div style={{ position: 'relative', width: 420, minHeight: 450, background: 'white', borderRadius: 12, padding: step === 'LOADING' ? '60px 36px' : '36px 0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', animation: 'fadeSlideIn 0.2s ease-out', display: 'flex', flexDirection: 'column' }}>
         
-        <div style={{ padding: '24px 36px 0', fontSize: 13, color: '#5f6368', lineHeight: 1.5 }}>
-          To continue, Google will share your name, email address, and profile picture with ResearchHub.
-        </div>
+        {step === 'CHOOSER' && (
+          <>
+            <div style={{ padding: '0 36px', textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <GoogleIcon />
+              </div>
+              <h3 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: '#202124' }}>Choose an account</h3>
+              <p style={{ margin: '8px 0 0', fontSize: 15, color: '#5f6368' }}>to continue to ResearchHub</p>
+            </div>
 
-        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: '#5f6368', borderRadius: '50%' }} onMouseEnter={e => e.currentTarget.style.background = '#f1f3f4'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
+            <div style={{ borderTop: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0', padding: '12px 0' }}>
+              {accounts.map((acc, idx) => (
+                <div key={idx} onClick={() => handleAccountSelect(acc)} style={{ display: 'flex', alignItems: 'center', padding: '12px 36px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: acc.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 500, marginRight: 12 }}>
+                    {acc.img}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: '#3c4043' }}>{acc.name}</div>
+                    <div style={{ fontSize: 13, color: '#5f6368' }}>{acc.email}</div>
+                  </div>
+                </div>
+              ))}
+              <div onClick={() => setStep('EMAIL_INPUT')} style={{ display: 'flex', alignItems: 'center', padding: '12px 36px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#3c4043' }}>Use another account</div>
+              </div>
+            </div>
+            
+            <div style={{ padding: '24px 36px 0', fontSize: 13, color: '#5f6368', lineHeight: 1.5 }}>
+              To continue, Google will share your name, email address, and profile picture with ResearchHub.
+            </div>
+            
+            <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: '#5f6368', borderRadius: '50%' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </>
+        )}
+
+        {step === 'EMAIL_INPUT' && (
+          <>
+            <div style={{ padding: '0 36px', textAlign: 'center', marginBottom: 32 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <GoogleIcon />
+              </div>
+              <h3 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: '#202124' }}>Sign in</h3>
+              <p style={{ margin: '8px 0 0', fontSize: 15, color: '#5f6368' }}>to continue to ResearchHub</p>
+            </div>
+            
+            <div style={{ padding: '0 36px', flex: 1 }}>
+              <input 
+                type="email" 
+                placeholder="Email or phone" 
+                value={customEmail}
+                onChange={e => setCustomEmail(e.target.value)}
+                style={{ width: '100%', padding: '13px 15px', fontSize: 16, border: '1px solid #dadce0', borderRadius: 4, outline: 'none' }}
+                autoFocus
+              />
+              <div style={{ marginTop: 8, color: '#1a73e8', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Forgot email?</div>
+            </div>
+
+            <div style={{ padding: '24px 36px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+              <div style={{ color: '#1a73e8', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Create account</div>
+              <button 
+                onClick={handleCustomEmailNext}
+                style={{ background: '#1a73e8', color: 'white', border: 'none', borderRadius: 4, padding: '10px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+            
+            <button onClick={() => setStep('CHOOSER')} style={{ position: 'absolute', top: 16, left: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: '#5f6368', borderRadius: '50%' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+          </>
+        )}
+
+        {step === 'PERMISSION' && account && (
+          <>
+            <div style={{ padding: '0 36px', textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <GoogleIcon />
+              </div>
+              <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 400, color: '#202124', lineHeight: 1.4 }}>
+                ResearchHub wants access to your Google Account
+              </h3>
+              <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f3f4', padding: '4px 12px 4px 4px', borderRadius: 16 }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: account.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, marginRight: 8 }}>
+                  {account.img}
+                </div>
+                <span style={{ fontSize: 13, color: '#3c4043', fontWeight: 500 }}>{account.email}</span>
+              </div>
+            </div>
+
+            <div style={{ padding: '0 36px', flex: 1 }}>
+              <p style={{ fontSize: 14, color: '#3c4043', margin: '0 0 16px', fontWeight: 500 }}>This will allow ResearchHub to:</p>
+              
+              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#1a73e8" style={{ marginRight: 12, flexShrink: 0, marginTop: 2 }}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                <span style={{ fontSize: 14, color: '#3c4043', lineHeight: 1.4 }}>See your name, email address, and profile picture</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#1a73e8" style={{ marginRight: 12, flexShrink: 0, marginTop: 2 }}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                <span style={{ fontSize: 14, color: '#3c4043', lineHeight: 1.4 }}>Associate you with your personal info on ResearchHub</span>
+              </div>
+              
+              <p style={{ fontSize: 13, color: '#5f6368', margin: '24px 0 0', lineHeight: 1.5 }}>
+                Make sure you trust ResearchHub. You may be sharing sensitive info with this site or app.
+              </p>
+            </div>
+
+            <div style={{ padding: '24px 36px 0', display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 'auto' }}>
+              <button onClick={() => setStep('CHOOSER')} style={{ background: 'white', color: '#1a73e8', border: '1px solid #dadce0', borderRadius: 4, padding: '10px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleContinue} style={{ background: '#1a73e8', color: 'white', border: 'none', borderRadius: 4, padding: '10px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+                Continue
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'LOADING' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 40 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M10 2v7.31L2.08 18.2a2 2 0 0 0 1.6 3.24h16.64a2 2 0 0 0 1.6-3.24L14 9.31V2"/><path d="M8.5 2h7"/></svg>
+              </div>
+              <span style={{ fontSize: 20, fontWeight: 700, color: '#1e1b4b' }}>ResearchHub</span>
+            </div>
+
+            <div style={{ width: 120, height: 120, borderRadius: '50%', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 32 }}>
+              <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+            </div>
+
+            <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600, color: '#1e1b4b' }}>Signing you in...</h3>
+            <p style={{ margin: '0 0 32px', fontSize: 14, color: '#64748b' }}>Setting up your workspace...</p>
+
+            <div style={{ width: '80%', height: 4, background: '#e2e8f0', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '100%', background: '#6366f1', borderRadius: 2, animation: 'progressAnim 2.5s ease-in-out forwards' }} />
+            </div>
+            <style>
+              {`@keyframes progressAnim {
+                0% { transform: translateX(-100%); }
+                50% { transform: translateX(0%); }
+                100% { transform: translateX(100%); }
+              }`}
+            </style>
+          </div>
+        )}
+
       </div>
     </div>
   );
