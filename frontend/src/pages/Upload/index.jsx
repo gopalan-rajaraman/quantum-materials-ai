@@ -18,7 +18,26 @@ const Upload = () => {
   const [selectedVariables, setSelectedVariables] = useState({});
   const [activeTab, setActiveTab] = useState('numerical');
   const [variableUnits, setVariableUnits] = useState({});
-  const [globalConstants, setGlobalConstants] = useState([]);
+  const [boConstants, setBoConstants] = useState({
+    P1: 'W(CO)6',
+    P2: 'H2S',
+    Substrate: 'SiO2/Si',
+    CG: 'Ar',
+    COM: 'Natural',
+    PC: 'Bubbler',
+    SA: 'NaCl',
+    Class: 'Monolayer',
+    FRH: 0,
+    HR: 0,
+    FRP1: 0,
+    FRP2: 0,
+    CP1: 0,
+    CP2: 0
+  });
+
+  const updateBoConstant = (field, value) => {
+    setBoConstants(prev => ({ ...prev, [field]: value }));
+  };
 
   
   const [isLocking, setIsLocking] = useState(false);
@@ -193,21 +212,6 @@ const Upload = () => {
     }));
   };
 
-  const addGlobalConstant = () => {
-    setGlobalConstants([...globalConstants, { name: '', value: '' }]);
-  };
-
-  const updateGlobalConstant = (index, field, value) => {
-    const newConstants = [...globalConstants];
-    newConstants[index][field] = value;
-    setGlobalConstants(newConstants);
-  };
-
-  const removeGlobalConstant = (index) => {
-    const newConstants = [...globalConstants];
-    newConstants.splice(index, 1);
-    setGlobalConstants(newConstants);
-  };
 
   const toggleExpIdConfirmation = (expId) => {
     setConfirmedExpIds(prev => {
@@ -252,7 +256,12 @@ const Upload = () => {
     setIsLocking(true);
     setLockError(null);
     try {
-      await api.uploadDataset([file]);
+      const enrichedData = parsedData.map(row => ({
+        ...row,
+        ...boConstants,
+        TOCVD: 'Thermal CVD'
+      }));
+      await api.uploadJsonDataset(enrichedData);
 
       setIsLocked(true);
     } catch (err) {
@@ -445,58 +454,87 @@ const Upload = () => {
                   <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] h-[400px] flex flex-col">
                     <div className="flex justify-between items-center mb-1">
                       <h3 className="font-bold text-slate-900 text-[13px]">Global Constants</h3>
-                      <button onClick={addGlobalConstant} className="text-[11px] px-3 py-1 bg-[#F8F6FF] border border-[#4C3BDE]/20 font-bold text-[#4C3BDE] rounded-md hover:bg-[#4C3BDE] hover:text-white transition-colors">
-                        + Add Constant
-                      </button>
                     </div>
                     <p className="text-[11px] text-slate-500 mb-4">These values will remain constant throughout the BO experiment.</p>
                     
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                      {globalConstants.map((c, idx) => (
-                        <div key={idx} className="grid grid-cols-12 gap-3 items-end p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                          <div className="col-span-5">
-                            <label className="text-[10px] text-slate-500 mb-1.5 block font-bold uppercase tracking-wide">Parameter</label>
-                            <select 
-                              className="w-full border border-slate-200 rounded-lg p-2.5 text-[13px] font-medium bg-white focus:ring-2 focus:ring-[#4C3BDE]/20 focus:border-[#4C3BDE] outline-none transition-all shadow-sm"
-                              value={c.name}
-                              onChange={(e) => updateGlobalConstant(idx, 'name', e.target.value)}
-                            >
-                              <option value="">Select Parameter</option>
-                              <option value="GTE">Growth Temp (GTE)</option>
-                              <option value="GTI">Growth Time (GTI)</option>
-                              <option value="FRA">Ar Flow (FRA)</option>
-                              <option value="Pressure">Pressure</option>
-                              <option value="Power">Power</option>
-                              <option value="Custom">Custom...</option>
-                            </select>
-                          </div>
-                          <div className="col-span-5">
-                            <label className="text-[10px] text-slate-500 mb-1.5 block font-bold uppercase tracking-wide">Value</label>
-                            <input 
-                              type="number"
-                              step="any"
-                              className="w-full border border-slate-200 rounded-lg p-2.5 text-[13px] font-medium bg-white focus:ring-2 focus:ring-[#4C3BDE]/20 focus:border-[#4C3BDE] outline-none transition-all shadow-sm"
-                              placeholder="Enter value"
-                              value={c.value}
-                              onChange={(e) => updateGlobalConstant(idx, 'value', e.target.value)}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                             <button onClick={() => removeGlobalConstant(idx)} className="w-full p-2.5 text-red-500 bg-white hover:bg-red-50 hover:border-red-200 rounded-lg border border-slate-200 transition-colors flex justify-center items-center shadow-sm">
-                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                             </button>
-                          </div>
+                      <div className="grid grid-cols-2 gap-3 pb-2">
+                        {/* Categorical Constants */}
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Precursor 1 (P1)</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.P1} onChange={(e) => updateBoConstant('P1', e.target.value)}>
+                            {['WO3', 'WCl6', 'W(CO)6', 'WF6'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
                         </div>
-                      ))}
-                      {globalConstants.length === 0 && (
-                         <div className="h-full flex flex-col items-center justify-center py-8">
-                           <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                             <Info className="w-5 h-5 text-slate-400" />
-                           </div>
-                           <p className="text-slate-500 text-[12px] font-medium">No constants defined yet.</p>
-                           <p className="text-slate-400 text-[11px] mt-1 text-center px-4">Click "Add Constant" to specify parameters that won't change.</p>
-                         </div>
-                      )}
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Precursor 2 (P2)</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.P2} onChange={(e) => updateBoConstant('P2', e.target.value)}>
+                            {['Sulfur', 'H2S', 'DTBS'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Substrate</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.Substrate} onChange={(e) => updateBoConstant('Substrate', e.target.value)}>
+                            {['graphite', 'SiO2/Si', 'Sapphire (C-plane)', 'Graphene'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Carrier Gas (CG)</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.CG} onChange={(e) => updateBoConstant('CG', e.target.value)}>
+                            {['Ar', 'H2', 'H2/Ar', 'He'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Cooling Method (COM)</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.COM} onChange={(e) => updateBoConstant('COM', e.target.value)}>
+                            {['Rapid', 'Natural'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Container (PC)</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.PC} onChange={(e) => updateBoConstant('PC', e.target.value)}>
+                            {['Quartz boat', 'Al2O3 crucible', 'Bubbler', 'Sulfur boat', 'Ceramic boat', 'Gas cylinders'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Seed Additive (SA)</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.SA} onChange={(e) => updateBoConstant('SA', e.target.value)}>
+                            {['NaCl', 'SnCl4', 'None'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Class</label>
+                          <select className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.Class} onChange={(e) => updateBoConstant('Class', e.target.value)}>
+                            {['Monolayer', 'Nanosheets'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                        
+                        {/* Numerical Constants */}
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">H2 Flow Rate (FRH)</label>
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', Number(e.target.value))} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Heating Rate (HR)</label>
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.HR} onChange={(e) => updateBoConstant('HR', Number(e.target.value))} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">P1 Flow (FRP1)</label>
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRP1} onChange={(e) => updateBoConstant('FRP1', Number(e.target.value))} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">P2 Flow (FRP2)</label>
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRP2} onChange={(e) => updateBoConstant('FRP2', Number(e.target.value))} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Gas 1 (CP1)</label>
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.CP1} onChange={(e) => updateBoConstant('CP1', Number(e.target.value))} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Gas 2 (CP2)</label>
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.CP2} onChange={(e) => updateBoConstant('CP2', Number(e.target.value))} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -520,7 +558,7 @@ const Upload = () => {
                     <div className="text-center px-4">
                       <p className="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Constants</p>
                       <p className="text-lg font-bold text-[#4C3BDE]">
-                        {globalConstants.length}
+                        14
                       </p>
                     </div>
                   </div>

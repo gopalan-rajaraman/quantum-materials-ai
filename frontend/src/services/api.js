@@ -61,6 +61,12 @@ export const api = {
     return response.json();
   },
 
+  uploadJsonDataset: (data) =>
+    request('/api/datasets/upload-json', {
+      method: 'POST',
+      body: JSON.stringify({ data })
+    }),
+
   lockDataset: (id) => request(`/api/datasets/${id}/lock`, { method: 'POST' }),
   unlockDataset: (id) => request(`/api/datasets/${id}/unlock`, { method: 'POST' }),
   deleteDataset: (id) => request(`/api/datasets/${id}`, { method: 'DELETE' }),
