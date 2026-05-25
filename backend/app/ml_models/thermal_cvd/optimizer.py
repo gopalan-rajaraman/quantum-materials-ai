@@ -70,6 +70,28 @@ class ThermalCVDOptimizer:
         self._training_info['n_training_samples'] = len(self.y_train)
         self._training_info['timestamp'] = datetime.now().isoformat()
 
+    def add_batch_experiments(self, df: pd.DataFrame) -> None:
+        """
+        Add a batch of experimental results to the training data and combine them.
+        Matches notebook Step 10: X_combined = np.vstack([X_scaled, X_new_scaled])
+        """
+        if not self.encoder._fitted or self.X_train is None:
+            raise RuntimeError("Base model not fitted. Call load_training_data first.")
+
+        # Encode new observations using existing fitted encoder
+        X_new_scaled, y_new = self.encoder.encode_observation(df)
+
+        # Scale new y using existing scaler_y
+        y_new_scaled = self.scaler_y.transform(y_new.reshape(-1, 1)).ravel()
+
+        # Combine with existing database (matches Step 10 notebook logic)
+        self.X_train = np.vstack([self.X_train, X_new_scaled])
+        self.y_train = np.concatenate([self.y_train, y_new])
+        self.y_train_scaled = np.concatenate([self.y_train_scaled, y_new_scaled])
+
+        self.df_raw = pd.concat([self.df_raw, df], ignore_index=True)
+        self._training_info['n_training_samples'] = len(self.y_train)
+
     def generate_search_space(self, n_points: int = 5000) -> None:
         """
         Generate synthetic search space by random sampling of variable ranges.

@@ -8,6 +8,8 @@ const Results = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [boProgress, setBoProgress] = useState(null);
+  const [modelInfo, setModelInfo] = useState(null);
+  const [surfaceData, setSurfaceData] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,6 +42,24 @@ const Results = () => {
         
         const data = await res.json();
         setResults(data);
+
+        // Fetch model info (for feature importances)
+        const infoRes = await fetch('http://localhost:8000/thermal-cvd/info');
+        if (infoRes.ok) {
+          const infoData = await infoRes.json();
+          setModelInfo(infoData);
+        }
+
+        // Fetch surface data (for contour plot)
+        const surfaceRes = await fetch('http://localhost:8000/thermal-cvd/surface-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ var_x: 'GTE', var_y: 'GTI', grid_size: 20 })
+        });
+        if (surfaceRes.ok) {
+          const sData = await surfaceRes.json();
+          setSurfaceData(sData);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -255,6 +275,93 @@ const Results = () => {
           </div>
         </div>
         
+        {/* Step 11: Final Summary Dashboard Charts */}
+        {(results?.summary?.observed_fwhm || modelInfo?.feature_importances || surfaceData) && (
+          <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
+            
+            {/* FWHM Distribution */}
+            {results?.summary?.observed_fwhm && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col h-[350px]">
+                <h3 className="text-lg font-bold text-slate-900 mb-1">FWHM Distribution</h3>
+                <p className="text-xs text-slate-500 mb-4">Narrow = High quality</p>
+                <div className="flex-1 min-h-0 relative">
+                  <Plot
+                    data={[{
+                      x: results.summary.observed_fwhm,
+                      type: 'histogram',
+                      marker: { color: '#2E86AB', line: { color: 'white', width: 1 } },
+                      opacity: 0.85
+                    }]}
+                    layout={{
+                      autosize: true, margin: { l: 40, r: 20, b: 40, t: 10 },
+                      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                      xaxis: { title: 'PL FWHM (meV)' }, yaxis: { title: 'Count' },
+                      shapes: [{
+                        type: 'line', x0: results.summary.initial_best, x1: results.summary.initial_best,
+                        y0: 0, y1: 1, yref: 'paper',
+                        line: { color: '#5C9E31', width: 2, dash: 'dash' }
+                      }]
+                    }}
+                    useResizeHandler={true} style={{ width: '100%', height: '100%', position: 'absolute' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Feature Importances */}
+            {modelInfo?.feature_importances && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col h-[350px]">
+                <h3 className="text-lg font-bold text-slate-900 mb-1">Feature Importance</h3>
+                <p className="text-xs text-slate-500 mb-4">Relative impact on GP surrogate model</p>
+                <div className="flex-1 min-h-0 relative">
+                  <Plot
+                    data={[{
+                      type: 'bar', orientation: 'h',
+                      x: Object.values(modelInfo.feature_importances).reverse(),
+                      y: Object.keys(modelInfo.feature_importances).reverse(),
+                      marker: { color: '#A23B72' }
+                    }]}
+                    layout={{
+                      autosize: true, margin: { l: 80, r: 20, b: 40, t: 10 },
+                      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                      xaxis: { title: 'Relative Importance' }
+                    }}
+                    useResizeHandler={true} style={{ width: '100%', height: '100%', position: 'absolute' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* GP Surface */}
+            {surfaceData && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col h-[350px]">
+                <h3 className="text-lg font-bold text-slate-900 mb-1">GP Response Surface</h3>
+                <p className="text-xs text-slate-500 mb-4">{surfaceData.x_label} vs {surfaceData.y_label} (Others optimal)</p>
+                <div className="flex-1 min-h-0 relative">
+                  <Plot
+                    data={[{
+                      z: surfaceData.z,
+                      x: surfaceData.x,
+                      y: surfaceData.y,
+                      type: 'contour',
+                      colorscale: 'RdYlGn',
+                      reversescale: true,
+                      contours: { coloring: 'heatmap' }
+                    }]}
+                    layout={{
+                      autosize: true, margin: { l: 40, r: 20, b: 40, t: 10 },
+                      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                      xaxis: { title: surfaceData.x_label },
+                      yaxis: { title: surfaceData.y_label }
+                    }}
+                    useResizeHandler={true} style={{ width: '100%', height: '100%', position: 'absolute' }}
+                  />
+                </div>
+              </div>
+            )}
+            
+          </div>
+        )}
       </div>
     </div>
   );

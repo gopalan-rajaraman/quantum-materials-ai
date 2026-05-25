@@ -27,12 +27,7 @@ const Upload = () => {
     PC: 'Bubbler',
     SA: 'NaCl',
     Class: 'Monolayer',
-    FRH: 0,
-    HR: 0,
-    FRP1: 0,
-    FRP2: 0,
-    CP1: 0,
-    CP2: 0
+    FRH: 0
   });
 
   const updateBoConstant = (field, value) => {
@@ -113,8 +108,9 @@ const Upload = () => {
       const values = [];
       
       for (let i = 0; i < Math.min(data.length, 100); i++) {
-        const val = data[i][key];
-        if (val !== null && val !== undefined) {
+        let val = data[i][key];
+        if (val === 'NS') val = null;
+        if (val !== null && val !== undefined && val !== '') {
           values.push(val);
           if (typeof val === 'string' && isNaN(Number(val))) {
             isNum = false;
@@ -510,29 +506,9 @@ const Upload = () => {
                         </div>
                         
                         {/* Numerical Constants */}
-                        <div>
+                        <div className="col-span-2">
                           <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">H2 Flow Rate (FRH)</label>
                           <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', Number(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Heating Rate (HR)</label>
-                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.HR} onChange={(e) => updateBoConstant('HR', Number(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">P1 Flow (FRP1)</label>
-                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRP1} onChange={(e) => updateBoConstant('FRP1', Number(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">P2 Flow (FRP2)</label>
-                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRP2} onChange={(e) => updateBoConstant('FRP2', Number(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Gas 1 (CP1)</label>
-                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.CP1} onChange={(e) => updateBoConstant('CP1', Number(e.target.value))} />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">Gas 2 (CP2)</label>
-                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.CP2} onChange={(e) => updateBoConstant('CP2', Number(e.target.value))} />
                         </div>
                       </div>
                     </div>
@@ -558,7 +534,7 @@ const Upload = () => {
                     <div className="text-center px-4">
                       <p className="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Constants</p>
                       <p className="text-lg font-bold text-[#4C3BDE]">
-                        14
+                        9
                       </p>
                     </div>
                   </div>
