@@ -170,7 +170,7 @@ const Field = ({ label, icon, children, mb = 11 }) => (
 );
 
 /* ─── Sign Up Form ───────────────────────────────────────────── */
-const SignUpForm = () => {
+const SignUpForm = ({ onGoogleClick }) => {
   const [showPw, setShowPw]   = useState(false);
   const [showCpw, setShowCpw] = useState(false);
   const [agreed, setAgreed]   = useState(false);
@@ -199,14 +199,6 @@ const SignUpForm = () => {
       else setError(data.detail || 'Registration failed');
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
-  };
-
-  const handleGoogleLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/dashboard');
-    }, 1500);
   };
 
   if (success) return (
@@ -283,7 +275,7 @@ const SignUpForm = () => {
         <div style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }}></div>
       </div>
 
-      <button type="button" className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+      <button type="button" className="google-btn" onClick={onGoogleClick} disabled={loading}>
         <GoogleIcon />
         {loading ? 'Connecting...' : 'Continue with Google'}
       </button>
@@ -292,7 +284,7 @@ const SignUpForm = () => {
 };
 
 /* ─── Sign In Form ───────────────────────────────────────────── */
-const SignInForm = () => {
+const SignInForm = ({ onGoogleClick }) => {
   const [showPw, setShowPw] = useState(false);
   const [formData, setFormData] = useState({ email:'', password:'' });
   const [loading, setLoading]   = useState(false);
@@ -314,14 +306,6 @@ const SignInForm = () => {
       else setError(data.detail || 'Login failed');
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
-  };
-
-  const handleGoogleLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/dashboard');
-    }, 1500);
   };
 
   return (
@@ -364,7 +348,7 @@ const SignInForm = () => {
         <div style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }}></div>
       </div>
 
-      <button type="button" className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+      <button type="button" className="google-btn" onClick={onGoogleClick} disabled={loading}>
         <GoogleIcon />
         {loading ? 'Connecting...' : 'Continue with Google'}
       </button>
@@ -420,9 +404,78 @@ const LeftPanel = () => (
   </div>
 );
 
+
+/* ─── Google Account Chooser Modal ──────────────────────────── */
+const GoogleAccountChooserModal = ({ isOpen, onClose, onSelect }) => {
+  if (!isOpen) return null;
+  const accounts = [
+    { name: 'Khushboo', email: 'chaudharykhus3107@gmail.com', img: 'K', color: '#8b5cf6' },
+    { name: 'Quantum Researcher', email: 'researcher@quantum.edu', img: 'Q', color: '#10b981' }
+  ];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ position: 'relative', width: 420, background: 'white', borderRadius: 12, padding: '36px 0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', animation: 'fadeSlideIn 0.2s ease-out' }}>
+        <div style={{ padding: '0 36px', textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+          </div>
+          <h3 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: '#202124' }}>Choose an account</h3>
+          <p style={{ margin: '8px 0 0', fontSize: 15, color: '#5f6368' }}>to continue to ResearchHub</p>
+        </div>
+
+        <div style={{ borderTop: '1px solid #e0e0e0', borderBottom: '1px solid #e0e0e0', padding: '12px 0' }}>
+          {accounts.map((acc, idx) => (
+            <div key={idx} onClick={() => onSelect(acc)} style={{ display: 'flex', alignItems: 'center', padding: '12px 36px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: acc.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 500, marginRight: 12 }}>
+                {acc.img}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#3c4043' }}>{acc.name}</div>
+                <div style={{ fontSize: 13, color: '#5f6368' }}>{acc.email}</div>
+              </div>
+            </div>
+          ))}
+          <div onClick={() => onSelect({ name: 'Other' })} style={{ display: 'flex', alignItems: 'center', padding: '12px 36px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: '#3c4043' }}>Use another account</div>
+          </div>
+        </div>
+        
+        <div style={{ padding: '24px 36px 0', fontSize: 13, color: '#5f6368', lineHeight: 1.5 }}>
+          To continue, Google will share your name, email address, and profile picture with ResearchHub.
+        </div>
+
+        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: '#5f6368', borderRadius: '50%' }} onMouseEnter={e => e.currentTarget.style.background = '#f1f3f4'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Main Component ─────────────────────────────────────────── */
 const AuthPage = () => {
   const [tab, setTab] = useState('signup'); // 'signup' | 'signin'
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const navigate = useNavigate();
+
+  const handleGoogleSelect = (account) => {
+    setShowGoogleModal(false);
+    if (account) {
+      if (account.name !== 'Other') {
+        localStorage.setItem('user', JSON.stringify({ email: account.email, full_name: account.name }));
+      }
+      navigate('/dashboard');
+    }
+  };
 
   return (
     <>
@@ -460,7 +513,7 @@ const AuthPage = () => {
             )}
 
             {/* Form switch */}
-            {tab === 'signup' ? <SignUpForm/> : <SignInForm/>}
+            {tab === 'signup' ? <SignUpForm onGoogleClick={() => setShowGoogleModal(true)}/> : <SignInForm onGoogleClick={() => setShowGoogleModal(true)}/>}
 
             {/* Bottom switch link */}
             <p style={{ marginTop:16, textAlign:'center', fontSize:13.5, color:'#64748b' }}>
@@ -469,6 +522,12 @@ const AuthPage = () => {
                 : <>Don't have an account?{' '}<span style={{ color:'#6366f1', fontWeight:700, cursor:'pointer' }} onClick={() => setTab('signup')}>Sign Up</span></>
               }
             </p>
+
+            <GoogleAccountChooserModal 
+              isOpen={showGoogleModal} 
+              onClose={() => setShowGoogleModal(false)}
+              onSelect={handleGoogleSelect}
+            />
           </div>
         </div>
       </div>

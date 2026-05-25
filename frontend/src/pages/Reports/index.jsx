@@ -103,8 +103,8 @@ const Reports = () => {
   };
 
   const handleDownloadCSV = () => {
-    const csvContent = "data:text/csv;charset=utf-8,Report Name,Experiment ID,Type,Generated On,Best FWHM\n" + 
-      filteredReports.map(r => `${r.name},${r.id},${r.type},${r.date},${r.fwhm}`).join("\n");
+    const csvContent = "data:text/csv;charset=utf-8,Report Name,Experiment ID,Generated On,Best FWHM,RMSE,MAE\\n" + 
+      filteredReports.map(r => `${r.name},${r.id},${r.date},${r.fwhm},${rmseValue},${maeValue}`).join("\\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -237,64 +237,64 @@ const Reports = () => {
 
               {/* 4 Stat Boxes */}
               <div className="grid grid-cols-4 gap-4 mb-8">
-                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-4 shadow-sm bg-slate-50/50">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100">
+                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-500 mb-0.5">Best FWHM Found</p>
-                    <p className="text-lg font-bold text-[#00B050]">{bestFwhm}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-slate-500 mb-0.5 truncate">Best FWHM Found</p>
+                    <p className="text-lg font-bold text-[#00B050] truncate">{bestFwhm}</p>
                   </div>
                 </div>
-                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-4 shadow-sm bg-slate-50/50">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100">
+                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
                     <FlaskConical className="w-5 h-5" />
                   </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-500 mb-0.5">Iterations Completed</p>
-                    <p className="text-lg font-bold text-slate-800">{iterationsCount} / {iterationsCount}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-slate-500 mb-0.5 truncate">Iterations</p>
+                    <p className="text-lg font-bold text-slate-800 truncate">{iterationsCount} / {iterationsCount}</p>
                   </div>
                 </div>
-                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-4 shadow-sm bg-slate-50/50">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100">
+                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
                     <Database className="w-5 h-5" />
                   </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-500 mb-0.5">Total Experiments</p>
-                    <p className="text-lg font-bold text-slate-800">{iterationsCount}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-slate-500 mb-0.5 truncate">Total Exp.</p>
+                    <p className="text-lg font-bold text-slate-800 truncate">{iterationsCount}</p>
                   </div>
                 </div>
-                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-4 shadow-sm bg-slate-50/50">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100">
+                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
                     <Cpu className="w-5 h-5" />
                   </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-500 mb-0.5">Model Used</p>
-                    <p className="text-[13px] font-bold text-slate-800 leading-tight">Gaussian Process</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-slate-500 mb-0.5 truncate">Model Used</p>
+                    <p className="text-[13px] font-bold text-slate-800 leading-tight truncate">Gaussian Process</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-6">
                 {/* Performance Metrics */}
-                <div className="w-[30%]">
+                <div className="w-[30%] min-w-[200px]">
                   <h3 className="text-[12px] font-bold text-[#1e1b4b] mb-3">Performance Metrics</h3>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-[11px] font-bold text-slate-500 mb-1">R² Score</p>
-                      <p className="text-[16px] font-bold text-[#4C3BDE]">{r2Value}</p>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 min-w-0">
+                      <p className="text-[11px] font-bold text-slate-500 mb-1 truncate">R² Score</p>
+                      <p className="text-[15px] font-bold text-[#4C3BDE] truncate">{r2Value}</p>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-[11px] font-bold text-slate-500 mb-1">MAE</p>
-                      <p className="text-[16px] font-bold text-[#00B050]">{maeValue}</p>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 min-w-0">
+                      <p className="text-[11px] font-bold text-slate-500 mb-1 truncate">MAE</p>
+                      <p className="text-[15px] font-bold text-[#00B050] truncate">{maeValue}</p>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-[11px] font-bold text-slate-500 mb-1">RMSE</p>
-                      <p className="text-[16px] font-bold text-[#3B82F6]">{rmseValue}</p>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 min-w-0">
+                      <p className="text-[11px] font-bold text-slate-500 mb-1 truncate">RMSE</p>
+                      <p className="text-[15px] font-bold text-[#3B82F6] truncate">{rmseValue}</p>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-[11px] font-bold text-slate-500 mb-1">Training Rows</p>
-                      <p className="text-[16px] font-bold text-[#8B5CF6]">{trainRows}</p>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 min-w-0">
+                      <p className="text-[11px] font-bold text-slate-500 mb-1 truncate">Training Rows</p>
+                      <p className="text-[15px] font-bold text-[#8B5CF6] truncate">{trainRows}</p>
                     </div>
                   </div>
                 </div>
@@ -357,9 +357,10 @@ const Reports = () => {
                     <tr className="border-b border-slate-100">
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Report Name</th>
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Experiment ID</th>
-                      <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Generated On</th>
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Best FWHM</th>
+                      <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">RMSE</th>
+                      <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">MAE</th>
                       <th className="text-left py-3 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
@@ -368,9 +369,10 @@ const Reports = () => {
                       <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                         <td className="py-4 px-2 text-[13px] font-bold text-slate-800">{report.name}</td>
                         <td className="py-4 px-2 text-[13px] text-slate-600 font-medium">{report.id}</td>
-                        <td className="py-4 px-2 text-[13px] text-slate-600">{report.type}</td>
                         <td className="py-4 px-2 text-[12px] text-slate-500">{report.date}</td>
                         <td className="py-4 px-2 text-[13px] font-bold text-slate-800">{report.fwhm}</td>
+                        <td className="py-4 px-2 text-[13px] text-slate-600 font-medium">{rmseValue}</td>
+                        <td className="py-4 px-2 text-[13px] text-slate-600 font-medium">{maeValue}</td>
                         <td className="py-4 px-2">
                           <span className="px-2.5 py-1 bg-[#E8FFF3] text-[#00B050] text-[11px] font-bold rounded-md">Completed</span>
                         </td>
@@ -445,48 +447,48 @@ const Reports = () => {
 
               <div className="space-y-5 mb-8">
                 <div className="flex items-start">
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5">
+                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5 flex-shrink-0">
                     <FileText className="w-3.5 h-3.5" />
                   </div>
-                  <div className="flex-1 grid grid-cols-2">
+                  <div className="flex-1 min-w-0 grid grid-cols-[90px_1fr] gap-2">
                     <span className="text-[12px] font-bold text-slate-500">Report Type</span>
-                    <span className="text-[12px] font-semibold text-slate-800">Experiment Summary</span>
+                    <span className="text-[12px] font-semibold text-slate-800 truncate">Experiment Summary</span>
                   </div>
                 </div>
                 <div className="flex items-start">
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5">
+                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5 flex-shrink-0">
                     <Calendar className="w-3.5 h-3.5" />
                   </div>
-                  <div className="flex-1 grid grid-cols-2">
+                  <div className="flex-1 min-w-0 grid grid-cols-[90px_1fr] gap-2">
                     <span className="text-[12px] font-bold text-slate-500">Generated On</span>
-                    <span className="text-[12px] font-semibold text-slate-800">{generatedOn}</span>
+                    <span className="text-[12px] font-semibold text-slate-800 truncate">{generatedOn}</span>
                   </div>
                 </div>
                 <div className="flex items-start">
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5">
+                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5 flex-shrink-0">
                     <User className="w-3.5 h-3.5" />
                   </div>
-                  <div className="flex-1 grid grid-cols-2">
+                  <div className="flex-1 min-w-0 grid grid-cols-[90px_1fr] gap-2">
                     <span className="text-[12px] font-bold text-slate-500">Generated By</span>
-                    <span className="text-[12px] font-semibold text-slate-800">{loggedInUser.username} (Researcher)</span>
+                    <span className="text-[12px] font-semibold text-slate-800 truncate">{loggedInUser.username} (Researcher)</span>
                   </div>
                 </div>
                 <div className="flex items-start">
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5">
+                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5 flex-shrink-0">
                     <Database className="w-3.5 h-3.5" />
                   </div>
-                  <div className="flex-1 grid grid-cols-2">
+                  <div className="flex-1 min-w-0 grid grid-cols-[90px_1fr] gap-2">
                     <span className="text-[12px] font-bold text-slate-500">Data Source</span>
-                    <span className="text-[12px] font-semibold text-slate-800">{datasetsList[0]?.name || 'Perovskite_PL_Study'}</span>
+                    <span className="text-[12px] font-semibold text-slate-800 truncate" title={datasetsList[0]?.name || 'Perovskite_PL_Study'}>{datasetsList[0]?.name || 'Perovskite_PL_Study'}</span>
                   </div>
                 </div>
                 <div className="flex items-start">
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5">
+                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[#F4F0FF] text-[#4C3BDE] mr-3 mt-0.5 flex-shrink-0">
                     <FileText className="w-3.5 h-3.5" />
                   </div>
-                  <div className="flex-1 grid grid-cols-2">
+                  <div className="flex-1 min-w-0 grid grid-cols-[90px_1fr] gap-2">
                     <span className="text-[12px] font-bold text-slate-500">File Format</span>
-                    <span className="text-[12px] font-semibold text-slate-800">PDF, CSV</span>
+                    <span className="text-[12px] font-semibold text-slate-800 truncate">PDF, CSV</span>
                   </div>
                 </div>
               </div>

@@ -560,7 +560,7 @@ def get_variables_distribution():
             'COM': 'CVD Chamber Configuration',
             'PC': 'Phase Composition',
             'TOCVD': 'CVD Chamber Tube Size',
-            'SA': 'Substrate Angle',
+            'SA': 'Salt Additive',
             'Class': 'Material Quality Class'
         }
         for col in cat_cols:
