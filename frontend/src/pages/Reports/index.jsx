@@ -111,17 +111,7 @@ const Reports = () => {
     setEndDate(() => new Date().toISOString().slice(0, 10));
   };
 
-  const handleDownloadCSV = () => {
-    const csvContent = "data:text/csv;charset=utf-8,Report Name,Experiment ID,Generated On,Best FWHM,RMSE,MAE\\n" + 
-      filteredReports.map(r => `${r.name},${r.id},${r.date},${r.fwhm},${rmseValue},${maeValue}`).join("\\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "reports.csv");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
+
 
   const userStr = localStorage.getItem('user');
   const loggedInUser = userStr ? JSON.parse(userStr) : {};
@@ -501,20 +491,13 @@ const Reports = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mt-auto">
+              <div className="flex justify-center mt-auto">
                 <button 
                   onClick={() => window.print()}
-                  className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg border border-[#ff4d4f]/30 text-[#ff4d4f] hover:bg-[#fff1f0] transition-colors text-[13px] font-bold"
+                  className="flex items-center justify-center space-x-2 py-2.5 px-4 w-1/2 rounded-lg border border-[#ff4d4f]/30 text-[#ff4d4f] hover:bg-[#fff1f0] transition-colors text-[13px] font-bold"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download PDF</span>
-                </button>
-                <button 
-                  onClick={handleDownloadCSV}
-                  className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg border border-[#00B050]/30 text-[#00B050] hover:bg-[#E8FFF3] transition-colors text-[13px] font-bold"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download CSV</span>
                 </button>
               </div>
             </div>

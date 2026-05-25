@@ -63,9 +63,8 @@ class ThermalCVDOptimizer:
             self.y_train.reshape(-1, 1)
         ).ravel()
 
-        # Set initial samples on first load
-        if self._training_info['initial_samples'] == 0:
-            self._training_info['initial_samples'] = len(self.y_train)
+        # Set initial samples for BO progress tracking
+        self._training_info['initial_samples'] = len(self.y_train)
 
         self._training_info['n_training_samples'] = len(self.y_train)
         self._training_info['timestamp'] = datetime.now().isoformat()
