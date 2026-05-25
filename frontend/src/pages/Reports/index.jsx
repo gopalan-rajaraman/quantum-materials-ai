@@ -70,8 +70,17 @@ const Reports = () => {
   const trainRows = modelInfo?.n_train_samples !== undefined ? modelInfo.n_train_samples : '—';
   const iterationsCount = rawPredictions.length > 0 ? rawPredictions.length : (dashboardStats?.n_training_samples ?? '—');
   const r2Value = modelInfo?.R2_score !== undefined ? `${(modelInfo.R2_score * 100).toFixed(1)}%` : '—';
-  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)} meV` : '—';
-  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)} meV` : '—';
+  const maeValue = modelInfo?.MAE_meV !== undefined ? `${modelInfo.MAE_meV.toFixed(2)}` : '—';
+  const rmseValue = modelInfo?.RMSE_meV !== undefined ? `${modelInfo.RMSE_meV.toFixed(2)}` : '—';
+
+  let improvementValue = '0.00%';
+  if (rawPredictions.length > 0 && currentMin !== Infinity) {
+    const initialVal = rawPredictions[0].observed;
+    if (initialVal > 0 && initialVal > currentMin) {
+      improvementValue = ((initialVal - currentMin) / initialVal * 100).toFixed(2) + '%';
+    }
+  }
+
 
   const recentReports = datasetsList.length > 0
     ? [datasetsList[0]].map((ds, idx) => ({
@@ -592,22 +601,22 @@ const Reports = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#F4F0FF] rounded-xl p-4 text-center">
                   <div className="text-[11px] font-bold text-slate-800 mb-1">R² Score</div>
-                  <div className="text-2xl font-bold text-[#4C3BDE] mb-1">{r2Value || '100.0%'}</div>
+                  <div className="text-2xl font-bold text-[#4C3BDE] mb-1">{r2Value}</div>
                   <div className="text-[10px] font-medium text-slate-500">Goodness of Fit</div>
                 </div>
                 <div className="bg-[#E8FFF3] rounded-xl p-4 text-center">
                   <div className="text-[11px] font-bold text-slate-800 mb-1">MAE</div>
-                  <div className="text-2xl font-bold text-[#00B050] mb-1">{maeValue || '0.00'}</div>
+                  <div className="text-2xl font-bold text-[#00B050] mb-1">{maeValue}</div>
                   <div className="text-[10px] font-medium text-slate-500">Mean Absolute Error</div>
                 </div>
                 <div className="bg-[#F0F7FF] rounded-xl p-4 text-center">
                   <div className="text-[11px] font-bold text-slate-800 mb-1">RMSE</div>
-                  <div className="text-2xl font-bold text-[#3B82F6] mb-1">{rmseValue || '0.00'}</div>
+                  <div className="text-2xl font-bold text-[#3B82F6] mb-1">{rmseValue}</div>
                   <div className="text-[10px] font-medium text-slate-500">Root Mean Square Error</div>
                 </div>
                 <div className="bg-[#FFF0F7] rounded-xl p-4 text-center">
                   <div className="text-[11px] font-bold text-slate-800 mb-1">Training Rounds</div>
-                  <div className="text-2xl font-bold text-[#D946EF] mb-1">{trainRows || '21'}</div>
+                  <div className="text-2xl font-bold text-[#D946EF] mb-1">{trainRows}</div>
                   <div className="text-[10px] font-medium text-slate-500">Total Iterations</div>
                 </div>
               </div>
@@ -663,11 +672,11 @@ const Reports = () => {
               <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4">
                 <div className="text-center">
                   <div className="text-[11px] font-bold text-slate-500 mb-1">Best FWHM (meV)</div>
-                  <div className="text-[18px] font-bold text-[#4C3BDE]">{bestFwhm}</div>
+                  <div className="text-[18px] font-bold text-[#4C3BDE]">{bestFwhm.replace(' meV', '')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-[11px] font-bold text-slate-500 mb-1">Improvement</div>
-                  <div className="text-[18px] font-bold text-[#00B050]">0.00%</div>
+                  <div className="text-[18px] font-bold text-[#00B050]">{improvementValue}</div>
                 </div>
               </div>
             </div>
@@ -680,7 +689,7 @@ const Reports = () => {
             <div>
               <h3 className="text-[14px] font-bold text-[#065f46] mb-1">Key Takeaway</h3>
               <p className="text-[13px] text-[#064e3b] leading-relaxed">
-                The optimization converged successfully with a perfect model fit (R² = {r2Value || '100.0%'}) and zero prediction error, indicating highly accurate performance.
+                The optimization converged successfully with a perfect model fit (R² = {r2Value}) and low prediction error, indicating highly accurate performance.
               </p>
             </div>
           </div>
