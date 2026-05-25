@@ -508,7 +508,7 @@ const Upload = () => {
                         {/* Numerical Constants */}
                         <div className="col-span-2">
                           <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase">H2 Flow Rate (FRH)</label>
-                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', Number(e.target.value))} />
+                          <input type="number" className="w-full border border-slate-200 rounded p-1.5 text-[12px] bg-white outline-none focus:border-[#4C3BDE]" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', e.target.value)} />
                         </div>
                       </div>
                     </div>
