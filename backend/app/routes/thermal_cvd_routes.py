@@ -162,7 +162,9 @@ def get_model_info():
         if opt.X_train is not None and opt.y_train is not None:
             var_names = ['Growth Temp', 'Growth Time', 'Ar Flow', 'Pressure']
             importances = []
-            for col_idx in range(min(4, opt.X_train.shape[1])):
+            n_cols = opt.X_train.shape[1]
+            # Variables are the last 4 columns of X_train (indices 8, 9, 10, 11)
+            for col_idx in range(n_cols - 4, n_cols):
                 x_col = opt.X_train[:, col_idx]
                 r = np.corrcoef(x_col, opt.y_train)[0, 1]
                 importances.append(abs(r) if not np.isnan(r) else 0.0)

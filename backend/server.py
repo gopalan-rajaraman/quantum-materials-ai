@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.routes.upload_routes import router as upload_router
 from app.routes.thermal_cvd_routes import router as thermal_cvd_router, init_thermal_cvd_model
-from app.routes.dataset_routes import router as dataset_router
+from app.routes.dataset_routes import router as dataset_routes
 from app.routes.user_routes import router as user_router
 from app.database.mongodb_config import MongoDB
 
@@ -52,7 +52,7 @@ def read_root():
 # Include routers
 app.include_router(upload_router)
 app.include_router(thermal_cvd_router)
-app.include_router(dataset_router)
+# app.include_router(dataset_router)
 app.include_router(user_router)
 
 if __name__ == "__main__":

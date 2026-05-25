@@ -1,12 +1,14 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
 import io
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from bson import ObjectId
 
 from datetime import datetime
 import pandas as pd
 import numpy as np
 import app.routes.thermal_cvd_routes as cvd_routes
+from app.database.mongodb_config import get_datasets_collection, get_activity_log_collection
 
 class SpreadsheetData(BaseModel):
     data: List[Dict[str, Any]]
@@ -16,30 +18,30 @@ router = APIRouter(
     tags=["datasets"]
 )
 
-# Global in-memory storage for saved datasets
-saved_datasets = []
-
-# Global activity log
-activity_log = []
-
-def log_activity(title: str, desc: str, color: str = "bg-cyan-500"):
-    """Append an event to the activity log (keep last 20)."""
-    activity_log.insert(0, {
+async def log_activity(title: str, desc: str, color: str = "bg-cyan-500", user_id: Optional[str] = None):
+    """Append an event to the activity log in MongoDB."""
+    collection = get_activity_log_collection()
+    await collection.insert_one({
         "title": title,
         "desc": desc,
         "color": color,
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": datetime.utcnow().isoformat(),
+        "user_id": ObjectId(user_id) if user_id else None
     })
-    if len(activity_log) > 20:
-        activity_log.pop()
 
 @router.get("/dashboard")
 async def get_dashboard_stats():
     """Returns live stats for the Dashboard page."""
     opt = cvd_routes.optimizer_instance
     
+    datasets_collection = get_datasets_collection()
+    activity_collection = get_activity_log_collection()
+    
+    saved_datasets_count = await datasets_collection.count_documents({})
+    
     fitted = opt is not None and opt._fitted
-    total_datasets = len(saved_datasets) + (1 if fitted and not saved_datasets else 0)
+    total_datasets = saved_datasets_count + (1 if fitted and saved_datasets_count == 0 else 0)
     
     best_fwhm = None
     r2_score = None
@@ -139,17 +141,24 @@ async def get_dashboard_stats():
             {"name": "May 9", "R2": 0.80, "MAE": 0.49, "RMSE": 0.37},
             {"name": "May 16", "R2": 0.88, "MAE": 0.42, "RMSE": 0.33}
         ]
+
+    # Fetch recent activity from MongoDB
+    activity_log = []
+    cursor = activity_collection.find().sort("timestamp", -1).limit(8)
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        activity_log.append(doc)
         
     return {
         "total_datasets": total_datasets,
-        "active_experiments": len(saved_datasets),
+        "active_experiments": saved_datasets_count,
         "best_fwhm_meV": round(best_fwhm, 2) if best_fwhm is not None else None,
         "r2_percent": r2_score,
         "mae_meV": mae,
         "n_training_samples": n_samples,
         "model_fitted": fitted,
         "kernel": kernel_info,
-        "activity_log": activity_log[:8],
+        "activity_log": activity_log,
         "overview_chart_data": overview_chart_data,
         "model_performance_data": model_performance_data,
         "variable_summary_data": variable_summary_data
@@ -159,10 +168,15 @@ async def get_dashboard_stats():
 async def get_saved_datasets():
     """Returns the list of previously uploaded datasets with live ML model info."""
     import app.routes.thermal_cvd_routes as cvd_routes
+    datasets_collection = get_datasets_collection()
     
     enriched = []
-    for i, ds in enumerate(saved_datasets):
+    cursor = datasets_collection.find().sort("created_at", 1)
+    
+    i = 0
+    async for ds in cursor:
         entry = dict(ds)
+        entry['_id'] = str(entry['_id'])
         entry['id'] = f'EXP-{100 + i + 1}'
         entry['target'] = 'PL_FWHM (meV)'
         
@@ -176,6 +190,7 @@ async def get_saved_datasets():
             entry['status'] = 'In Progress'
         
         enriched.append(entry)
+        i += 1
     
     # If model is auto-loaded at startup but no manual upload happened, still show it
     if not enriched and cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:
@@ -193,12 +208,13 @@ async def get_saved_datasets():
     return {"datasets": enriched}
 
 @router.post("/upload")
-async def upload_datasets(files: list[UploadFile] = File(...)):
+async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional[str] = None):
     """
     Upload multiple CSV or Excel datasets, parse them with Pandas,
     concatenate them into a single dataframe, and detect columns.
     """
     dataframes = []
+    datasets_collection = get_datasets_collection()
     
     try:
         filenames = []
@@ -254,12 +270,16 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
         if 'PL_FWHM' in thermal_cvd_df.columns:
             thermal_cvd_df = thermal_cvd_df.dropna(subset=['PL_FWHM']).reset_index(drop=True)
 
-        # Store metadata for the saved list
-        saved_datasets.append({
+        # Store metadata into MongoDB
+        dataset_record = {
             "name": ", ".join(filenames),
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "rows": f"{len(thermal_cvd_df):,} Thermal CVD ({total_rows:,} total)"
-        })
+            "created_at": datetime.utcnow().isoformat(),
+            "rows": f"{len(thermal_cvd_df):,} Thermal CVD ({total_rows:,} total)",
+            "data": combined_df.to_dict(orient='records'),
+            "user_id": ObjectId(user_id) if user_id else None
+        }
+        await datasets_collection.insert_one(dataset_record)
 
         # Pass Thermal CVD data to the global optimizer to train
         if cvd_routes.optimizer_instance is not None:
@@ -267,12 +287,13 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
             best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
-            log_activity(
+            await log_activity(
                 "Dataset Uploaded",
                 f"{', '.join(filenames)}: {len(thermal_cvd_df)} Thermal CVD rows used",
-                "bg-purple-500"
+                "bg-purple-500",
+                user_id
             )
-            log_activity("GP Model Trained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500")
+            await log_activity("GP Model Trained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
 
         return {
             "total_files_processed": len(files),
@@ -290,11 +311,12 @@ async def upload_datasets(files: list[UploadFile] = File(...)):
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 @router.post("/upload-json")
-async def upload_json_data(payload: SpreadsheetData):
+async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = None):
     """
     Accepts raw JSON data from the frontend spreadsheet component,
     converts it to a pandas DataFrame, and processes it.
     """
+    datasets_collection = get_datasets_collection()
     try:
         # Filter out empty rows based on variables or target
         valid_data = [row for row in payload.data if row.get('PL_FWHM') or row.get('GTE')]
@@ -330,19 +352,23 @@ async def upload_json_data(payload: SpreadsheetData):
         if 'PL_FWHM' in df.columns:
             df = df.dropna(subset=['PL_FWHM']).reset_index(drop=True)
 
-        saved_datasets.append({
+        dataset_record = {
             "name": f"Manual_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "rows": f"{len(df):,} Thermal CVD rows"
-        })
+            "created_at": datetime.utcnow().isoformat(),
+            "rows": f"{len(df):,} Thermal CVD rows",
+            "data": df.to_dict(orient='records'),
+            "user_id": ObjectId(user_id) if user_id else None
+        }
+        await datasets_collection.insert_one(dataset_record)
 
         if cvd_routes.optimizer_instance is not None:
             cvd_routes.optimizer_instance.load_training_data(df)
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
             best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
-            log_activity("Manual Data Submitted", f"{len(df)} Thermal CVD rows ingested", "bg-purple-500")
-            log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500")
+            await log_activity("Manual Data Submitted", f"{len(df)} Thermal CVD rows ingested", "bg-purple-500", user_id)
+            await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
 
         return {
             "total_rows_aggregated": len(df),

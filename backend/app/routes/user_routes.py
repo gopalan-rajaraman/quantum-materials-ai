@@ -9,7 +9,7 @@ from datetime import datetime
 from bson import ObjectId
 import hashlib
 
-from app.database.mongodb_config import get_users_collection
+from app.database.mongodb_config import get_users_collection, get_activity_log_collection
 from app.database.mongodb_models import UserModel
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -128,6 +128,17 @@ async def login_user(login_data: UserLogin):
     user["_id"] = str(user["_id"])
     user.pop("password_hash", None)
     user.pop("verification_token", None)
+    
+    # Log login activity
+    activity_collection = get_activity_log_collection()
+    await activity_collection.insert_one({
+        "title": "User Login",
+        "desc": f"User {user['email']} logged in successfully.",
+        "color": "bg-green-500",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": datetime.utcnow().isoformat(),
+        "user_id": ObjectId(user["_id"])
+    })
     
     return {
         "message": "Login successful",

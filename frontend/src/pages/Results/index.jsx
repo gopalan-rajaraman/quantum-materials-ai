@@ -317,8 +317,8 @@ const Results = () => {
                   <Plot
                     data={[{
                       type: 'bar', orientation: 'h',
-                      x: Object.values(modelInfo.feature_importances).reverse(),
-                      y: Object.keys(modelInfo.feature_importances).reverse(),
+                      x: modelInfo.feature_importances.map(f => f.value).reverse(),
+                      y: modelInfo.feature_importances.map(f => f.name).reverse(),
                       marker: { color: '#A23B72' }
                     }]}
                     layout={{
