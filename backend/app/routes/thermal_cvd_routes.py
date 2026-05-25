@@ -37,7 +37,7 @@ class SuggestRequest(BaseModel):
 
 
 class OptimizeRequest(BaseModel):
-    n_steps: int = 10
+    n_steps: int = 5
 
 
 class SurfaceDataRequest(BaseModel):
@@ -346,7 +346,7 @@ def run_optimization(request: OptimizeRequest):
     Run full Bayesian Optimization loop.
 
     Args:
-        n_steps: Number of BO iterations (default=10)
+        n_steps: Number of BO iterations (default=5)
     """
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
@@ -497,8 +497,8 @@ def get_bo_progress():
         
         return {
             'total_steps': n_steps,
-            'min_required_steps': 10,
-            'can_access_results': n_steps >= 10,
+            'min_required_steps': 5,
+            'can_access_results': n_steps >= 5,
             'current_best_fwhm': float(optimizer_instance.y_train.min()) if len(optimizer_instance.y_train) > 0 else None
         }
     except Exception as e:
