@@ -150,7 +150,7 @@ async def upload_dataset(files: list[UploadFile] = File(...), user_id: Optional[
                 continue
             
             # Clean column names
-            df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
+            df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL Peak Pc', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
             if 'PL_FWHM' not in df.columns and 'PL FWHM' in df.columns:
                 df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
                 

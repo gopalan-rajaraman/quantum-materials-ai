@@ -37,8 +37,10 @@ class ThermalCVDEncoder:
     # Variables — swept by Bayesian Optimization (4, matches notebook)
     VARIABLES = ['GTE', 'GTI', 'FRA', 'Pressure']
 
-    # Target
-    TARGET = 'PL_FWHM'
+    # Targets
+    TARGET_FWHM = 'PL_FWHM'
+    TARGET_PEAK = 'PL Peak Pc'
+
 
     # Variable ranges — exactly as in notebook Step 3
     VARIABLE_RANGES = {
@@ -161,7 +163,7 @@ class ThermalCVDEncoder:
         )
 
         X_scaled = self.scaler_X.transform(X_raw)
-        y = pd.to_numeric(df[self.TARGET], errors='coerce').values.astype(float)
+        y = pd.to_numeric(df[self.TARGET_FWHM], errors='coerce').values.astype(float)
         return X_scaled, y
 
     def encode_variables(self, var_dict: Dict[str, float]) -> np.ndarray:

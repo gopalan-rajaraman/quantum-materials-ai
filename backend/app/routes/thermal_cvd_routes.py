@@ -50,6 +50,9 @@ class ConstantUpdateRequest(BaseModel):
     column: str
     value: Any
 
+class BatchConstantUpdateRequest(BaseModel):
+    constants: Dict[str, Any]
+
 
 # ============================================================================
 # Initialization
@@ -94,7 +97,7 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
             df = df.replace('NS', np.nan)
 
             # Clean column names (replace spaces with underscores if needed)
-            df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
+            df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL Peak Pc', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
 
             # Handle PL FWHM column name variants
             if 'PL_FWHM' not in df.columns and 'PL FWHM' in df.columns:
@@ -272,9 +275,28 @@ def set_constant(request: ConstantUpdateRequest):
 
     try:
         optimizer_instance.set_constant(request.column, request.value)
+        optimizer_instance.generate_search_space(n_points=5000)
 
         return {
             'message': f'Constant {request.column} updated to {request.value}',
+            'constants': optimizer_instance.get_encoding_info()['constants'],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/constants/batch")
+def set_constants_batch(request: BatchConstantUpdateRequest):
+    """Update multiple constants for a new experimental setup."""
+    if optimizer_instance is None:
+        raise HTTPException(status_code=503, detail="Model not initialized")
+
+    try:
+        for k, v in request.constants.items():
+            optimizer_instance.set_constant(k, v)
+        optimizer_instance.generate_search_space(n_points=5000)
+
+        return {
+            'message': 'Constants updated successfully',
             'constants': optimizer_instance.get_encoding_info()['constants'],
         }
     except Exception as e:

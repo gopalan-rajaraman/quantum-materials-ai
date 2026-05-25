@@ -39,6 +39,7 @@ TEST_DATA = {
     'Class': ['Monolayer', 'Nanosheets', np.nan, np.nan, np.nan, np.nan, np.nan],
     'TOCVD': ['Thermal CVD'] * 7,
     'PL_FWHM': [21, 124, 60, 69, 27, 48, 60],
+    'PL Peak Pc': [1.99, 2.014, 1.99, 2.01, 1.99, 1.97, 2.01],
 }
 
 df_test = pd.DataFrame(TEST_DATA)

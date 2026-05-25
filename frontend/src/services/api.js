@@ -75,6 +75,11 @@ export const api = {
   // Thermal CVD Model
   fetchModelInfo: () => request('/thermal-cvd/info'),
   fetchConstants: () => request('/thermal-cvd/constants'),
+  updateConstantsBatch: (constants) =>
+    request('/thermal-cvd/constants/batch', {
+      method: 'POST',
+      body: JSON.stringify({ constants })
+    }),
   predictFWHM: (payload) => 
     request('/thermal-cvd/predict', {
       method: 'POST',

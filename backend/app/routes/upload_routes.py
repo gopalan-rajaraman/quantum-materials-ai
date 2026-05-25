@@ -249,6 +249,12 @@ async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional
         combined_df = pd.concat(dataframes, ignore_index=True)
         total_rows = len(combined_df)
 
+        # Generate unique Dataset ID and Experiment Numbers
+        dataset_count = await datasets_collection.count_documents({})
+        dataset_id = f"DS_{dataset_count + 1:03d}"
+        exp_numbers = [f"{dataset_id}_EXP_{i+1:03d}" for i in range(total_rows)]
+        combined_df.insert(0, 'Exp Number', exp_numbers)
+
         # Filter to ONLY Thermal CVD experiments (matches Colab notebook Step 2)
         thermal_cvd_df = combined_df
         if 'TOCVD' in combined_df.columns:
@@ -279,6 +285,8 @@ async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "created_at": datetime.utcnow().isoformat(),
             "rows": f"{len(thermal_cvd_df):,} Thermal CVD ({total_rows:,} total)",
+            "dataset_id": dataset_id,
+            "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
             "data": combined_df.to_dict(orient='records'),
             "user_id": ObjectId(user_id) if user_id else None
         }
@@ -327,9 +335,16 @@ async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = No
             raise HTTPException(status_code=400, detail="No valid data provided.")
             
         df = pd.DataFrame(valid_data)
+        total_rows = len(df)
+        
+        # Generate unique Dataset ID and Experiment Numbers
+        dataset_count = await datasets_collection.count_documents({})
+        dataset_id = f"DS_{dataset_count + 1:03d}"
+        exp_numbers = [f"{dataset_id}_EXP_{i+1:03d}" for i in range(total_rows)]
+        df.insert(0, 'Exp Number', exp_numbers)
         
         # Clean column names
-        df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
+        df.columns = [col.replace(' ', '_') if col not in ['PL Peak Position', 'PL Peak Pc', 'PL_FWHM', 'PL FWHM'] else col for col in df.columns]
 
         # Rename 'PL FWHM' → 'PL_FWHM'
         if 'PL FWHM' in df.columns and 'PL_FWHM' not in df.columns:
@@ -360,6 +375,8 @@ async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = No
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "created_at": datetime.utcnow().isoformat(),
             "rows": f"{len(df):,} Thermal CVD rows",
+            "dataset_id": dataset_id,
+            "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
             "data": df.to_dict(orient='records'),
             "user_id": ObjectId(user_id) if user_id else None
         }
