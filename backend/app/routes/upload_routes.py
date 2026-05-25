@@ -177,8 +177,11 @@ async def get_saved_datasets():
     async for ds in cursor:
         entry = dict(ds)
         entry['_id'] = str(entry['_id'])
+        if 'user_id' in entry and entry['user_id'] is not None:
+            entry['user_id'] = str(entry['user_id'])
         entry['id'] = f'EXP-{100 + i + 1}'
         entry['target'] = 'PL_FWHM (meV)'
+        entry.pop('data', None)
         
         # Pull live best value from the model if fitted
         if cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:

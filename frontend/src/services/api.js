@@ -7,6 +7,7 @@ const request = async (path, options = {}) => {
       'Content-Type': 'application/json',
       ...options.headers,
     },
+    cache: 'no-store',
     ...options,
   });
   
