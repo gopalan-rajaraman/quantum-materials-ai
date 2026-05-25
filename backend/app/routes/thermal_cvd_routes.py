@@ -486,8 +486,14 @@ def get_bo_progress():
         raise HTTPException(status_code=503, detail="Model not fitted")
     
     try:
-        # Get the number of training samples as a proxy for BO steps
-        n_steps = len(optimizer_instance.y_train) - optimizer_instance._training_info.get('initial_samples', 0)
+        initial_samples = optimizer_instance._training_info.get('initial_samples', 0)
+        
+        # Patch for older models that don't have initial_samples set
+        if initial_samples == 0 and len(optimizer_instance.y_train) > 0:
+            initial_samples = len(optimizer_instance.y_train)
+            optimizer_instance._training_info['initial_samples'] = initial_samples
+            
+        n_steps = len(optimizer_instance.y_train) - initial_samples
         
         return {
             'total_steps': n_steps,
