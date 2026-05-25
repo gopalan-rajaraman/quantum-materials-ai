@@ -42,9 +42,9 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6FA] text-slate-900 flex font-sans">
+    <div className="min-h-screen bg-[#F5F6FA] text-slate-900 flex font-sans print:bg-white print:block">
       <Sidebar />
-      <main className={`flex-1 overflow-y-auto bg-[#F5F6FA] ${location.pathname === '/' ? 'p-0' : 'p-8 pt-12 lg:p-10 lg:pt-14'}`}>
+      <main className={`flex-1 overflow-y-auto bg-[#F5F6FA] ${location.pathname === '/' ? 'p-0' : 'p-8 pt-12 lg:p-10 lg:pt-14'} print:bg-white print:p-0 print:m-0 print:overflow-visible`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
