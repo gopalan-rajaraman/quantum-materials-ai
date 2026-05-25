@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 
 /* ─── Styles ────────────────────────────────────────────────── */
@@ -409,8 +409,7 @@ const LeftPanel = () => (
 const GoogleAccountChooserModal = ({ isOpen, onClose, onSelect }) => {
   if (!isOpen) return null;
   const accounts = [
-    { name: 'Khushboo', email: 'chaudharykhus3107@gmail.com', img: 'K', color: '#8b5cf6' },
-    { name: 'Quantum Researcher', email: 'researcher@quantum.edu', img: 'Q', color: '#10b981' }
+    { name: 'Khushboo', email: 'chaudharykhus3107@gmail.com', img: 'K', color: '#8b5cf6' }
   ];
 
   return (
@@ -463,7 +462,8 @@ const GoogleAccountChooserModal = ({ isOpen, onClose, onSelect }) => {
 
 /* ─── Main Component ─────────────────────────────────────────── */
 const AuthPage = () => {
-  const [tab, setTab] = useState('signup'); // 'signup' | 'signin'
+  const location = useLocation();
+  const tab = location.pathname.includes('/login') ? 'signin' : 'signup';
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const navigate = useNavigate();
 
@@ -498,11 +498,7 @@ const AuthPage = () => {
         }}>
           <div style={{ width:'100%', maxWidth:480 }}>
 
-            {/* Tabs */}
-            <div style={{ display:'flex', borderBottom:'1px solid #e2e8f0', marginBottom:20 }}>
-              <button className={`su-tab ${tab === 'signup' ? 'active' : ''}`} onClick={() => setTab('signup')}>Sign Up</button>
-              <button className={`su-tab ${tab === 'signin' ? 'active' : ''}`} onClick={() => setTab('signin')}>Sign In</button>
-            </div>
+            {/* Tabs removed as per user request */}
 
             {/* Heading (only for signup) */}
             {tab === 'signup' && (
@@ -515,13 +511,7 @@ const AuthPage = () => {
             {/* Form switch */}
             {tab === 'signup' ? <SignUpForm onGoogleClick={() => setShowGoogleModal(true)}/> : <SignInForm onGoogleClick={() => setShowGoogleModal(true)}/>}
 
-            {/* Bottom switch link */}
-            <p style={{ marginTop:16, textAlign:'center', fontSize:13.5, color:'#64748b' }}>
-              {tab === 'signup'
-                ? <>Already have an account?{' '}<span style={{ color:'#6366f1', fontWeight:700, cursor:'pointer' }} onClick={() => setTab('signin')}>Sign In</span></>
-                : <>Don't have an account?{' '}<span style={{ color:'#6366f1', fontWeight:700, cursor:'pointer' }} onClick={() => setTab('signup')}>Sign Up</span></>
-              }
-            </p>
+            {/* Bottom switch link removed as per user request */}
 
             <GoogleAccountChooserModal 
               isOpen={showGoogleModal} 

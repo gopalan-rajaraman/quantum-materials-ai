@@ -1,12 +1,8 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import AuthPage from '../Signup';
 
-// Login is now handled inside the Signup page via tab switching.
-// This redirect ensures any /login links still work.
+// Login is now handled by rendering the AuthPage directly.
 const Login = () => {
-  const navigate = useNavigate();
-  useEffect(() => { navigate('/signup', { replace: true }); }, [navigate]);
-  return null;
+  return <AuthPage />;
 };
 
 export default Login;
