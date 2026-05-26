@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 from typing import Tuple, Optional
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern, ConstantKernel
+from sklearn.gaussian_process.kernels import Matern, ConstantKernel, WhiteKernel
 from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 
 
@@ -27,11 +27,13 @@ class ThermalCVDGPModel:
         self.random_state = random_state
         self.n_restarts = n_restarts
 
-        # Matérn 5/2 kernel
-        # Matches notebook Step 7 but without WhiteKernel to allow uncertainty to collapse
+        # Matérn 5/2 kernel with WhiteKernel for noise estimation
+        # Matches notebook Step 7
+        # Use a larger length scale bound to force a smooth curve and avoid overfitting
         self.kernel = (
-            ConstantKernel(1.0, (1e-3, 1e3))
-            * Matern(length_scale=1.0, length_scale_bounds=(1e-2, 1e2), nu=2.5)
+            ConstantKernel(1.0, (1e-1, 1e1))
+            * Matern(length_scale=1.0, length_scale_bounds=(0.3, 10.0), nu=2.5)
+            + WhiteKernel(noise_level=0.1, noise_level_bounds=(1e-3, 1e1))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None
@@ -48,10 +50,8 @@ class ThermalCVDGPModel:
         # normalize_y=False: y is already StandardScaler-transformed before being passed here
         # (matches notebook: gp.fit(X_scaled, y_scaled) with normalize_y=False)
         # Using normalize_y=True would double-normalize and corrupt kernel hyperparameters
-        # We use alpha=0.01 to model measurement noise without corrupting predictive uncertainty
         self.gp = GaussianProcessRegressor(
             kernel=self.kernel,
-            alpha=0.01,
             n_restarts_optimizer=self.n_restarts,
             normalize_y=False,
             random_state=self.random_state,
@@ -65,7 +65,6 @@ class ThermalCVDGPModel:
         """
         gp = GaussianProcessRegressor(
             kernel=self.kernel,
-            alpha=0.01,
             n_restarts_optimizer=5,
             normalize_y=False,
             random_state=self.random_state,

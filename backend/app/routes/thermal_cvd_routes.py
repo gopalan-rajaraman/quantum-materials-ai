@@ -75,12 +75,14 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
         if data_file is None:
             # Search known absolute paths first, then relative paths as fallback
             known_paths = [
+                Path(r'C:\Users\Khushboo\OneDrive\Desktop\quantam-ai\WS2_ThermalCVD_BlankCells_17points.xlsx'),
                 Path(r'C:\Users\Khushboo\OneDrive\Desktop\AI-Material-Optimization\labelled.xlsx'),
                 Path(r'C:\Users\Khushboo\OneDrive\Desktop\AI-Material-Optimization\thermal_cvd_rows.xlsx'),
             ]
             # Also try relative to the workspace root
             workspace_root = Path(__file__).parent.parent.parent.parent.parent
             known_paths += [
+                workspace_root / 'WS2_ThermalCVD_BlankCells_17points.xlsx',
                 workspace_root / 'labelled.xlsx',
                 workspace_root / 'thermal_cvd_rows.xlsx',
                 Path(__file__).parent.parent.parent.parent / 'labelled.xlsx',
@@ -443,9 +445,26 @@ def get_plot_data():
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
-        # Get the best recommended point to fix the other variables
-        recommendations = optimizer_instance.suggest_next_experiment(n_suggestions=1)
-        best = recommendations[0]
+        # Fix other variables at the last entered experiment
+        # This ensures the 1D slice passes through the point the user just added,
+        # showing the local deformation and uncertainty collapse near that experiment.
+        try:
+            if hasattr(optimizer_instance, 'X_train') and len(optimizer_instance.X_train) > 0:
+                last_x = optimizer_instance.X_train[-1]
+                # X_train is ordered by encoder: GTE, GTI, FRA, Pressure, ...
+                fixed_params = {
+                    'GTI': float(last_x[1]),
+                    'FRA': float(last_x[2]),
+                    'Pressure': float(last_x[3])
+                }
+            else:
+                raise ValueError("No training data")
+        except Exception:
+            # Fallback to defaults if suggestion fails
+            fixed_params = {}
+            for var in ['GTI', 'FRA', 'Pressure']:
+                ranges = optimizer_instance.encoder.VARIABLE_RANGES[var]
+                fixed_params[var] = (ranges[0] + ranges[1]) / 2.0
         
         # Sweep GTE while keeping others fixed
         gte_range = np.linspace(550, 1050, 100)
@@ -454,9 +473,9 @@ def get_plot_data():
         for gte in gte_range:
             var_dicts.append({
                 'GTE': float(gte),
-                'GTI': best['GTI_minutes'],
-                'FRA': best['FRA_sccm'],
-                'Pressure': best['Pressure_Torr']
+                'GTI': fixed_params['GTI'],
+                'FRA': fixed_params['FRA'],
+                'Pressure': fixed_params['Pressure']
             })
             
         X_search_list = [optimizer_instance.encoder.encode_variables(vd)[0] for vd in var_dicts]
@@ -474,15 +493,24 @@ def get_plot_data():
             X_sweep, optimizer_instance.gp_model.gp, y_best_scaled, xi=0.01
         )
         
+        # Get all training points (GTE is at index 0 in the encoded array)
+        # Note: X_train contains unscaled original values in ThermalCVDOptimizer
+        x_train = optimizer_instance.X_train[:, 0].tolist() if hasattr(optimizer_instance, 'X_train') else []
+        y_train = optimizer_instance.y_train.tolist() if hasattr(optimizer_instance, 'y_train') else []
+
         return {
             'x': gte_range.tolist(),
             'mu': mu_mev.tolist(),
             'sigma': sigma_mev.tolist(),
             'ei': ei_vals.tolist(),
             'fixed_params': {
-                'GTI': best['GTI_minutes'],
-                'FRA': best['FRA_sccm'],
-                'Pressure': best['Pressure_Torr']
+                'GTI': fixed_params.get('GTI', 0),
+                'FRA': fixed_params.get('FRA', 0),
+                'Pressure': fixed_params.get('Pressure', 0)
+            },
+            'training_points': {
+                'x': x_train,
+                'y': y_train
             }
         }
     except Exception as e:

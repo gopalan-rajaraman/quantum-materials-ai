@@ -194,7 +194,15 @@ const Optimization = () => {
                         mode: 'lines',
                         name: 'Predicted FWHM',
                         line: {color: '#4f46e5', width: 3}
-                      }
+                      },
+                      ...(plotData.training_points ? [{
+                        x: plotData.training_points.x,
+                        y: plotData.training_points.y,
+                        type: 'scatter',
+                        mode: 'markers',
+                        name: 'Experiments',
+                        marker: {color: '#ef4444', size: 8, symbol: 'circle'}
+                      }] : [])
                     ]}
                     layout={{
                       autosize: true,
