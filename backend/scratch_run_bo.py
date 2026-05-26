@@ -16,14 +16,16 @@ for i in range(5):
     print(f"Step {i+1}: Recommended point {res['simulated_experiment']}, FWHM: {res['predicted_FWHM_meV']:.2f} +- {res['uncertainty_meV']:.2f}")
 
 print("Generating plot data...")
-best_rec = opt.suggest_next_experiment(n_suggestions=1)[0]
+unscaled_last_x = opt.encoder.scaler_X.inverse_transform([opt.X_train[-1]])[0]
+var_map = {var: i for i, var in enumerate(opt.encoder.VARIABLES)}
 fixed_params = {
-    'GTI': best_rec['GTI_minutes'],
-    'FRA': best_rec['FRA_sccm'],
-    'Pressure': best_rec['Pressure_Torr']
+    'GTI': float(unscaled_last_x[var_map['GTI']]),
+    'FRA': float(unscaled_last_x[var_map['FRA']]),
+    'Pressure': float(unscaled_last_x[var_map['Pressure']])
 }
 
-gte_range = np.linspace(500, 1100, 100)
+gte_bounds = opt.encoder.VARIABLE_RANGES['GTE']
+gte_range = np.linspace(gte_bounds[0], gte_bounds[1], 100)
 var_dicts = []
 for gte in gte_range:
     var_dicts.append({
@@ -46,6 +48,12 @@ ei_vals = opt.bo_engine.expected_improvement(
     X_sweep, opt.gp_model.gp, y_best_scaled, xi=0.01
 )
 
+# Get unscaled training points for plot
+unscaled_X = opt.encoder.scaler_X.inverse_transform(opt.X_train)
+var_map = {var: i for i, var in enumerate(opt.encoder.VARIABLES)}
+x_train = unscaled_X[:, var_map['GTE']]
+y_train = opt.y_train
+
 plt.figure(figsize=(12, 8))
 
 # Plot Surrogate + Uncertainty
@@ -55,7 +63,8 @@ plt.fill_between(gte_range,
                  np.maximum(mu_mev - 1.96*sigma_mev, 0),
                  mu_mev + 1.96*sigma_mev,
                  alpha=0.2, color='blue', label='95% Uncertainty')
-plt.title('Gaussian Surrogate Model (GTE Sweep)')
+plt.scatter(x_train, y_train, c='red', s=50, label='Experiments', zorder=5)
+plt.title('Gaussian Surrogate Model (GTE Sweep centered on last exp)')
 plt.ylabel('FWHM (meV)')
 plt.legend()
 

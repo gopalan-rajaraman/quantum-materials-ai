@@ -450,12 +450,13 @@ def get_plot_data():
         # showing the local deformation and uncertainty collapse near that experiment.
         try:
             if hasattr(optimizer_instance, 'X_train') and len(optimizer_instance.X_train) > 0:
-                last_x = optimizer_instance.X_train[-1]
-                # X_train is ordered by encoder: GTE, GTI, FRA, Pressure, ...
+                unscaled_last_x = optimizer_instance.encoder.scaler_X.inverse_transform([optimizer_instance.X_train[-1]])[0]
+                var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
+                # X_train is ordered by encoder: GTE, GTI, FRA, Pressure
                 fixed_params = {
-                    'GTI': float(last_x[1]),
-                    'FRA': float(last_x[2]),
-                    'Pressure': float(last_x[3])
+                    'GTI': float(unscaled_last_x[var_map['GTI']]),
+                    'FRA': float(unscaled_last_x[var_map['FRA']]),
+                    'Pressure': float(unscaled_last_x[var_map['Pressure']])
                 }
             else:
                 raise ValueError("No training data")
@@ -467,7 +468,8 @@ def get_plot_data():
                 fixed_params[var] = (ranges[0] + ranges[1]) / 2.0
         
         # Sweep GTE while keeping others fixed
-        gte_range = np.linspace(550, 1050, 100)
+        gte_bounds = optimizer_instance.encoder.VARIABLE_RANGES['GTE']
+        gte_range = np.linspace(gte_bounds[0], gte_bounds[1], 100)
         
         var_dicts = []
         for gte in gte_range:
@@ -493,10 +495,16 @@ def get_plot_data():
             X_sweep, optimizer_instance.gp_model.gp, y_best_scaled, xi=0.01
         )
         
-        # Get all training points (GTE is at index 0 in the encoded array)
-        # Note: X_train contains unscaled original values in ThermalCVDOptimizer
-        x_train = optimizer_instance.X_train[:, 0].tolist() if hasattr(optimizer_instance, 'X_train') else []
-        y_train = optimizer_instance.y_train.tolist() if hasattr(optimizer_instance, 'y_train') else []
+        # Get all training points
+        # X_train is scaled (mean 0, std 1). We MUST inverse_transform to get raw GTE values (500-1100).
+        x_train = []
+        y_train = []
+        if hasattr(optimizer_instance, 'X_train') and optimizer_instance.X_train is not None:
+            # Inverse transform to get raw values
+            unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
+            var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
+            x_train = unscaled_X[:, var_map['GTE']].tolist()
+            y_train = optimizer_instance.y_train.tolist()
 
         return {
             'x': gte_range.tolist(),

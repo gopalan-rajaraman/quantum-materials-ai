@@ -32,7 +32,7 @@ class ThermalCVDGPModel:
         # Use a larger length scale bound to force a smooth curve and avoid overfitting
         self.kernel = (
             ConstantKernel(1.0, (1e-1, 1e1))
-            * Matern(length_scale=1.0, length_scale_bounds=(0.3, 10.0), nu=2.5)
+            * Matern(length_scale=2.0, length_scale_bounds=(1.0, 10.0), nu=2.5)
             + WhiteKernel(noise_level=0.1, noise_level_bounds=(1e-3, 1e1))
         )
 

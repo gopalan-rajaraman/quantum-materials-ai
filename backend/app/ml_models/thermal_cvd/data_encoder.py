@@ -88,18 +88,12 @@ class ThermalCVDEncoder:
 
         # Step 6: Build raw feature matrix and fit imputer + scaler
         X_raw = self._build_raw_feature_matrix(df)
-        self.imputer.fit(X_raw[:, len(self.CAT_CONSTANTS):])  # impute only variable columns
-        X_imputed = X_raw.copy()
-        X_imputed[:, len(self.CAT_CONSTANTS):] = self.imputer.transform(
-            X_raw[:, len(self.CAT_CONSTANTS):]
-        )
+        self.imputer.fit(X_raw)  # impute all variable columns
+        X_imputed = self.imputer.transform(X_raw)
         self.scaler_X.fit(X_imputed)
 
         # Feature column names for reference
-        self.feature_cols = (
-            [c + '_enc' for c in self.CAT_CONSTANTS]
-            + self.VARIABLES
-        )
+        self.feature_cols = self.VARIABLES
 
         self._fitted = True
 
@@ -111,37 +105,17 @@ class ThermalCVDEncoder:
 
     def _build_raw_feature_matrix(self, df: pd.DataFrame) -> np.ndarray:
         """
-        Build raw (unscaled) feature matrix matching notebook Step 6.
-        Layout: [P1_enc, P2_enc, ..., Class_enc, GTE, GTI, FRA, Pressure]
+        Build raw (unscaled) feature matrix matching 4D BO refactor.
+        Layout: [GTE, GTI, FRA, Pressure]
         """
         df_work = df.copy()
-
-        # Encode categoricals (fill NaN with 'Unknown')
-        cat_features = []
-        for col in self.CAT_CONSTANTS:
-            df_work[col] = df_work[col].fillna(self.fill_unknown).astype(str)
-            if col in self.label_encoders:
-                le = self.label_encoders[col]
-                # Handle unseen category values gracefully
-                new_vals = set(df_work[col].unique()) - set(le.classes_)
-                if new_vals:
-                    le.classes_ = np.append(le.classes_, sorted(new_vals))
-                encoded = le.transform(df_work[col])
-            else:
-                le = LabelEncoder()
-                le.fit(df_work[col].unique())
-                self.label_encoders[col] = le
-                encoded = le.transform(df_work[col])
-            cat_features.append(encoded.reshape(-1, 1))
-
-        const_features = np.hstack(cat_features).astype(float)
 
         # Variable features (4 cols), raw — imputation happens externally
         var_features = df_work[self.VARIABLES].apply(
             pd.to_numeric, errors='coerce'
         ).values.astype(float)
 
-        return np.hstack([const_features, var_features])
+        return var_features
 
     def encode_observation(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -157,10 +131,8 @@ class ThermalCVDEncoder:
         """
         X_raw = self._build_raw_feature_matrix(df)
 
-        # Impute missing variable values (columns 8-11) with mean
-        X_raw[:, len(self.CAT_CONSTANTS):] = self.imputer.transform(
-            X_raw[:, len(self.CAT_CONSTANTS):]
-        )
+        # Impute missing variable values
+        X_raw = self.imputer.transform(X_raw)
 
         X_scaled = self.scaler_X.transform(X_raw)
         y = pd.to_numeric(df[self.TARGET_FWHM], errors='coerce').values.astype(float)
@@ -180,22 +152,10 @@ class ThermalCVDEncoder:
         if not self._fitted:
             raise RuntimeError("Encoder not fitted. Call fit_on_data first.")
 
-        # Build cat constant features using mode values
-        cat_feats = []
-        for col in self.CAT_CONSTANTS:
-            le = self.label_encoders[col]
-            val = str(self.constant_values.get(col, self.fill_unknown))
-            if val not in le.classes_:
-                val = self.fill_unknown
-                if val not in le.classes_:
-                    le.classes_ = np.append(le.classes_, [val])
-            encoded = le.transform([val])[0]
-            cat_feats.append(float(encoded))
-
-        # Variable features
+        # Variable features only (4D GP)
         var_feats = [float(var_dict[v]) for v in self.VARIABLES]
 
-        X_raw = np.array([cat_feats + var_feats])
+        X_raw = np.array([var_feats])
         X_scaled = self.scaler_X.transform(X_raw)
         return X_scaled
 
@@ -210,11 +170,9 @@ class ThermalCVDEncoder:
             Dictionary of variable values
         """
         X_raw = self.scaler_X.inverse_transform(X_scaled)
-        # Variables are in columns 8-11 (after the 8 cat constants)
-        n_cats = len(self.CAT_CONSTANTS)
         var_dict = {}
         for i, var in enumerate(self.VARIABLES):
-            var_dict[var] = float(X_raw[0, n_cats + i])
+            var_dict[var] = float(X_raw[0, i])
         return var_dict
 
     def get_encoding_info(self) -> Dict[str, Any]:
