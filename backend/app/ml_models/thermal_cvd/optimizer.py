@@ -361,7 +361,7 @@ class ThermalCVDOptimizer:
             X_sub = self.X_train[:step]
             y_sub = self.y_train_scaled[:step]
             
-            self.gp_model.fit(X_sub, y_sub)
+            self.gp_model.fast_fit(X_sub, y_sub)
             y_best = y_sub.min()
             
             ei_vals = self.bo_engine.expected_improvement(X_sweep, self.gp_model.gp, y_best, xi=0.01)
