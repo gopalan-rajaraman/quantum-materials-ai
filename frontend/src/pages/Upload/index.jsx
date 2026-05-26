@@ -262,7 +262,10 @@ const Upload = () => {
     setIsLocking(true);
     setLockError(null);
     try {
-      const enrichedData = parsedData.map(row => ({
+      const selectedExperiments = getExperimentalIds().filter(exp => confirmedExpIds.has(exp.id));
+      const filteredData = selectedExperiments.flatMap(exp => exp.samples);
+      
+      const enrichedData = filteredData.map(row => ({
         ...row,
         ...boConstants,
         TOCVD: 'Thermal CVD'
