@@ -289,27 +289,7 @@ const Optimization = () => {
               </tr>
             </thead>
             <tbody>
-              {/* Collapsed Initial Dataset Row */}
-              {timelineData.filter(r => r.type === 'Initial').length > 0 && (
-                <tr className="border-b border-slate-100 bg-slate-50/40">
-                  <td className="px-3 py-4" colSpan={5}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-slate-300 border-2 border-slate-400 shrink-0"></div>
-                      <div>
-                        <span className="font-bold text-slate-700 block text-sm">Initial Dataset (Literature)</span>
-                        <span className="text-xs text-slate-400 font-medium">{timelineData.filter(r => r.type === 'Initial').length} Experiments</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-4 text-right font-bold text-slate-600">
-                    {(() => {
-                      const initialFwhms = timelineData.filter(r => r.type === 'Initial').map(r => parseFloat(r.fwhm));
-                      if (initialFwhms.length === 0) return '-';
-                      return `${Math.min(...initialFwhms).toFixed(1)} - ${Math.max(...initialFwhms).toFixed(1)}`;
-                    })()}
-                  </td>
-                </tr>
-              )}
+
 
               {/* BO Experiments */}
               {timelineData.filter(r => r.type === 'User').map((row, i) => (
