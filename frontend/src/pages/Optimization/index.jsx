@@ -289,7 +289,18 @@ const Optimization = () => {
               </tr>
             </thead>
             <tbody>
-
+              {/* Empty State */}
+              {timelineData.filter(r => r.type === 'User').length === 0 && (
+                <tr className="border-b border-slate-100 bg-slate-50/20">
+                  <td className="px-3 py-10 text-center text-slate-400 font-medium" colSpan={6}>
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Activity className="w-6 h-6 opacity-50 mb-1" />
+                      <span>No active optimization steps yet.</span>
+                      <span className="text-xs opacity-70">Log your first BO experiment to build the timeline.</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
 
               {/* BO Experiments */}
               {timelineData.filter(r => r.type === 'User').map((row, i) => (
