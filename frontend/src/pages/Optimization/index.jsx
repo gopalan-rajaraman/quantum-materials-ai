@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
-import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown } from 'lucide-react';
+import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Optimization = () => {
@@ -161,6 +161,27 @@ const Optimization = () => {
 
   const globalUncertaintyRed = plotData ? (Math.max(0, 100 - (plotData.sigma.reduce((a,b)=>a+b,0) / plotData.sigma.length) * 5)).toFixed(1) : 0;
 
+  // Convergence check logic
+  let hasConverged = false;
+  const CONVERGENCE_N = 3;
+  if (timelineData && timelineData.length > 0) {
+    const userSteps = timelineData.filter(r => r.type === 'User').map(r => parseFloat(r.fwhm));
+    if (userSteps.length >= CONVERGENCE_N) {
+      const initialBest = Math.min(...timelineData.filter(r => r.type === 'Initial').map(r => parseFloat(r.fwhm)));
+      
+      const bestBeforeLastN = userSteps.length === CONVERGENCE_N 
+        ? initialBest 
+        : Math.min(initialBest, ...userSteps.slice(0, userSteps.length - CONVERGENCE_N));
+        
+      const bestInLastN = Math.min(...userSteps.slice(-CONVERGENCE_N));
+      
+      // If the best FWHM in the last N steps is not strictly lower than the historical best, we've converged!
+      if (bestInLastN >= bestBeforeLastN) {
+        hasConverged = true;
+      }
+    }
+  }
+
   return (
     <div className="p-6 bg-slate-50 min-h-full text-slate-800 animate-fade-in font-sans">
       <div className="flex items-center justify-between mb-6">
@@ -277,52 +298,72 @@ const Optimization = () => {
           </table>
         </div>
 
-        {/* Next Suggestion Log */}
-        <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm shadow-emerald-50 flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-emerald-300"></div>
-          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">Next Suggested Experiment</h3>
+        {/* Next Suggestion Log / Convergence */}
+        <div className={`bg-white rounded-2xl p-6 border shadow-sm flex flex-col relative overflow-hidden ${hasConverged ? 'border-amber-200 shadow-amber-50' : 'border-emerald-100 shadow-emerald-50'}`}>
+          <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${hasConverged ? 'from-amber-400 to-amber-300' : 'from-emerald-400 to-emerald-300'}`}></div>
           
-          {suggestions.length > 0 ? (
-            <div className="space-y-4 flex-1">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span className="text-slate-500">Growth Temp (GTE)</span>
-                <span className="text-slate-900 font-bold">{suggestions[0].GTE_celsius} °C</span>
+          {hasConverged ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                <Trophy className="w-8 h-8 text-amber-600" />
               </div>
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span className="text-slate-500">Growth Time (GTI)</span>
-                <span className="text-slate-900 font-bold">{suggestions[0].GTI_minutes} min</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span className="text-slate-500">Ar Flow (FRA)</span>
-                <span className="text-slate-900 font-bold">{suggestions[0].FRA_sccm} sccm</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span className="text-slate-500">Pressure</span>
-                <span className="text-slate-900 font-bold">{suggestions[0].Pressure_Torr} Torr</span>
-              </div>
-              
-              <div className="mt-6 pt-4 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
-                <div className="flex justify-between items-end">
-                  <span className="text-emerald-700 text-sm font-bold">Predicted FWHM:</span>
-                  <span className="text-emerald-600 text-2xl font-bold">{predictedFwhm.toFixed(1)} <span className="text-sm font-normal opacity-70">± {predictedUncertainty.toFixed(1)}</span></span>
-                </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Optimization Converged!</h3>
+              <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                Your Bayesian Optimization engine has successfully discovered the minimum FWHM. 
+                There has been no significant improvement over the last <strong className="text-slate-700">{CONVERGENCE_N} iterations</strong>.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 w-full flex items-center justify-between">
+                <span className="text-amber-700 text-sm font-bold">Best Achieved FWHM:</span>
+                <span className="text-amber-600 text-2xl font-bold">{Math.min(...timelineData.map(r => parseFloat(r.fwhm))).toFixed(2)} meV</span>
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-500">No suggestions ready.</div>
-          )}
+            <>
+              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">Next Suggested Experiment</h3>
+              
+              {suggestions.length > 0 ? (
+                <div className="space-y-4 flex-1">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span className="text-slate-500">Growth Temp (GTE)</span>
+                    <span className="text-slate-900 font-bold">{suggestions[0].GTE_celsius} °C</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span className="text-slate-500">Growth Time (GTI)</span>
+                    <span className="text-slate-900 font-bold">{suggestions[0].GTI_minutes} min</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span className="text-slate-500">Ar Flow (FRA)</span>
+                    <span className="text-slate-900 font-bold">{suggestions[0].FRA_sccm} sccm</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span className="text-slate-500">Pressure</span>
+                    <span className="text-slate-900 font-bold">{suggestions[0].Pressure_Torr} Torr</span>
+                  </div>
+                  
+                  <div className="mt-6 pt-4 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
+                    <div className="flex justify-between items-end">
+                      <span className="text-emerald-700 text-sm font-bold">Predicted FWHM:</span>
+                      <span className="text-emerald-600 text-2xl font-bold">{predictedFwhm.toFixed(1)} <span className="text-sm font-normal opacity-70">± {predictedUncertainty.toFixed(1)}</span></span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-slate-500">No suggestions ready.</div>
+              )}
 
-          {suggestions.length > 0 && !loading && (
-            <form onSubmit={handleAddExperiment} className="mt-6 pt-4 flex gap-2">
-              <input 
-                type="number" step="0.01" required value={fwhmResult} onChange={(e) => setFwhmResult(e.target.value)}
-                placeholder="Actual FWHM..."
-                className="flex-1 bg-white border-2 border-slate-200 rounded-xl px-4 py-2 text-slate-900 outline-none focus:border-emerald-500"
-              />
-              <button disabled={submitting} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 disabled:opacity-50">
-                <Save className="w-4 h-4" /> Log Result
-              </button>
-            </form>
+              {suggestions.length > 0 && !loading && (
+                <form onSubmit={handleAddExperiment} className="mt-6 pt-4 flex gap-2">
+                  <input 
+                    type="number" step="0.01" required value={fwhmResult} onChange={(e) => setFwhmResult(e.target.value)}
+                    placeholder="Actual FWHM..."
+                    className="flex-1 bg-white border-2 border-slate-200 rounded-xl px-4 py-2 text-slate-900 outline-none focus:border-emerald-500"
+                  />
+                  <button disabled={submitting} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 disabled:opacity-50">
+                    <Save className="w-4 h-4" /> Log Result
+                  </button>
+                </form>
+              )}
+            </>
           )}
         </div>
       </div>
