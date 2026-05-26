@@ -27,13 +27,11 @@ class ThermalCVDGPModel:
         self.random_state = random_state
         self.n_restarts = n_restarts
 
-        # Matérn 5/2 kernel with WhiteKernel for noise estimation
-        # Matches notebook Step 7
         # Use a larger length scale bound to force a smooth curve and avoid overfitting
         self.kernel = (
-            ConstantKernel(1.0, (1e-1, 1e1))
-            * Matern(length_scale=2.0, length_scale_bounds=(1.0, 10.0), nu=2.5)
-            + WhiteKernel(noise_level=0.1, noise_level_bounds=(1e-3, 1e1))
+            ConstantKernel(1.0, (1e-3, 1e3))
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(1e-1, 100), nu=2.5)
+            + WhiteKernel(noise_level=0.05, noise_level_bounds=(1e-6, 1.0))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None
@@ -47,13 +45,11 @@ class ThermalCVDGPModel:
             X_train: Scaled feature matrix (n_samples, n_features)
             y_train: Target values (PL FWHM in meV)
         """
-        # normalize_y=False: y is already StandardScaler-transformed before being passed here
-        # (matches notebook: gp.fit(X_scaled, y_scaled) with normalize_y=False)
-        # Using normalize_y=True would double-normalize and corrupt kernel hyperparameters
+        # Using normalize_y=True to ensure target space is well-conditioned
         self.gp = GaussianProcessRegressor(
             kernel=self.kernel,
-            n_restarts_optimizer=self.n_restarts,
-            normalize_y=False,
+            n_restarts_optimizer=20,
+            normalize_y=True,
             random_state=self.random_state,
         )
         self.gp.fit(X_train, y_train)
@@ -66,7 +62,7 @@ class ThermalCVDGPModel:
         gp = GaussianProcessRegressor(
             kernel=self.kernel,
             n_restarts_optimizer=5,
-            normalize_y=False,
+            normalize_y=True,
             random_state=self.random_state,
         )
         gp.fit(X_train, y_train)
