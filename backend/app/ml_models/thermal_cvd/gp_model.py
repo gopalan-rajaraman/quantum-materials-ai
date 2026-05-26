@@ -27,11 +27,11 @@ class ThermalCVDGPModel:
         self.random_state = random_state
         self.n_restarts = n_restarts
 
-        # Use constrained bounds to force the GP to fit the data instead of reverting to a flat prior
+        # Flexible bounds as requested for research-grade BO
         self.kernel = (
-            ConstantKernel(1.0, (1e-2, 1e2))
-            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(1e-2, 5.0), nu=2.5)
-            + WhiteKernel(noise_level=0.01, noise_level_bounds=(1e-5, 0.05))
+            ConstantKernel(1.0, (1e-3, 1e3))
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.1, 20.0), nu=2.5)
+            + WhiteKernel(noise_level=0.05, noise_level_bounds=(1e-5, 1.0))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None
@@ -53,6 +53,7 @@ class ThermalCVDGPModel:
             random_state=self.random_state,
         )
         self.gp.fit(X_train, y_train)
+        print(f"✅ [GP FIT] Kernel optimized: {self.gp.kernel_}")
         self._fitted = True
 
     def fast_fit(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
@@ -66,6 +67,7 @@ class ThermalCVDGPModel:
             random_state=self.random_state,
         )
         gp.fit(X_train, y_train)
+        print(f"⚡ [GP FAST_FIT] Kernel optimized: {gp.kernel_}")
         self.gp = gp
         self._fitted = True
 
