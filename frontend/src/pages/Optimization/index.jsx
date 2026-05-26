@@ -135,17 +135,26 @@ const Optimization = () => {
     if (suggestions.length > 0) {
       gpTraces.push({
         x: [suggestions[0].GTE_celsius], y: [predictedFwhm], type: 'scatter', mode: 'markers', name: 'Next Suggested Point',
-        marker: {color: '#22c55e', size: 16, symbol: 'star', line: {color: '#86efac', width: 2}},
-        hovertemplate: `<b>Suggestion</b><br>GTE: %{x} °C<br>Predicted FWHM: %{y:.2f} meV<extra></extra>`
+        marker: {color: '#10b981', size: 18, symbol: 'star', line: {color: '#064e3b', width: 2}},
+        hovertemplate: `<b>Next Suggestion</b><br><br>GTE: %{x} °C<br>Predicted FWHM: %{y:.2f} meV<extra></extra>`
       });
     }
 
-    const eiColors = ['#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#1e40af'];
-    eiTraces = (plotData.ei_history || []).map((ei_curve, idx) => {
-      const isCurrent = idx === plotData.ei_history.length - 1;
+    const xMin = Math.min(...plotData.x);
+    const xMax = Math.max(...plotData.x);
+    const xRange = [xMin - 50, xMax + 50];
+
+    const totalCurves = plotData.ei_history ? plotData.ei_history.length : 0;
+    const startIndex = Math.max(0, totalCurves - 5);
+    const visibleHistory = (plotData.ei_history || []).slice(startIndex);
+    
+    const eiColors = ['#cbd5e1', '#94a3b8', '#64748b', '#475569', '#3b82f6'];
+    eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
+      const actualStep = startIndex + relativeIdx + 1;
+      const isCurrent = relativeIdx === visibleHistory.length - 1;
       return {
-        x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: isCurrent ? `Step ${idx + 1} (Current)` : `Step ${idx + 1}`,
-        line: { color: isCurrent ? '#1e40af' : eiColors[idx % eiColors.length], width: isCurrent ? 3 : 2, dash: isCurrent ? 'solid' : 'dash' }
+        x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: isCurrent ? `Step ${actualStep} (Current)` : `Step ${actualStep}`,
+        line: { color: isCurrent ? '#1e40af' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 3 : 2, dash: isCurrent ? 'solid' : 'dot' }
       };
     });
   }
@@ -178,7 +187,7 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
                    yaxis: { title: 'PL FWHM (meV)', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 }
                  }}
@@ -230,7 +239,7 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
                    yaxis: { title: 'EI Value', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { orientation: 'h', y: 1.1, font: {color: '#475569', size: 10} }
                  }}
