@@ -552,6 +552,17 @@ def get_timeline():
     try:
         initial_count = optimizer_instance._training_info['initial_samples']
         df = optimizer_instance.df_raw.reset_index(drop=True)
+        import math
+        import pandas as pd
+        def safe_float(v):
+            if v is None or pd.isna(v):
+                return None
+            try:
+                f = float(v)
+                return None if math.isnan(f) else f
+            except (ValueError, TypeError):
+                return None
+                
         timeline = []
         for i, row in df.iterrows():
             is_initial = i < initial_count
@@ -559,11 +570,11 @@ def get_timeline():
                 'experiment_id': f"BO-{i+1 - initial_count}" if not is_initial else f"Init-{i+1}",
                 'type': "Initial" if is_initial else "User",
                 'step': i - initial_count + 1 if not is_initial else 0,
-                'gte': float(row['GTE']),
-                'gti': float(row['GTI']),
-                'fra': float(row['FRA']),
-                'pressure': float(row['Pressure']),
-                'fwhm': float(row['PL FWHM'])
+                'gte': safe_float(row['GTE']),
+                'gti': safe_float(row['GTI']),
+                'fra': safe_float(row['FRA']),
+                'pressure': safe_float(row['Pressure']),
+                'fwhm': safe_float(row.get('PL_FWHM', row.get('PL FWHM', 0)))
             })
         return {'timeline': timeline}
     except Exception as e:
