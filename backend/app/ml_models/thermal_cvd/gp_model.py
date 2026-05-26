@@ -53,7 +53,7 @@ class ThermalCVDGPModel:
             random_state=self.random_state,
         )
         self.gp.fit(X_train, y_train)
-        print(f"✅ [GP FIT] Kernel optimized: {self.gp.kernel_}")
+        print(f"[GP FIT] Kernel optimized: {self.gp.kernel_}")
         self._fitted = True
 
     def fast_fit(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
@@ -67,7 +67,7 @@ class ThermalCVDGPModel:
             random_state=self.random_state,
         )
         gp.fit(X_train, y_train)
-        print(f"⚡ [GP FAST_FIT] Kernel optimized: {gp.kernel_}")
+        print(f"[GP FAST_FIT] Kernel optimized: {gp.kernel_}")
         self.gp = gp
         self._fitted = True
 
