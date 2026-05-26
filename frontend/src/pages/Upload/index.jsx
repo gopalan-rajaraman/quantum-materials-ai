@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -71,11 +71,11 @@ const Upload = () => {
           }
           const currentDatasetCount = parseInt(localStorage.getItem('datasetCount') || '0') + 1;
           localStorage.setItem('datasetCount', currentDatasetCount);
-          const dsId = `DS_${currentDatasetCount.toString().padStart(3, '0')}`;
+          const dsId = `EXP_${currentDatasetCount.toString().padStart(3, '0')}`;
           
           const dataWithIds = data.map((row, index) => {
             const expNum = index + 1;
-            const expId = `${dsId}_EXP_${expNum.toString().padStart(3, '0')}`;
+            const expId = `${dsId}_${expNum.toString().padStart(3, '0')}`;
             return {
               ...row,
               Dataset_ID: dsId,
@@ -471,282 +471,311 @@ const Upload = () => {
             )}
 
             {step === 2 && (
-              <div className="animate-fade-in flex flex-col h-full">
-                <div className="flex justify-between items-start mb-6">
+              <div className="animate-fade-in flex flex-col h-full text-slate-800">
+                
+                {/* Header Area */}
+                <div className="flex justify-between items-start mb-8">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Define Constants & Variables</h2>
-                    <p className="text-slate-500 text-[14px]">Specify which parameters are constants and which will vary during experiments.</p>
-                  </div>
-                  <div className="bg-[#F8F6FF] rounded-xl p-3 border border-[#F0EBFF] flex items-center space-x-4 shadow-sm">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                        <FlaskConical className="w-5 h-5 text-[#4C3BDE]" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Optimization Target</p>
-                        <p className="text-[14px] font-bold text-[#4C3BDE]">Minimize PL FWHM (meV)</p>
-                      </div>
+                    <div className="flex items-center gap-4 mb-3">
+                      <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{datasetId}</h2>
+                      <span className="text-[11px] font-bold text-[#4C3BDE] bg-[#F4F0FF] border border-[#E5E0FF] px-2.5 py-1 rounded-full flex items-center gap-1.5"><FlaskConical className="w-3 h-3" /> New Dataset</span>
+                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Ready</span>
                     </div>
-                    <button className="px-4 py-1.5 bg-white border border-[#E5E0FF] text-[#4C3BDE] text-[12px] font-bold rounded-lg hover:bg-indigo-50 transition-colors">
-                      Change
-                    </button>
+                    <p className="text-slate-500 text-[14px] font-medium">Bayesian Optimization for FWHM Minimization</p>
                   </div>
+                  <button className="px-5 py-2.5 bg-white border border-[#E5E0FF] text-[#4C3BDE] text-[13px] font-bold rounded-xl hover:bg-[#F4F0FF] transition-colors shadow-sm flex items-center gap-2">
+                    <PieChart className="w-4 h-4" /> Preview Setup
+                  </button>
                 </div>
                 
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left: Variables from Sheet */}
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-bold text-slate-900 text-[16px]">Variables from Sheet</h3>
-                      <span className="text-[12px] font-bold text-[#4C3BDE] bg-indigo-50 px-3 py-1 rounded-full">4 Selected</span>
+                {/* Main Middle Panels */}
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  
+                  {/* Left: Optimization Variables */}
+                  <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-col">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                        <Activity className="w-4 h-4 text-[#4C3BDE]" />
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-[16px]">Optimization Variables</h3>
                     </div>
-                    <p className="text-[13px] text-slate-500 mb-6">These parameters will vary in each experiment condition.</p>
+                    <p className="text-[13px] text-slate-500 mb-6">These variables will be optimized by the BO model.</p>
                     
-                    <div className="space-y-4 flex-1">
-                      <div className="grid grid-cols-12 gap-4 pb-2 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        <div className="col-span-5">Parameter</div>
-                        <div className="col-span-2">Type</div>
-                        <div className="col-span-3">Range / Values</div>
-                        <div className="col-span-2">Status</div>
-                      </div>
-                      
-                      {/* GTE */}
-                      <div className="grid grid-cols-12 gap-4 items-center py-2">
-                        <div className="col-span-5 flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
-                            <Thermometer className="w-4 h-4" />
+                    <div className="space-y-3 flex-1">
+                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-500">
+                            <Thermometer className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="font-bold text-[13px] text-slate-800">GTE</p>
-                            <p className="text-[11px] text-slate-500">Growth Temp. Endpoint (°C)</p>
+                            <p className="font-bold text-[14px] text-slate-900">GTE</p>
+                            <p className="text-[12px] text-slate-500 mt-0.5">Growth Temperature</p>
                           </div>
                         </div>
-                        <div className="col-span-2 text-[13px] font-medium text-slate-600">Numerical</div>
-                        <div className="col-span-3 text-[13px] font-medium text-slate-600">550 - 1100</div>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <span className="text-[12px] font-bold text-[#4C3BDE] bg-indigo-50 px-3 py-1 rounded-lg border border-[#4C3BDE]/20">Variable</span>
-                          <Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500 cursor-pointer transition-colors" />
-                        </div>
-                      </div>
-
-                      {/* GTI */}
-                      <div className="grid grid-cols-12 gap-4 items-center py-2">
-                        <div className="col-span-5 flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
-                            <Clock className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[13px] text-slate-800">GTI</p>
-                            <p className="text-[11px] text-slate-500">Growth Time (min)</p>
-                          </div>
-                        </div>
-                        <div className="col-span-2 text-[13px] font-medium text-slate-600">Numerical</div>
-                        <div className="col-span-3 text-[13px] font-medium text-slate-600">10 - 60</div>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <span className="text-[12px] font-bold text-[#4C3BDE] bg-indigo-50 px-3 py-1 rounded-lg border border-[#4C3BDE]/20">Variable</span>
-                          <Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500 cursor-pointer transition-colors" />
-                        </div>
-                      </div>
-
-                      {/* FRA */}
-                      <div className="grid grid-cols-12 gap-4 items-center py-2">
-                        <div className="col-span-5 flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500">
-                            <Wind className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[13px] text-slate-800">FRA</p>
-                            <p className="text-[11px] text-slate-500">Ar Flow Rate (sccm)</p>
-                          </div>
-                        </div>
-                        <div className="col-span-2 text-[13px] font-medium text-slate-600">Numerical</div>
-                        <div className="col-span-3 text-[13px] font-medium text-slate-600">0 - 300</div>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <span className="text-[12px] font-bold text-[#4C3BDE] bg-indigo-50 px-3 py-1 rounded-lg border border-[#4C3BDE]/20">Variable</span>
-                          <Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500 cursor-pointer transition-colors" />
-                        </div>
-                      </div>
-
-                      {/* Pressure */}
-                      <div className="grid grid-cols-12 gap-4 items-center py-2">
-                        <div className="col-span-5 flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500">
-                            <Gauge className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[13px] text-slate-800">Pressure</p>
-                            <p className="text-[11px] text-slate-500">Chamber Pressure (Torr)</p>
-                          </div>
-                        </div>
-                        <div className="col-span-2 text-[13px] font-medium text-slate-600">Numerical</div>
-                        <div className="col-span-3 text-[13px] font-medium text-slate-600">1 - 760</div>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <span className="text-[12px] font-bold text-[#4C3BDE] bg-indigo-50 px-3 py-1 rounded-lg border border-[#4C3BDE]/20">Variable</span>
-                          <Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500 cursor-pointer transition-colors" />
+                        <div className="text-right">
+                          <p className="font-bold text-[14px] text-slate-900">550 - 1100</p>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">°C</span>
                         </div>
                       </div>
                       
-                      <button className="w-full mt-4 py-3 border border-indigo-100 rounded-xl text-[#4C3BDE] font-bold text-[13px] flex items-center justify-center space-x-2 hover:bg-indigo-50 transition-colors">
-                        <span className="text-lg leading-none">+</span>
-                        <span>Add Variable</span>
-                      </button>
+                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center text-green-600">
+                            <Clock className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-[14px] text-slate-900">GTI</p>
+                            <p className="text-[12px] text-slate-500 mt-0.5">Growth Time</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-[14px] text-slate-900">10 - 60</p>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">min</span>
+                        </div>
+                      </div>
 
-                      <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center space-x-3">
-                        <Info className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                        <p className="text-[13px] text-blue-800 font-medium">These 4 variables will be optimized by the Bayesian Optimization model</p>
+                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-500">
+                            <Wind className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-[14px] text-slate-900">FRA</p>
+                            <p className="text-[12px] text-slate-500 mt-0.5">Ar Flow Rate</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-[14px] text-slate-900">0 - 300</p>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">sccm</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-500">
+                            <Gauge className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-[14px] text-slate-900">Pressure</p>
+                            <p className="text-[12px] text-slate-500 mt-0.5">Chamber Pressure</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-[14px] text-slate-900">1 - 760</p>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">Torr</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 bg-[#F8F6FF] border border-[#F0EBFF] rounded-xl p-4 flex gap-3">
+                      <Info className="w-5 h-5 text-[#4C3BDE] flex-shrink-0" />
+                      <div>
+                        <p className="text-[12px] text-[#4C3BDE] font-semibold">These variables will vary across experiments.</p>
+                        <p className="text-[12px] text-indigo-700/80 mt-0.5 font-medium">All other parameters remain constant.</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right: Global Constants */}
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-bold text-slate-900 text-[16px]">Global Constants</h3>
-                      <span className="text-[12px] font-bold text-green-700 bg-green-50 px-3 py-1 rounded-full border border-green-100">9 Constants</span>
+                  {/* Right: Experiment Constants */}
+                  <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-col">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                        <FlaskConical className="w-4 h-4 text-[#4C3BDE]" />
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-[16px]">Experiment Constants</h3>
                     </div>
-                    <p className="text-[13px] text-slate-500 mb-6">These values will remain constant throughout the BO experiment.</p>
+                    <p className="text-[13px] text-slate-500 mb-6">These parameters remain constant throughout the optimization.</p>
                     
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Precursor 1 (P1)</label>
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-4 flex-1">
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Precursor 1 (P1)</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.P1} onChange={(e) => updateBoConstant('P1', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.P1} onChange={(e) => updateBoConstant('P1', e.target.value)}>
                             {['WO3', 'WCl6', 'W(CO)6', 'WF6'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Precursor 2 (P2)</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Precursor 2 (P2)</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.P2} onChange={(e) => updateBoConstant('P2', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.P2} onChange={(e) => updateBoConstant('P2', e.target.value)}>
                             {['Sulfur', 'H2S', 'DTBS'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Substrate</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Substrate</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.Substrate} onChange={(e) => updateBoConstant('Substrate', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.Substrate} onChange={(e) => updateBoConstant('Substrate', e.target.value)}>
                             {['graphite', 'SiO2/Si', 'Sapphire (C-plane)', 'Graphene'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Carrier Gas (CG)</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Carrier Gas (CG)</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.CG} onChange={(e) => updateBoConstant('CG', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.CG} onChange={(e) => updateBoConstant('CG', e.target.value)}>
                             {['Ar', 'H2', 'H2/Ar', 'He'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Cooling Method (COM)</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Cooling Method (COM)</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.COM} onChange={(e) => updateBoConstant('COM', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.COM} onChange={(e) => updateBoConstant('COM', e.target.value)}>
                             {['Rapid', 'Natural'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Container (PC)</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Container (PC)</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.PC} onChange={(e) => updateBoConstant('PC', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.PC} onChange={(e) => updateBoConstant('PC', e.target.value)}>
                             {['Quartz boat', 'Al2O3 crucible', 'Bubbler', 'Sulfur boat', 'Ceramic boat', 'Gas cylinders'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Seed Additive (SA)</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Seed Additive (SA)</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.SA} onChange={(e) => updateBoConstant('SA', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.SA} onChange={(e) => updateBoConstant('SA', e.target.value)}>
                             {['NaCl', 'SnCl4', 'None'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">Class</label>
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Class</label>
                         <div className="relative">
-                          <select className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] appearance-none font-medium" value={boConstants.Class} onChange={(e) => updateBoConstant('Class', e.target.value)}>
+                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.Class} onChange={(e) => updateBoConstant('Class', e.target.value)}>
                             {['Monolayer', 'Nanosheets'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
-                      
-                      <div className="col-span-2">
-                        <label className="text-[11px] text-slate-500 mb-2 block font-bold uppercase tracking-wide">H2 Flow Rate (FRH) [sccm]</label>
-                        <input type="number" className="w-full border border-slate-200 rounded-lg p-2.5 text-[14px] bg-white outline-none focus:border-[#4C3BDE] font-medium" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', e.target.value)} />
+
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 col-span-2">
+                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Fixed Parameter (e.g., FRH)</label>
+                        <div className="relative">
+                          <input type="number" className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', e.target.value)} />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
+                    </div>
+                    
+                    <div className="mt-6 bg-[#FFF9ED] border border-[#FFEDD5] rounded-xl p-4 flex gap-3">
+                      <div className="w-5 h-5 text-orange-500 flex-shrink-0 flex items-center justify-center">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1.45.62 2.8 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg>
+                      </div>
+                      <div>
+                        <p className="text-[12px] text-orange-800 font-semibold">These constants define your experiment environment.</p>
+                        <p className="text-[12px] text-orange-600/80 mt-0.5 font-medium">You can change them for a new experiment series.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Numbering Works */}
+                <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] mb-8 flex flex-col xl:flex-row items-center gap-10">
+                  <div className="xl:w-1/3">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                        <List className="w-4 h-4 text-[#4C3BDE]" />
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-[15px]">How Experiment Numbering Works</h3>
+                    </div>
+                    <p className="text-[12px] text-slate-500 font-medium leading-relaxed">For each new dataset you upload, a new Experiment ID is assigned. Samples in the dataset are automatically numbered in sequence.</p>
+                  </div>
+                  
+                  <div className="xl:w-2/3 flex items-center justify-between text-center text-[12px] w-full">
+                    <div className="flex-1 flex flex-col items-center">
+                      <p className="text-[#4C3BDE] font-semibold mb-3">Upload Dataset</p>
+                      <div className="bg-white border border-slate-200 rounded-lg p-3 px-4 inline-flex items-center gap-2 shadow-sm">
+                        <FileText className="w-4 h-4 text-slate-400" /> <span className="text-slate-700 font-medium">{file?.name || 'dataset.xlsx'}</span>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                    <div className="flex-1 flex flex-col items-center">
+                      <p className="text-[#4C3BDE] font-bold mb-3">Assigned Experiment ID</p>
+                      <div className="text-xl font-extrabold text-[#4C3BDE]">{datasetId}</div>
+                      <p className="text-indigo-400 font-bold mt-1.5">(New)</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                    <div className="flex-1 flex flex-col items-center">
+                      <p className="text-green-600 font-bold mb-3">Experiment Numbers <span className="font-medium">(Auto-assigned)</span></p>
+                      <div className="bg-green-50 border border-green-200 rounded-xl py-3 px-5 inline-flex items-center gap-4 font-mono font-bold text-green-700 text-[12px]">
+                        <span>{datasetId}_001</span> <span className="text-green-400">...</span> <span>{datasetId}_{parsedData.length.toString().padStart(3, '0')}</span>
+                      </div>
+                      <p className="text-green-600 font-bold mt-2">(For {parsedData.length} samples)</p>
                     </div>
                   </div>
                 </div>
                 
-                {/* Dataset Summary Box */}
-                <div className="mt-8 bg-[#F8F6FF] border border-[#F0EBFF] rounded-2xl p-6">
-                  <div className="grid grid-cols-12 gap-6 items-center">
-                    <div className="col-span-4 flex items-start space-x-4 pr-6 border-r border-indigo-100">
-                      <div className="bg-white p-2.5 rounded-xl border border-indigo-100 shadow-sm flex-shrink-0">
-                        <FileSpreadsheet className="w-6 h-6 text-[#4C3BDE]" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 mb-1.5 text-[15px]">Dataset Summary</h4>
-                        <p className="text-[12px] text-slate-600 mb-2 leading-relaxed">Each row in your dataset is assigned a unique Experiment Number. New data added later will continue the numbering.</p>
-                        <a href="#" className="text-[12px] font-bold text-[#4C3BDE] hover:underline flex items-center">
-                          Preview Data <ArrowRight className="w-3 h-3 ml-1" />
-                        </a>
-                      </div>
+                <p className="text-center text-[11px] font-medium text-slate-400 mb-8 mt-[-10px]">If you upload another dataset, a new ID will be created (e.g., EXP_009) and numbering will start from EXP_009_001.</p>
+
+                {/* Summary & Footer */}
+                <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-col mb-4 relative overflow-hidden">
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-[#4C3BDE]" />
                     </div>
-                    
-                    <div className="col-span-8 flex justify-between items-center pl-2">
-                      <div className="text-center">
-                        <p className="text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Dataset ID</p>
-                        <div className="flex items-center justify-center space-x-1.5">
-                          <span className="text-xl font-bold text-[#4C3BDE]">{datasetId}</span>
-                          <Copy className="w-4 h-4 text-indigo-300 cursor-pointer" />
-                        </div>
-                      </div>
-                      
-                      <div className="text-center">
-                        <p className="text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Experiment ID Format</p>
-                        <p className="text-[15px] font-bold text-[#4C3BDE]">{datasetId}_EXP_###</p>
-                        <p className="text-[10px] text-slate-500 mt-1">Example: {datasetId}_EXP_001</p>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Total Experiments</p>
-                        <p className="text-xl font-bold text-slate-900">{parsedData.length}</p>
-                        <p className="text-[10px] text-green-600 font-bold mt-1">(Min. 10 required)</p>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Variables to Vary</p>
-                        <p className="text-xl font-bold text-[#4C3BDE]">4</p>
-                        <p className="text-[10px] text-slate-500 mt-1">GTE, GTI, FRA, Pressure</p>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Constants</p>
-                        <p className="text-xl font-bold text-[#4C3BDE]">9</p>
-                      </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-[16px]">Experiment Summary</h3>
+                      <p className="text-[12px] text-slate-500 font-medium mt-0.5">Review your configuration before proceeding</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex justify-end items-center mt-6 pt-6 border-t border-slate-100">
-                  <button 
-                    onClick={() => setStep(3)} 
-                    className="px-8 py-3 bg-[#4C3BDE] text-white rounded-xl font-semibold hover:bg-[#3D2EB0] transition-all shadow-sm text-[13px] flex items-center space-x-2"
-                  >
-                    <span>Review and proceed</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                    <div className="bg-[#F8F6FF] rounded-xl p-6 text-center border border-[#E5E0FF] flex flex-col items-center justify-center">
+                      <FlaskConical className="w-7 h-7 text-[#4C3BDE] mb-4" />
+                      <p className="text-[12px] text-slate-500 font-bold mb-1.5">Experiment ID (New)</p>
+                      <p className="text-xl font-extrabold text-[#4C3BDE] mb-2">{datasetId}</p>
+                      <p className="text-[11px] text-slate-500 font-medium">Automatically assigned<br/>for this dataset</p>
+                    </div>
+                    <div className="bg-[#F0FDF4] rounded-xl p-6 text-center border border-[#DCFCE7] flex flex-col items-center justify-center">
+                      <Thermometer className="w-7 h-7 text-green-600 mb-4" />
+                      <p className="text-[12px] text-green-700 font-bold mb-1.5">Samples in Dataset</p>
+                      <p className="text-xl font-extrabold text-green-700 mb-2">{parsedData.length}</p>
+                      <p className="text-[11px] text-green-600/80 font-medium">Will be numbered automatically<br/>{datasetId}_001 to {datasetId}_{parsedData.length.toString().padStart(3, '0')}</p>
+                    </div>
+                    <div className="bg-[#F8FAFC] rounded-xl p-6 text-center border border-[#E2E8F0] flex flex-col items-center justify-center">
+                      <Activity className="w-7 h-7 text-blue-500 mb-4" />
+                      <p className="text-[12px] text-slate-500 font-bold mb-1.5">Optimization Variables</p>
+                      <p className="text-xl font-extrabold text-slate-900 mb-2">4</p>
+                      <p className="text-[11px] text-slate-500 font-medium">GTE, GTI, FRA, Pressure<br/>(To be optimized)</p>
+                    </div>
+                    <div className="bg-[#FFF7ED] rounded-xl p-6 text-center border border-[#FFEDD5] flex flex-col items-center justify-center">
+                      <FlaskConical className="w-7 h-7 text-orange-500 mb-4" />
+                      <p className="text-[12px] text-orange-700 font-bold mb-1.5">Constants</p>
+                      <p className="text-xl font-extrabold text-orange-700 mb-2">9</p>
+                      <p className="text-[11px] text-orange-600/80 font-medium">Fixed environment<br/>parameters</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-end pt-6 border-t border-slate-100">
+                    <button 
+                      onClick={() => setStep(3)} 
+                      className="px-12 py-3.5 bg-[#4020f5] text-white rounded-xl font-bold hover:bg-[#3D2EB0] transition-all shadow-md text-[14px] flex items-center space-x-3 mb-2"
+                    >
+                      <span>Review & Proceed</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <p className="text-[11px] font-medium text-slate-500 mr-2">You can review all settings in the next step.</p>
+                  </div>
                 </div>
               </div>
             )}
