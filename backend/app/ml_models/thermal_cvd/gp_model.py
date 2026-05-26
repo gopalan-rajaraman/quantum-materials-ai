@@ -27,11 +27,11 @@ class ThermalCVDGPModel:
         self.random_state = random_state
         self.n_restarts = n_restarts
 
-        # Use a larger length scale bound to force a smooth curve and avoid overfitting
+        # Use constrained bounds to force the GP to fit the data instead of reverting to a flat prior
         self.kernel = (
-            ConstantKernel(1.0, (1e-3, 1e3))
-            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(1e-1, 100), nu=2.5)
-            + WhiteKernel(noise_level=0.05, noise_level_bounds=(1e-6, 1.0))
+            ConstantKernel(1.0, (1e-2, 1e2))
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(1e-2, 5.0), nu=2.5)
+            + WhiteKernel(noise_level=0.01, noise_level_bounds=(1e-5, 0.05))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None
