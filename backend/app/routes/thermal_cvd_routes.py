@@ -505,12 +505,25 @@ def get_plot_data():
             var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
             x_train = unscaled_X[:, var_map['GTE']].tolist()
             y_train = optimizer_instance.y_train.tolist()
+            gti_train = unscaled_X[:, var_map['GTI']].tolist()
+            fra_train = unscaled_X[:, var_map['FRA']].tolist()
+            pressure_train = unscaled_X[:, var_map['Pressure']].tolist()
+            initial_count = optimizer_instance._training_info['initial_samples']
+            
+            ei_history = optimizer_instance.get_ei_history(X_sweep)
+        else:
+            gti_train = []
+            fra_train = []
+            pressure_train = []
+            initial_count = 0
+            ei_history = []
 
         return {
             'x': gte_range.tolist(),
             'mu': mu_mev.tolist(),
             'sigma': sigma_mev.tolist(),
             'ei': ei_vals.tolist(),
+            'ei_history': ei_history,
             'fixed_params': {
                 'GTI': fixed_params.get('GTI', 0),
                 'FRA': fixed_params.get('FRA', 0),
@@ -518,12 +531,42 @@ def get_plot_data():
             },
             'training_points': {
                 'x': x_train,
-                'y': y_train
+                'y': y_train,
+                'gti': gti_train,
+                'fra': fra_train,
+                'pressure': pressure_train,
+                'initial_count': initial_count
             }
         }
     except Exception as e:
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/timeline")
+def get_timeline():
+    """Returns the full history of Initial vs User experiments."""
+    if optimizer_instance is None or not optimizer_instance._fitted:
+        raise HTTPException(status_code=400, detail="Model not initialized")
+    try:
+        initial_count = optimizer_instance._training_info['initial_samples']
+        df = optimizer_instance.df_raw.reset_index(drop=True)
+        timeline = []
+        for i, row in df.iterrows():
+            is_initial = i < initial_count
+            timeline.append({
+                'experiment_id': f"BO-{i+1 - initial_count}" if not is_initial else f"Init-{i+1}",
+                'type': "Initial" if is_initial else "User",
+                'step': i - initial_count + 1 if not is_initial else 0,
+                'gte': float(row['GTE']),
+                'gti': float(row['GTI']),
+                'fra': float(row['FRA']),
+                'pressure': float(row['Pressure']),
+                'fwhm': float(row['PL FWHM'])
+            })
+        return {'timeline': timeline}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

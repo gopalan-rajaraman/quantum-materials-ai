@@ -40,6 +40,8 @@ class ThermalCVDOptimizer:
             'initial_samples': 0,
             'n_search_points': 5000,
         }
+        self.ei_history_cache = []
+        self.ei_cache_length = 0
 
     def load_training_data(self, df: pd.DataFrame) -> None:
         """
@@ -341,6 +343,36 @@ class ThermalCVDOptimizer:
     def get_encoding_info(self) -> Dict[str, Any]:
         """Get current encoding and constant values."""
         return self.encoder.get_encoding_info()
+
+    def get_ei_history(self, X_sweep: np.ndarray) -> List[List[float]]:
+        """
+        Computes historical Expected Improvement curves across previous BO steps.
+        Caches the result to prevent unnecessary refits unless dataset grows.
+        """
+        current_len = len(self.X_train)
+        if self.ei_cache_length == current_len and self.ei_history_cache:
+            return self.ei_history_cache
+            
+        ei_history = []
+        n_initial = self._training_info['initial_samples']
+        
+        # Fast GP refit loop for all historical steps
+        for step in range(n_initial, current_len + 1):
+            X_sub = self.X_train[:step]
+            y_sub = self.y_train_scaled[:step]
+            
+            self.gp_model.fit(X_sub, y_sub)
+            y_best = y_sub.min()
+            
+            ei_vals = self.bo_engine.expected_improvement(X_sweep, self.gp_model.gp, y_best, xi=0.01)
+            ei_history.append(ei_vals.tolist())
+            
+        # Restore full GP fit
+        self.gp_model.fit(self.X_train, self.y_train_scaled)
+        
+        self.ei_history_cache = ei_history
+        self.ei_cache_length = current_len
+        return ei_history
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get model status and metrics in meV units."""
