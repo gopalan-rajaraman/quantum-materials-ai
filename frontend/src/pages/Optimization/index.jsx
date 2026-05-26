@@ -18,6 +18,7 @@ const Optimization = () => {
   const [actualGti, setActualGti] = useState('');
   const [actualFra, setActualFra] = useState('');
   const [actualPressure, setActualPressure] = useState('');
+  const [forceContinue, setForceContinue] = useState(false);
   
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -163,8 +164,11 @@ const Optimization = () => {
 
   // Convergence check logic
   let hasConverged = false;
-  const CONVERGENCE_N = 3;
-  if (timelineData && timelineData.length > 0) {
+  const CONVERGENCE_N = 5;
+  const EI_THRESHOLD = 0.001;
+  const maxEI = suggestions.length > 0 ? (suggestions[0].EI_value || 0) : 1.0;
+
+  if (timelineData && timelineData.length > 0 && !forceContinue) {
     const userSteps = timelineData.filter(r => r.type === 'User').map(r => parseFloat(r.fwhm));
     if (userSteps.length >= CONVERGENCE_N) {
       const initialBest = Math.min(...timelineData.filter(r => r.type === 'Initial').map(r => parseFloat(r.fwhm)));
@@ -175,8 +179,8 @@ const Optimization = () => {
         
       const bestInLastN = Math.min(...userSteps.slice(-CONVERGENCE_N));
       
-      // If the best FWHM in the last N steps is not strictly lower than the historical best, we've converged!
-      if (bestInLastN >= bestBeforeLastN) {
+      // Stop if no improvement AND max_expected_improvement < ei_threshold
+      if (bestInLastN >= bestBeforeLastN && maxEI < EI_THRESHOLD) {
         hasConverged = true;
       }
     }
@@ -272,26 +276,53 @@ const Optimization = () => {
 
         {/* Timeline Table */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm overflow-y-auto max-h-[350px]">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Optimization Timeline</h3>
-          <table className="w-full text-sm text-left text-slate-600">
-            <thead className="text-xs uppercase bg-slate-50 text-slate-500">
+          <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">Optimization Timeline <Info className="w-4 h-4 text-slate-400" /></h3>
+          <table className="w-full text-sm text-left text-slate-600 border-collapse">
+            <thead className="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-100">
               <tr>
-                <th className="px-4 py-3 rounded-tl-lg">Step</th>
-                <th className="px-4 py-3">GTE</th>
-                <th className="px-4 py-3">GTI</th>
-                <th className="px-4 py-3 rounded-tr-lg">FWHM (meV)</th>
+                <th className="px-3 py-3 font-bold rounded-tl-lg">Step</th>
+                <th className="px-3 py-3 font-bold">GTE <span className="text-[10px] normal-case opacity-70">(°C)</span></th>
+                <th className="px-3 py-3 font-bold">GTI <span className="text-[10px] normal-case opacity-70">(min)</span></th>
+                <th className="px-3 py-3 font-bold">FRA <span className="text-[10px] normal-case opacity-70">(sccm)</span></th>
+                <th className="px-3 py-3 font-bold">Pressure <span className="text-[10px] normal-case opacity-70">(Torr)</span></th>
+                <th className="px-3 py-3 font-bold text-right rounded-tr-lg">FWHM <span className="text-[10px] normal-case opacity-70">(meV)</span></th>
               </tr>
             </thead>
             <tbody>
-              {timelineData.map((row, i) => (
-                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-medium flex items-center gap-2">
-                    {row.type === 'Initial' ? <div className="w-2 h-2 rounded-full bg-slate-400"></div> : <div className="w-2 h-2 rounded-full bg-red-500"></div>}
-                    <span className={row.type === 'User' ? 'text-slate-900' : ''}>{row.experiment_id}</span>
+              {/* Collapsed Initial Dataset Row */}
+              {timelineData.filter(r => r.type === 'Initial').length > 0 && (
+                <tr className="border-b border-slate-100 bg-slate-50/40">
+                  <td className="px-3 py-4" colSpan={5}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-slate-300 border-2 border-slate-400 shrink-0"></div>
+                      <div>
+                        <span className="font-bold text-slate-700 block text-sm">Initial Dataset (Literature)</span>
+                        <span className="text-xs text-slate-400 font-medium">{timelineData.filter(r => r.type === 'Initial').length} Experiments</span>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{row.gte}</td>
-                  <td className="px-4 py-3">{row.gti}</td>
-                  <td className={`px-4 py-3 font-bold ${row.type === 'User' ? 'text-indigo-600' : 'text-slate-500'}`}>{row.fwhm}</td>
+                  <td className="px-3 py-4 text-right font-bold text-slate-600">
+                    {(() => {
+                      const initialFwhms = timelineData.filter(r => r.type === 'Initial').map(r => parseFloat(r.fwhm));
+                      if (initialFwhms.length === 0) return '-';
+                      return `${Math.min(...initialFwhms).toFixed(1)} - ${Math.max(...initialFwhms).toFixed(1)}`;
+                    })()}
+                  </td>
+                </tr>
+              )}
+
+              {/* BO Experiments */}
+              {timelineData.filter(r => r.type === 'User').map((row, i) => (
+                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+                  <td className="px-3 py-3 font-medium flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                    <span className="text-slate-900 whitespace-nowrap">{row.experiment_id}</span>
+                  </td>
+                  <td className="px-3 py-3">{row.gte}</td>
+                  <td className="px-3 py-3">{row.gti || '-'}</td>
+                  <td className="px-3 py-3">{row.fra || '-'}</td>
+                  <td className="px-3 py-3">{row.pressure || '-'}</td>
+                  <td className="px-3 py-3 font-bold text-indigo-600 text-right">{parseFloat(row.fwhm).toFixed(1)}</td>
                 </tr>
               ))}
             </tbody>
@@ -307,15 +338,28 @@ const Optimization = () => {
               <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
                 <Trophy className="w-8 h-8 text-amber-600" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">Optimization Converged!</h3>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Optimization Converged</h3>
               <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                Your Bayesian Optimization engine has successfully discovered the minimum FWHM. 
-                There has been no significant improvement over the last <strong className="text-slate-700">{CONVERGENCE_N} iterations</strong>.
+                Optimization converged under current stopping criteria.
               </p>
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 w-full flex items-center justify-between">
-                <span className="text-amber-700 text-sm font-bold">Best Achieved FWHM:</span>
-                <span className="text-amber-600 text-2xl font-bold">{Math.min(...timelineData.map(r => parseFloat(r.fwhm))).toFixed(2)} meV</span>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 w-full text-left mb-6">
+                <div className="flex items-center justify-between mb-3 border-b border-amber-200/50 pb-3">
+                  <span className="text-amber-700 text-sm font-bold">Best Achieved FWHM:</span>
+                  <span className="text-amber-600 text-2xl font-bold">{Math.min(...timelineData.map(r => parseFloat(r.fwhm))).toFixed(2)} meV</span>
+                </div>
+                <div className="text-xs text-amber-700 space-y-1.5">
+                  <span className="font-bold block mb-1.5 uppercase tracking-wide opacity-80">Reason:</span>
+                  <p className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-amber-500"></span>No improvement for {CONVERGENCE_N} BO iterations</p>
+                  <p className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-amber-500"></span>Expected Improvement &lt; {EI_THRESHOLD}</p>
+                </div>
               </div>
+              
+              <button 
+                onClick={() => setForceContinue(true)}
+                className="w-full py-2.5 px-4 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700 transition-colors text-sm shadow-sm"
+              >
+                Force Continue Optimization
+              </button>
             </div>
           ) : (
             <>
