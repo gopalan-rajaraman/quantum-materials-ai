@@ -328,10 +328,7 @@ const Upload = () => {
                 </p>
               </div>
 
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Uploaded By</p>
-                <p className="text-[12px] font-medium text-slate-700">Bhavya</p>
-              </div>
+
 
               <div>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Source File</p>
@@ -700,24 +697,24 @@ const Upload = () => {
                     <p className="text-[12px] text-slate-500 font-medium leading-relaxed">For each new dataset you upload, a new Experiment ID is assigned. Samples in the dataset are automatically numbered in sequence.</p>
                   </div>
                   
-                  <div className="xl:w-2/3 flex items-center justify-between text-center text-[12px] w-full">
-                    <div className="flex-1 flex flex-col items-center">
-                      <p className="text-[#4C3BDE] font-semibold mb-3">Upload Dataset</p>
-                      <div className="bg-white border border-slate-200 rounded-lg p-3 px-4 inline-flex items-center gap-2 shadow-sm">
-                        <FileText className="w-4 h-4 text-slate-400" /> <span className="text-slate-700 font-medium">{file?.name || 'dataset.xlsx'}</span>
+                  <div className="xl:w-2/3 flex items-center justify-between text-center text-[12px] w-full gap-2">
+                    <div className="flex-1 flex flex-col items-center min-w-0">
+                      <p className="text-[#4C3BDE] font-semibold mb-3 truncate w-full">Upload Dataset</p>
+                      <div className="bg-white border border-slate-200 rounded-lg p-2.5 px-3 inline-flex items-center gap-2 shadow-sm max-w-full overflow-hidden">
+                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" /> <span className="text-slate-700 font-medium truncate">{file?.name || 'dataset.xlsx'}</span>
                       </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
-                    <div className="flex-1 flex flex-col items-center">
-                      <p className="text-[#4C3BDE] font-bold mb-3">Assigned Experiment ID</p>
-                      <div className="text-xl font-extrabold text-[#4C3BDE]">{datasetId}</div>
+                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0 mx-1" />
+                    <div className="flex-1 flex flex-col items-center min-w-0">
+                      <p className="text-[#4C3BDE] font-bold mb-3 truncate w-full">Assigned ID</p>
+                      <div className="text-lg lg:text-xl font-extrabold text-[#4C3BDE] truncate w-full">{datasetId}</div>
                       <p className="text-indigo-400 font-bold mt-1.5">(New)</p>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
-                    <div className="flex-1 flex flex-col items-center">
-                      <p className="text-green-600 font-bold mb-3">Experiment Numbers <span className="font-medium">(Auto-assigned)</span></p>
-                      <div className="bg-green-50 border border-green-200 rounded-xl py-3 px-5 inline-flex items-center gap-4 font-mono font-bold text-green-700 text-[12px]">
-                        <span>{datasetId}_001</span> <span className="text-green-400">...</span> <span>{datasetId}_{parsedData.length.toString().padStart(3, '0')}</span>
+                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0 mx-1" />
+                    <div className="flex-1 flex flex-col items-center min-w-0">
+                      <p className="text-green-600 font-bold mb-3 truncate w-full">Experiment Numbers</p>
+                      <div className="bg-green-50 border border-green-200 rounded-xl py-2.5 px-3 flex flex-wrap justify-center items-center gap-2 font-mono font-bold text-green-700 text-[10px] lg:text-[11px] w-full">
+                        <span className="truncate">{datasetId}_001</span> <span className="text-green-400 flex-shrink-0">...</span> <span className="truncate">{datasetId}_{parsedData.length.toString().padStart(3, '0')}</span>
                       </div>
                       <p className="text-green-600 font-bold mt-2">(For {parsedData.length} samples)</p>
                     </div>
