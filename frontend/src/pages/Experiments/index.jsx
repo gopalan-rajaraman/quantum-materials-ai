@@ -140,9 +140,6 @@ const Experiments = () => {
                   </div>
                 )}
             </div>
-            <button className="text-[#4C3BDE] hover:text-[#3D2EB0] text-[14px] font-semibold ml-2">
-              Clear all
-            </button>
           </div>
         </div>
 
