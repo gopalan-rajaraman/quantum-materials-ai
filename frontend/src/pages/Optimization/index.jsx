@@ -287,18 +287,28 @@ const Optimization = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
         {/* Acquisition History */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Acquisition Function Evolution <span className="text-sm font-normal text-slate-500">(Expected Improvement)</span></h3>
-          <div className="h-[250px] w-full rounded-xl overflow-hidden">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm xl:col-span-2">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-900">Acquisition Function Evolution <span className="text-sm font-normal text-slate-500">(Expected Improvement)</span></h3>
+            <Info className="w-5 h-5 text-blue-500" />
+          </div>
+          <div className="h-[350px] w-full rounded-xl overflow-hidden">
              {eiTraces.length > 0 && (
                <Plot
                  data={eiTraces}
                  layout={{
-                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
+                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
-                   yaxis: { title: 'EI Value', gridcolor: '#f1f5f9', color: '#64748b' },
-                   legend: { orientation: 'h', y: 1.1, font: {color: '#475569', size: 10} },
+                   xaxis: { title: 'Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
+                   yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
+                   legend: { 
+                     orientation: 'h', 
+                     y: 1.15, 
+                     x: 0.5, 
+                     xanchor: 'center', 
+                     yanchor: 'bottom',
+                     font: {color: '#475569', size: 10}
+                   },
                    shapes: plotData && plotData.maxEITemp ? [{
                     type: 'line',
                     x0: plotData.maxEITemp,
@@ -328,7 +338,7 @@ const Optimization = () => {
         </div>
 
         {/* Timeline Table */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm overflow-y-auto max-h-[350px]">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm overflow-y-auto max-h-[450px]">
           <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">Optimization Timeline <Info className="w-4 h-4 text-slate-400" /></h3>
           <table className="w-full text-sm text-left text-slate-600 border-collapse">
             <thead className="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-100">
