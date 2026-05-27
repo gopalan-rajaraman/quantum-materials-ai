@@ -146,16 +146,16 @@ const Optimization = () => {
     const xRange = [xMin - 50, xMax + 50];
 
     const totalCurves = plotData.ei_history ? plotData.ei_history.length : 0;
-    const startIndex = Math.max(0, totalCurves - 5);
-    const visibleHistory = (plotData.ei_history || []).slice(startIndex);
+    const startIndex = 0; // Show all steps
+    const visibleHistory = plotData.ei_history || [];
     
-    const eiColors = ['#FFB74D', '#4DB6AC', '#AB47BC', '#FF7043'];
+    const eiColors = ['#FFB74D', '#4DB6AC', '#AB47BC', '#FF7043', '#81C784', '#BA68C8', '#4DD0E1', '#FFD54F', '#FF8A65', '#A1887F'];
     eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
       const actualStep = startIndex + relativeIdx + 1;
       const isCurrent = relativeIdx === visibleHistory.length - 1;
       return {
         x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: isCurrent ? `Step ${actualStep} (Current)` : `Step ${actualStep}`,
-        line: { color: isCurrent ? '#2962FF' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 3 : 2, dash: 'solid' }
+        line: { color: isCurrent ? '#2962FF' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 4 : 2.5, dash: 'solid' }
       };
     });
 
@@ -177,6 +177,10 @@ const Optimization = () => {
       
       plotData.maxEITemp = maxEITemp;
       plotData.maxEIVal = maxEIVal;
+      
+      // Calculate dynamic offset to prevent clipping on the right edge
+      const xRangeMax = Math.max(...plotData.x);
+      plotData.annotationAx = maxEITemp > (xRangeMax - 100) ? -60 : 40;
     }
   }
 
@@ -294,7 +298,7 @@ const Optimization = () => {
                <Plot
                  data={eiTraces}
                  layout={{
-                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
+                   autosize: true, margin: {l: 50, r: 80, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                    xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
                    yaxis: { title: 'EI Value', gridcolor: '#f1f5f9', color: '#64748b' },
@@ -313,7 +317,7 @@ const Optimization = () => {
                     text: `<b>Current Best</b><br>T: ${plotData.maxEITemp} °C<br>EI: ${plotData.maxEIVal.toFixed(2)}`,
                     showarrow: true,
                     arrowhead: 0,
-                    ax: 40,
+                    ax: plotData.annotationAx || 40,
                     ay: -30,
                     bgcolor: '#2962FF',
                     font: { color: 'white', size: 10 },
