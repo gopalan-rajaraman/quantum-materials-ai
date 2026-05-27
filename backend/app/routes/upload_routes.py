@@ -222,7 +222,18 @@ async def get_saved_dataset(dataset_id: str):
         doc["_id"] = str(doc["_id"])
         if "user_id" in doc and doc["user_id"] is not None:
             doc["user_id"] = str(doc["user_id"])
-        return doc
+            
+        import math
+        def clean_nan(obj):
+            if isinstance(obj, float) and math.isnan(obj):
+                return None
+            elif isinstance(obj, dict):
+                return {k: clean_nan(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_nan(v) for v in obj]
+            return obj
+            
+        return clean_nan(doc)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

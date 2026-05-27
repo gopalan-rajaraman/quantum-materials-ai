@@ -350,15 +350,15 @@ const Dashboard = () => {
               </div>
 
               {/* Legend List */}
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 mt-2">
                 {variableSummaryData.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[11px] font-medium">
+                  <div key={idx} className="flex items-center justify-between text-[11px] font-medium py-2.5 border-b border-slate-100 last:border-0">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-500 font-semibold">{item.name}</span>
+                      <span className="text-[#0D0B2E] font-semibold">{item.name}</span>
                     </div>
-                    <div className="text-right text-[#0D0B2E]">
-                      <span className="font-bold mr-1">{item.value}</span>
+                    <div className="text-right text-[#0D0B2E] flex items-center gap-1">
+                      <span className="font-bold">{item.value}</span>
                       <span className="text-[#8C8CA1] text-[10px]">({item.percentage})</span>
                     </div>
                   </div>

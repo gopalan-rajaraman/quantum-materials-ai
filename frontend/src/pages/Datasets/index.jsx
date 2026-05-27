@@ -301,7 +301,7 @@ const Datasets = () => {
       </div>
 
       {/* Dataset Size Overview */}
-      <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden relative pb-16">
+      <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden mb-6">
         <div className="p-8 pb-4">
           <div className="flex justify-between items-start mb-8">
             <div>
@@ -384,59 +384,6 @@ const Datasets = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Footer Bar */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-slate-100 to-slate-200/50 p-4 px-8 flex items-center justify-between border-t border-slate-200/60 backdrop-blur-sm">
-          <button className="bg-white/60 hover:bg-white text-slate-700 px-6 py-2 rounded-full font-bold text-[14px] shadow-sm transition-colors border border-white/40">
-            Edit
-          </button>
-          
-          <div className="flex items-center space-x-12">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100/50 flex items-center justify-center text-blue-600">
-                <FileText className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Files</p>
-                <p className="text-[13px] font-bold text-slate-800">{datasetsList.length}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-100/50 flex items-center justify-center text-indigo-600">
-                <List className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Records</p>
-                <p className="text-[13px] font-bold text-slate-800">{totalRuns}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-100/50 flex items-center justify-center text-emerald-600">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Last Updated</p>
-                <p className="text-[13px] font-bold text-slate-800">{lastUpdated}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-orange-100/50 flex items-center justify-center text-orange-600">
-                <HardDrive className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Storage Used</p>
-                <p className="text-[13px] font-bold text-slate-800">{formatSize(totalSizeMB)} / 1 GB</p>
-              </div>
-            </div>
-          </div>
-          
-          <button className="w-12 h-12 rounded-full bg-white/60 hover:bg-white flex items-center justify-center text-slate-600 shadow-sm transition-colors border border-white/40">
-            <Upload className="w-5 h-5" />
-          </button>
         </div>
       </div>
     </div>
