@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Filter, List, Grid, Lock, Unlock, 
   MoreVertical, ChevronDown, ChevronLeft, ChevronRight, FileText,
-  Database, FlaskConical, PlayCircle
+  Database, FlaskConical, PlayCircle, BarChart2, Upload, Calendar, HardDrive
 } from 'lucide-react';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip
 } from 'recharts';
 import api from '../../services/api';
 
@@ -48,29 +47,26 @@ const Datasets = () => {
     return acc + (isNaN(rows) ? 0 : rows);
   }, 0);
 
-  let csvCount = 0;
-  let xlsCount = 0;
-  datasetsList.forEach(ds => {
-    const name = (ds.name || '').toLowerCase();
-    if (name.endsWith('.csv')) csvCount++;
-    else if (name.endsWith('.xls') || name.endsWith('.xlsx')) xlsCount++;
-  });
-  const totalFiles = csvCount + xlsCount || 1;
-  const sizeData = [
-    { name: 'CSV Files', value: Math.round((csvCount / totalFiles) * 100), color: '#8B5CF6' },
-    { name: 'Excel Files', value: Math.round((xlsCount / totalFiles) * 100), color: '#00B050' },
-    { name: 'Others', value: csvCount === 0 && xlsCount === 0 ? 100 : 0, color: '#F97316' },
-  ].filter(item => item.value > 0);
+  const csvSizeMB = datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0) / 1024;
+  const metadataSizeMB = datasetsList.length * 0.05;
+  const reportsSizeMB = totalRuns * 0.12;
+  const modelCacheSizeMB = datasetsList.length > 0 ? 0.8 : 0;
+  const othersSizeMB = datasetsList.length > 0 ? 0.15 : 0;
+  const totalSizeMB = csvSizeMB + metadataSizeMB + reportsSizeMB + modelCacheSizeMB + othersSizeMB;
 
-  const activityData = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dayStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-    const dateFormatted = d.toISOString().split('T')[0];
-    const matchCount = datasetsList.filter(ds => ds.date && ds.date.startsWith(dateFormatted)).length;
-    activityData.push({ date: dayStr, value: matchCount || (i === 0 ? totalDatasets : Math.max(0, Math.floor(Math.random() * 2))) });
-  }
+  const categoryData = [
+    { name: 'CSV Data', size: csvSizeMB, color: '#6366f1', icon: <FileText className="w-4 h-4 text-white" />, bg: 'bg-[#8B5CF6]' },
+    { name: 'Metadata', size: metadataSizeMB, color: '#3b82f6', icon: <List className="w-4 h-4 text-white" />, bg: 'bg-[#3B82F6]' },
+    { name: 'Reports', size: reportsSizeMB, color: '#10b981', icon: <BarChart2 className="w-4 h-4 text-white" />, bg: 'bg-[#00B050]' },
+    { name: 'Model Cache', size: modelCacheSizeMB, color: '#f59e0b', icon: <Database className="w-4 h-4 text-white" />, bg: 'bg-[#F59E0B]' },
+    { name: 'Others', size: othersSizeMB, color: '#ec4899', icon: <MoreVertical className="w-4 h-4 text-white" />, bg: 'bg-[#EC4899]' },
+  ].filter(item => item.size > 0).sort((a, b) => b.size - a.size);
+
+  const formatSize = (mb) => mb < 1 ? `${(mb * 1024).toFixed(1)} KB` : `${mb.toFixed(2)} MB`;
+
+  const lastUpdated = datasetsList.length > 0 && datasetsList[datasetsList.length - 1].date 
+    ? new Date(datasetsList[datasetsList.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : '—';
 
   const StatusBadge = ({ status }) => {
     if (status === 'Completed' || status === 'Locked') {
@@ -304,109 +300,143 @@ const Datasets = () => {
         </div>
       </div>
 
-      {/* Bottom Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Account Details */}
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-6">
-          <h3 className="text-[14px] font-bold text-[#1e1b4b] mb-6">Account Details</h3>
-          <div className="flex items-center space-x-4 mb-8">
-            <div className="w-12 h-12 rounded-full bg-[#4C3BDE] flex items-center justify-center text-white text-lg font-bold shadow-sm">
-              {loggedInUsername?.[0]?.toUpperCase() || '?'}
-            </div>
+      {/* Dataset Size Overview */}
+      <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden relative pb-16">
+        <div className="p-8 pb-4">
+          <div className="flex justify-between items-start mb-8">
             <div>
-              <p className="text-[11px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Name</p>
-              <p className="text-[14px] font-bold text-slate-800">{loggedInUsername}</p>
+              <h2 className="text-2xl font-bold text-[#1e1b4b] mb-1">Dataset Size Overview</h2>
+              <p className="text-[14px] text-slate-500">Understand how your dataset storage is being used.</p>
             </div>
-            <div className="ml-4">
-              <p className="text-[11px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Email</p>
-              <p className="text-[13px] font-medium text-slate-600">{loggedInUser?.email || '—'}</p>
+            <div className="flex items-center space-x-3 bg-[#F8F6FF] rounded-2xl px-5 py-3 border border-[#4C3BDE]/10">
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] shadow-sm">
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Total Size</p>
+                <p className="text-lg font-bold text-[#4C3BDE] leading-none">{formatSize(totalSizeMB)}</p>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-y-6">
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Role</p>
-              <p className="text-[13px] font-bold text-slate-800">{loggedInRole}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Member Since</p>
-              <p className="text-[13px] font-bold text-slate-800">{loggedInUser?.created_at || loggedInUser?.member_since || '—'}</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Dataset Size Overview */}
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-6">
-          <h3 className="text-[14px] font-bold text-[#1e1b4b] mb-4">Dataset Size Overview</h3>
-          <div className="flex items-center">
-            <div className="w-[150px] h-[150px] relative flex-shrink-0">
+          <div className="flex items-center justify-between">
+            {/* Chart */}
+            <div className="w-[320px] h-[320px] relative flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={sizeData}
+                    data={categoryData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={45}
-                    outerRadius={65}
-                    paddingAngle={2}
-                    dataKey="value"
+                    innerRadius={90}
+                    outerRadius={140}
+                    paddingAngle={0}
+                    dataKey="size"
                     stroke="none"
                   >
-                    {sizeData.map((entry, index) => (
+                    {categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
+                  <RechartsTooltip 
+                    formatter={(value) => formatSize(value)}
+                    contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold', fontSize: '13px'}}
+                  />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold text-slate-800">
-                  {datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0) > 1024 
-                    ? `${(datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0) / 1024).toFixed(1)} MB` 
-                    : `${datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0)} KB`}
-                </span>
-                <span className="text-[9px] font-semibold text-slate-500 uppercase">Total Size</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-3xl font-bold text-[#1e1b4b] mb-1">{formatSize(totalSizeMB)}</span>
+                <span className="text-[12px] font-bold text-slate-400">Total Size</span>
               </div>
             </div>
-            <div className="flex-1 pl-4 space-y-4">
-              {sizeData.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: item.color}}></div>
-                    <span className="text-[11px] font-bold text-slate-600">{item.name}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-[11px] font-bold text-slate-800">
-                      {item.name === 'CSV Files' ? `${(csvCount * 12).toFixed(1)} KB` : item.name === 'Excel Files' ? `${(xlsCount * 12).toFixed(1)} KB` : '0 KB'}
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-400 w-6 text-right">{item.value}%</span>
-                  </div>
-                </div>
-              ))}
+
+            {/* List */}
+            <div className="flex-1 max-w-[600px] ml-12">
+              <div className="grid grid-cols-12 text-[12px] font-bold text-slate-400 mb-4 px-2">
+                <div className="col-span-6">Category</div>
+                <div className="col-span-3 text-right">Size</div>
+                <div className="col-span-3 text-right">Share</div>
+              </div>
+              
+              <div className="space-y-4">
+                {categoryData.map((cat, idx) => {
+                  const pct = totalSizeMB > 0 ? (cat.size / totalSizeMB * 100).toFixed(1) : 0;
+                  return (
+                    <div key={idx} className="grid grid-cols-12 items-center px-2 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 rounded-xl transition-colors">
+                      <div className="col-span-6 flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-xl ${cat.bg} flex items-center justify-center shadow-sm`}>
+                          {cat.icon}
+                        </div>
+                        <span className="text-[14px] font-bold text-[#1e1b4b]">{cat.name}</span>
+                      </div>
+                      <div className="col-span-3 text-right">
+                        <span className="text-[14px] font-bold text-slate-800">{formatSize(cat.size)}</span>
+                      </div>
+                      <div className="col-span-3 text-right">
+                        <div className="text-[13px] font-bold text-[#4C3BDE] mb-1.5">{pct}%</div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{width: `${pct}%`, backgroundColor: cat.color}}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Dataset Activity */}
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[14px] font-bold text-[#1e1b4b]">Dataset Activity (Last 7 Days)</h3>
-            <div className="relative">
-              <select className="appearance-none bg-white border border-slate-200 rounded text-[11px] font-semibold text-slate-700 py-1 pl-2 pr-6 focus:outline-none cursor-pointer">
-                <option>Last 7 Days</option>
-              </select>
-              <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
+        {/* Footer Bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-slate-100 to-slate-200/50 p-4 px-8 flex items-center justify-between border-t border-slate-200/60 backdrop-blur-sm">
+          <button className="bg-white/60 hover:bg-white text-slate-700 px-6 py-2 rounded-full font-bold text-[14px] shadow-sm transition-colors border border-white/40">
+            Edit
+          </button>
+          
+          <div className="flex items-center space-x-12">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-blue-100/50 flex items-center justify-center text-blue-600">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Files</p>
+                <p className="text-[13px] font-bold text-slate-800">{datasetsList.length}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-100/50 flex items-center justify-center text-indigo-600">
+                <List className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Records</p>
+                <p className="text-[13px] font-bold text-slate-800">{totalRuns}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-100/50 flex items-center justify-center text-emerald-600">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Last Updated</p>
+                <p className="text-[13px] font-bold text-slate-800">{lastUpdated}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-orange-100/50 flex items-center justify-center text-orange-600">
+                <HardDrive className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Storage Used</p>
+                <p className="text-[13px] font-bold text-slate-800">{formatSize(totalSizeMB)} / 1 GB</p>
+              </div>
             </div>
           </div>
-          <div className="h-[150px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={activityData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#64748b'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#64748b'}} label={{ value: 'Datasets', angle: -90, position: 'insideLeft', style: {fontSize: 9, fill: '#64748b'} }} domain={[0, 8]} ticks={[0, 2, 4, 6, 8]} />
-                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px'}} />
-                <Line type="monotone" dataKey="value" stroke="#8B5CF6" strokeWidth={2} dot={{r: 3, fill: '#8B5CF6', strokeWidth: 0}} activeDot={{r: 5}} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          
+          <button className="w-12 h-12 rounded-full bg-white/60 hover:bg-white flex items-center justify-center text-slate-600 shadow-sm transition-colors border border-white/40">
+            <Upload className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>

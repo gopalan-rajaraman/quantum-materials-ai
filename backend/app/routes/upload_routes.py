@@ -211,6 +211,21 @@ async def get_saved_datasets():
     
     return {"datasets": enriched}
 
+@router.get("/saved/{dataset_id}")
+async def get_saved_dataset(dataset_id: str):
+    """Get a specific saved dataset by ID."""
+    collection = get_datasets_collection()
+    try:
+        doc = await collection.find_one({"_id": ObjectId(dataset_id)})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        doc["_id"] = str(doc["_id"])
+        if "user_id" in doc and doc["user_id"] is not None:
+            doc["user_id"] = str(doc["user_id"])
+        return doc
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.delete("/saved/{dataset_id}")
 async def delete_saved_dataset(dataset_id: str):
     """Deletes a dataset from MongoDB by its ObjectId."""

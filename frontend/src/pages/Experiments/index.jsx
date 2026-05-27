@@ -51,6 +51,31 @@ const Experiments = () => {
     }
   };
 
+  const handleDownload = async (e, exp) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`http://localhost:8000/api/datasets/saved/${exp._id || exp.id}`);
+      if (res.ok) {
+        const dataset = await res.json();
+        const dataStr = JSON.stringify(dataset, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${exp.name || 'dataset'}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        alert('Failed to download dataset.');
+      }
+    } catch (err) {
+      console.error('Error downloading dataset:', err);
+      alert('An error occurred while downloading.');
+    }
+  };
+
   const filteredExperiments = experiments.filter(exp => {
     const matchesSearch = (exp.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (exp.name || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -197,10 +222,7 @@ const Experiments = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center space-x-2">
-                        <button className="p-2 text-[#4C3BDE] hover:bg-[#F0F2FF] rounded-md transition-all" onClick={(e) => { e.stopPropagation(); navigate('/results'); }} title="View">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all" onClick={(e) => e.stopPropagation()} title="Download">
+                        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all" onClick={(e) => handleDownload(e, exp)} title="Download">
                           <Download className="w-4 h-4" />
                         </button>
                         <button className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-all" onClick={(e) => handleDelete(e, exp._id)} title="Delete">

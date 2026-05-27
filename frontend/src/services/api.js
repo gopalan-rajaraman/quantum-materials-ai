@@ -71,6 +71,7 @@ export const api = {
   lockDataset: (id) => request(`/api/datasets/${id}/lock`, { method: 'POST' }),
   unlockDataset: (id) => request(`/api/datasets/${id}/unlock`, { method: 'POST' }),
   deleteDataset: (id) => request(`/api/datasets/${id}`, { method: 'DELETE' }),
+  getDataset: (id) => request(`/api/datasets/${id}`),
 
   // Thermal CVD Model
   fetchModelInfo: () => request('/thermal-cvd/info'),
