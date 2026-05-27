@@ -177,10 +177,6 @@ const Optimization = () => {
       
       plotData.maxEITemp = maxEITemp;
       plotData.maxEIVal = maxEIVal;
-      
-      // Calculate dynamic offset to prevent clipping on the right edge
-      const xRangeMax = Math.max(...plotData.x);
-      plotData.annotationAx = maxEITemp > (xRangeMax - 100) ? -60 : 40;
     }
   }
 
@@ -298,7 +294,7 @@ const Optimization = () => {
                <Plot
                  data={eiTraces}
                  layout={{
-                   autosize: true, margin: {l: 50, r: 80, b: 40, t: 20},
+                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                    xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
                    yaxis: { title: 'EI Value', gridcolor: '#f1f5f9', color: '#64748b' },
@@ -317,7 +313,7 @@ const Optimization = () => {
                     text: `<b>Current Best</b><br>T: ${plotData.maxEITemp} °C<br>EI: ${plotData.maxEIVal.toFixed(2)}`,
                     showarrow: true,
                     arrowhead: 0,
-                    ax: plotData.annotationAx || 40,
+                    ax: 40,
                     ay: -30,
                     bgcolor: '#2962FF',
                     font: { color: 'white', size: 10 },
