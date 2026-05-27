@@ -36,6 +36,21 @@ class ThermalCVDGPModel:
 
         self.gp: Optional[GaussianProcessRegressor] = None
         self._fitted = False
+        self.is_unstable_regime = False
+        
+    def _check_stability(self) -> None:
+        """Check if the GP optimizer has hit the lower bounds for length scale."""
+        self.is_unstable_regime = False
+        if not self.gp or not hasattr(self.gp, 'kernel_'):
+            return
+            
+        params = self.gp.kernel_.get_params()
+        for key, value in params.items():
+            if 'length_scale' in key and isinstance(value, np.ndarray):
+                # Check if any length_scale is hitting the 0.5 lower bound
+                if np.any(np.isclose(value, 0.5, atol=0.01)):
+                    self.is_unstable_regime = True
+                    break
 
     def fit(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
         """
@@ -55,6 +70,7 @@ class ThermalCVDGPModel:
         self.gp.fit(X_train, y_train)
         print(f"[GP FIT] Kernel optimized: {self.gp.kernel_}")
         self._fitted = True
+        self._check_stability()
 
     def fast_fit(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
         """Lightweight fit for use inside the BO loop.
@@ -70,6 +86,7 @@ class ThermalCVDGPModel:
         print(f"[GP FAST_FIT] Kernel optimized: {gp.kernel_}")
         self.gp = gp
         self._fitted = True
+        self._check_stability()
 
     def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
