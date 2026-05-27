@@ -27,11 +27,11 @@ class ThermalCVDGPModel:
         self.random_state = random_state
         self.n_restarts = n_restarts
 
-        # Flexible bounds as requested for research-grade BO
+        # Stable bounds as requested for sparse dataset
         self.kernel = (
-            ConstantKernel(1.0, (1e-3, 1e3))
-            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.1, 20.0), nu=2.5)
-            + WhiteKernel(noise_level=0.05, noise_level_bounds=(1e-5, 1.0))
+            ConstantKernel(1.0, (0.1, 10.0))
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.5, 20.0), nu=2.5)
+            + WhiteKernel(noise_level=1e-5, noise_level_bounds=(1e-8, 1e-1))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None
@@ -48,7 +48,7 @@ class ThermalCVDGPModel:
         # Using normalize_y=True to ensure target space is well-conditioned
         self.gp = GaussianProcessRegressor(
             kernel=self.kernel,
-            n_restarts_optimizer=20,
+            n_restarts_optimizer=15,
             normalize_y=True,
             random_state=self.random_state,
         )
