@@ -337,52 +337,6 @@ const Optimization = () => {
           </div>
         </div>
 
-        {/* Timeline Table */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm overflow-y-auto max-h-[450px]">
-          <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">Optimization Timeline <Info className="w-4 h-4 text-slate-400" /></h3>
-          <table className="w-full text-sm text-left text-slate-600 border-collapse">
-            <thead className="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-100">
-              <tr>
-                <th className="px-3 py-3 font-bold rounded-tl-lg">Step</th>
-                <th className="px-3 py-3 font-bold">GTE <span className="text-[10px] normal-case opacity-70">(°C)</span></th>
-                <th className="px-3 py-3 font-bold">GTI <span className="text-[10px] normal-case opacity-70">(min)</span></th>
-                <th className="px-3 py-3 font-bold">FRA <span className="text-[10px] normal-case opacity-70">(sccm)</span></th>
-                <th className="px-3 py-3 font-bold">Pressure <span className="text-[10px] normal-case opacity-70">(Torr)</span></th>
-                <th className="px-3 py-3 font-bold text-right rounded-tr-lg">FWHM <span className="text-[10px] normal-case opacity-70">(meV)</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Empty State */}
-              {timelineData.filter(r => r.type === 'User').length === 0 && (
-                <tr className="border-b border-slate-100 bg-slate-50/20">
-                  <td className="px-3 py-10 text-center text-slate-400 font-medium" colSpan={6}>
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Activity className="w-6 h-6 opacity-50 mb-1" />
-                      <span>No active optimization steps yet.</span>
-                      <span className="text-xs opacity-70">Log your first BO experiment to build the timeline.</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-
-              {/* BO Experiments */}
-              {timelineData.filter(r => r.type === 'User').map((row, i) => (
-                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
-                  <td className="px-3 py-3 font-medium flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
-                    <span className="text-slate-900 whitespace-nowrap">{row.experiment_id}</span>
-                  </td>
-                  <td className="px-3 py-3">{row.gte}</td>
-                  <td className="px-3 py-3">{row.gti || '-'}</td>
-                  <td className="px-3 py-3">{row.fra || '-'}</td>
-                  <td className="px-3 py-3">{row.pressure || '-'}</td>
-                  <td className="px-3 py-3 font-bold text-indigo-600 text-right">{parseFloat(row.fwhm).toFixed(1)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
         {/* Next Suggestion Log / Convergence */}
         <div className={`bg-white rounded-2xl p-6 border shadow-sm flex flex-col relative overflow-hidden ${hasConverged ? 'border-amber-200 shadow-amber-50' : 'border-emerald-100 shadow-emerald-50'}`}>
           <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${hasConverged ? 'from-amber-400 to-amber-300' : 'from-emerald-400 to-emerald-300'}`}></div>
