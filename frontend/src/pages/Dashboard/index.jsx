@@ -238,11 +238,11 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Row 2: Recent Datasets & Experiments Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Row 2: Recent Datasets */}
+      <div className="grid grid-cols-1 gap-6">
         
         {/* Recent Datasets Table */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between">
+        <div className="w-full bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[16px] font-bold text-[#0D0B2E]">Recent Datasets</h3>
@@ -305,103 +305,10 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Experiments Overview Line Chart */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[16px] font-bold text-[#0D0B2E]">Experiments Overview</h3>
-              <div className="flex items-center gap-1 text-[11px] font-bold text-[#8C8CA1] border border-slate-100 rounded-md px-2 py-1 cursor-pointer hover:bg-slate-50">
-                <span>Last 30 days</span>
-                <ChevronDown className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Metrics */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-50 mb-4">
-              <div>
-                <span className="text-[11px] font-semibold text-[#8C8CA1] block">Total Runs</span>
-                <span className="text-[16px] font-bold text-[#0D0B2E]">{stats?.total_runs ?? completedRuns}</span>
-              </div>
-              <div className="border-l border-slate-100 h-8" />
-              <div>
-                <span className="text-[11px] font-semibold text-[#8C8CA1] block flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" /> Completed
-                </span>
-                <span className="text-[16px] font-bold text-[#0D0B2E]">{stats?.completed_runs ?? completedRuns}</span>
-              </div>
-              <div className="border-l border-slate-100 h-8" />
-              <div>
-                <span className="text-[11px] font-semibold text-[#8C8CA1] block">Success Rate</span>
-                <span className="text-[16px] font-bold text-[#5D3EBC]">
-                  {stats?.success_rate != null
-                    ? `${(stats.success_rate * 100).toFixed(1)}%`
-                    : stats?.completed_runs != null && stats?.total_runs
-                      ? `${((stats.completed_runs / stats.total_runs) * 100).toFixed(1)}%`
-                      : '—'}
-                </span>
-              </div>
-            </div>
-
-            {/* Area Chart */}
-            <div className="h-[140px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={overviewChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="purpleGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#5D3EBC" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#5D3EBC" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#8C8CA1', fontSize: 10, fontWeight: 500 }} 
-                  />
-                  <YAxis 
-                    domain={[0, 100]} 
-                    ticks={[0, 25, 50, 75, 100]} 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#8C8CA1', fontSize: 10, fontWeight: 500 }} 
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#0D0B2E', 
-                      borderRadius: '8px', 
-                      border: 'none', 
-                      color: 'white',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      padding: '6px 10px'
-                    }}
-                    itemStyle={{ color: 'white' }}
-                    labelStyle={{ display: 'none' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#5D3EBC" 
-                    strokeWidth={2.5} 
-                    fill="url(#purpleGlow)" 
-                    activeDot={{ r: 5, stroke: 'white', strokeWidth: 1.5, fill: '#5D3EBC' }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-              {/* Highlight label showing latest data point */}
-              {overviewChartData.length > 0 && (
-                <div className="absolute right-2 top-3 bg-[#0D0B2E] text-white text-[9px] font-bold px-2 py-1 rounded shadow-sm select-none pointer-events-none">
-                  <span className="block text-[8px] text-slate-400 font-medium">{overviewChartData[overviewChartData.length - 1]?.name || ''}</span>
-                  {overviewChartData[overviewChartData.length - 1]?.value ?? ''} Runs
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Row 3: Variable Summary, Model Performance, Activity Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Row 3: Variable Summary, Activity Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Variable Summary */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">
@@ -469,81 +376,6 @@ const Dashboard = () => {
           </button>
         </div>
 
-        {/* Model Performance */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#E8F0FE] flex items-center justify-center shrink-0">
-                  <Cpu className="w-3 h-3 text-[#3B82F6]" />
-                </span>
-                <h3 className="text-[15px] font-bold text-[#0D0B2E]">Model Performance</h3>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-[#8C8CA1] border border-slate-100 rounded-md px-2 py-0.5 cursor-pointer hover:bg-slate-50">
-                <span>All Models</span>
-                <ChevronDown className="w-3 h-3" />
-              </div>
-            </div>
-
-            {/* Line Chart */}
-            <div className="h-[140px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={modelPerformanceData} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#8C8CA1', fontSize: 9, fontWeight: 500 }} 
-                  />
-                  <YAxis 
-                    domain={[0, 1.0]} 
-                    ticks={[0, 0.25, 0.50, 0.75, 1.0]} 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#8C8CA1', fontSize: 9, fontWeight: 500 }} 
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#0D0B2E', 
-                      borderRadius: '6px', 
-                      border: 'none', 
-                      color: 'white',
-                      fontSize: '10px',
-                      padding: '4px 8px'
-                    }}
-                  />
-                  <Line type="monotone" dataKey="R2" stroke="#5D3EBC" strokeDasharray="3 3" strokeWidth={1.5} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="MAE" stroke="#3B82F6" strokeDasharray="3 3" strokeWidth={1.5} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="RMSE" stroke="#10B981" strokeDasharray="3 3" strokeWidth={1.5} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Custom Legend */}
-            <div className="flex items-center justify-center gap-4 mt-2">
-              <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#8C8CA1]">
-                <span className="w-2 h-2 rounded-full bg-[#5D3EBC]" />
-                <span>R² Score</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#8C8CA1]">
-                <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-                <span>MAE</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#8C8CA1]">
-                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-                <span>RMSE</span>
-              </div>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => navigate('/optimization')}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-[#5D3EBC] hover:translate-x-0.5 transition-transform text-left w-fit mt-2"
-          >
-            <span>View all models</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
 
         {/* Activity Feed */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">

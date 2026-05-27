@@ -64,16 +64,7 @@ const Models = () => {
           <h1 className="text-2xl font-bold text-[#1e1b4b] mb-1">Models</h1>
           <p className="text-slate-500 text-sm">Monitor, evaluate and manage your machine learning models.</p>
         </div>
-        <div className="flex space-x-4">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search models..." 
-              className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-[250px] focus:outline-none focus:ring-1 focus:ring-[#4C3BDE]"
-            />
-          </div>
-        </div>
+
       </div>
 
       {/* Main Top Section */}
@@ -107,10 +98,6 @@ const Models = () => {
               <div>
                 <p className="text-[11px] text-slate-400 font-bold mb-1">Dataset</p>
                 <span className="text-[13px] font-bold text-slate-800">{modelInfo?.status === 'fitted' ? 'Active Dataset' : 'None'}</span>
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-bold mb-1">Iterations</p>
-                <span className="text-[13px] font-bold text-slate-800">{trainRows} / {trainRows}</span>
               </div>
             </div>
           </div>

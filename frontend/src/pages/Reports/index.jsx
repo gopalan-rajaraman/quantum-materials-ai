@@ -233,8 +233,8 @@ const Reports = () => {
                 </div>
               </div>
 
-              {/* 4 Stat Boxes */}
-              <div className="grid grid-cols-4 gap-4 mb-8">
+              {/* 2 Stat Boxes */}
+              <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
                   <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
@@ -244,24 +244,7 @@ const Reports = () => {
                     <p className="text-lg font-bold text-[#00B050] truncate">{bestFwhm}</p>
                   </div>
                 </div>
-                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
-                    <FlaskConical className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold text-slate-500 mb-0.5 truncate">Iterations</p>
-                    <p className="text-lg font-bold text-slate-800 truncate">{iterationsCount} / {iterationsCount}</p>
-                  </div>
-                </div>
-                <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
-                    <Database className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold text-slate-500 mb-0.5 truncate">Total Exp.</p>
-                    <p className="text-lg font-bold text-slate-800 truncate">{iterationsCount}</p>
-                  </div>
-                </div>
+
                 <div className="border border-slate-100 rounded-xl p-4 flex items-center space-x-3 shadow-sm bg-slate-50/50 min-w-0">
                   <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#4C3BDE] border border-slate-100 flex-shrink-0">
                     <Cpu className="w-5 h-5" />
@@ -389,51 +372,6 @@ const Reports = () => {
 
           {/* Right Column */}
           <div className="lg:w-[35%] flex flex-col space-y-6">
-            {/* AI Generated Insights */}
-            <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-6 bg-gradient-to-br from-white to-[#F9F8FF]">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <h2 className="text-[15px] font-bold text-[#1e1b4b]">AI Generated Insights</h2>
-              </div>
-
-              <div className="space-y-6 mb-6">
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-[#EBF4FF] flex items-center justify-center text-[#3B82F6] flex-shrink-0 mt-0.5">
-                    <Target className="w-4 h-4" />
-                  </div>
-                  <p className="text-[13px] text-slate-700 leading-snug font-medium">
-                    The model achieved its best FWHM of <span className="text-[#00B050] font-bold">{bestFwhm}</span>.
-                  </p>
-                </div>
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-[#EBF4FF] flex items-center justify-center text-[#3B82F6] flex-shrink-0 mt-0.5">
-                    <Share2 className="w-4 h-4" />
-                  </div>
-                  <p className="text-[13px] text-slate-700 leading-snug font-medium">
-                    The surrogate model shows high reliability with R² score of <span className="font-bold">{r2Value}</span>.
-                  </p>
-                </div>
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0 mt-0.5">
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                  <p className="text-[13px] text-slate-700 leading-snug font-medium">
-                    Strong parameter correlations exist between growth temperatures and peak FWHM.
-                  </p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => navigate('/results')}
-                className="w-full py-3 bg-[#F8F6FF] text-[#4C3BDE] rounded-xl font-bold text-[13px] hover:bg-[#F0EBFF] transition-colors flex items-center justify-center space-x-2 border border-[#4C3BDE]/10"
-              >
-                <span>View Full Analysis</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
             {/* Report Details */}
             <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-6 flex-1">
               <div className="flex items-center space-x-3 mb-6">
