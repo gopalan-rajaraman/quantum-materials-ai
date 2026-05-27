@@ -20,6 +20,8 @@ const Upload = () => {
   const [selectedVariables, setSelectedVariables] = useState({});
   const [activeTab, setActiveTab] = useState('numerical');
   const [variableUnits, setVariableUnits] = useState({});
+  const [datasetName, setDatasetName] = useState('');
+  const [autoGenFileName, setAutoGenFileName] = useState('');
   const [boConstants, setBoConstants] = useState({
     P1: 'W(CO)6',
     P2: 'H2S',
@@ -72,6 +74,10 @@ const Upload = () => {
           const currentDatasetCount = parseInt(localStorage.getItem('datasetCount') || '0') + 1;
           localStorage.setItem('datasetCount', currentDatasetCount);
           const dsId = `EXP_${currentDatasetCount.toString().padStart(3, '0')}`;
+          
+          let baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+          setDatasetName(baseName);
+          setAutoGenFileName(`${baseName}_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}.json`);
           
           const dataWithIds = data.map((row, index) => {
             const expNum = index + 1;
@@ -276,7 +282,7 @@ const Upload = () => {
         ...boConstants,
         TOCVD: 'Thermal CVD'
       }));
-      await api.uploadJsonDataset(enrichedData);
+      await api.uploadJsonDataset(enrichedData, datasetName || autoGenFileName);
 
       setIsLocked(true);
     } catch (err) {
@@ -291,7 +297,8 @@ const Upload = () => {
     const steps = [
       { id: 1, name: 'Upload Template' },
       { id: 2, name: 'Extract Variables' },
-      { id: 3, name: 'Confirm & Lock' }
+      { id: 3, name: 'Dataset Details' },
+      { id: 4, name: 'Confirm & Lock' }
     ];
 
     return (
@@ -787,6 +794,68 @@ const Upload = () => {
             )}
 
             {step === 3 && (
+              <div className="animate-fade-in flex h-full">
+                <div className="max-w-2xl w-full mx-auto mt-8">
+                  <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Dataset Details</h2>
+                    <p className="text-slate-500 text-[14px]">
+                      Provide a name for your dataset before proceeding.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8">
+                    <div className="mb-8">
+                      <label className="block text-[13px] font-bold text-slate-700 mb-2">
+                        Dataset Name <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        type="text" 
+                        value={datasetName}
+                        onChange={(e) => setDatasetName(e.target.value)}
+                        className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-[14px] text-slate-800"
+                      />
+                      <p className="text-[12px] text-slate-500 mt-2">A clear and descriptive name helps you identify this dataset easily.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[13px] font-bold text-slate-700 mb-2">
+                        Auto-generated filename
+                      </label>
+                      <div className="flex items-center">
+                        <input 
+                          type="text" 
+                          value={autoGenFileName}
+                          readOnly
+                          className="w-full px-4 py-3 rounded-l-lg border border-slate-200 bg-slate-50 focus:outline-none text-[13px] text-slate-600 font-mono"
+                        />
+                        <button className="px-4 py-3 border-y border-r border-slate-200 bg-slate-50 rounded-r-lg hover:bg-slate-100 transition-colors text-slate-500" title="Copy" onClick={() => navigator.clipboard.writeText(autoGenFileName)}>
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-[12px] text-slate-500 mt-2">This is the system filename. You can rename your dataset above.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-4">
+                    <button 
+                      onClick={() => setStep(2)}
+                      className="px-6 py-2.5 border border-slate-200 bg-white text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[14px]"
+                    >
+                      Previous
+                    </button>
+                    <button 
+                      onClick={() => setStep(4)}
+                      className="px-6 py-2.5 bg-[#4020f5] text-white rounded-lg font-bold hover:bg-[#3D2EB0] transition-all shadow-md text-[14px] flex items-center space-x-2"
+                    >
+                      <span>Continue</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
               <div className="animate-fade-in flex gap-6 h-full bg-white relative">
                 {/* Left Sidebar */}
                 <div className="w-[280px] flex-shrink-0 flex flex-col gap-4">

@@ -62,10 +62,10 @@ export const api = {
     return response.json();
   },
 
-  uploadJsonDataset: (data) =>
+  uploadJsonDataset: (data, name) =>
     request('/api/datasets/upload-json', {
       method: 'POST',
-      body: JSON.stringify({ data })
+      body: JSON.stringify({ data, name })
     }),
 
   lockDataset: (id) => request(`/api/datasets/${id}/lock`, { method: 'POST' }),

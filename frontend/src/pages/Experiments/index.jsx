@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Database, CheckCircle2, Clock, RefreshCw, Star, Eye, MoreVertical, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Search, Filter, Database, CheckCircle2, Clock, RefreshCw, Star, Eye, MoreVertical, ChevronLeft, ChevronRight, ChevronDown, Trash2, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Experiments = () => {
@@ -28,6 +28,28 @@ const Experiments = () => {
   useEffect(() => {
     fetchExperiments();
   }, []);
+
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this dataset? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`http://localhost:8000/api/datasets/saved/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        // Refresh the list after successful deletion
+        fetchExperiments();
+      } else {
+        alert('Failed to delete the dataset.');
+      }
+    } catch (err) {
+      console.error('Error deleting dataset:', err);
+      alert('An error occurred while trying to delete the dataset.');
+    }
+  };
 
   const filteredExperiments = experiments.filter(exp => {
     const matchesSearch = (exp.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -175,11 +197,14 @@ const Experiments = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center space-x-2">
-                        <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md border border-slate-200 transition-all bg-white shadow-sm" onClick={(e) => { e.stopPropagation(); navigate('/results'); }}>
+                        <button className="p-2 text-[#4C3BDE] hover:bg-[#F0F2FF] rounded-md transition-all" onClick={(e) => { e.stopPropagation(); navigate('/results'); }} title="View">
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md border border-slate-200 transition-all bg-white shadow-sm" onClick={(e) => e.stopPropagation()}>
-                          <MoreVertical className="w-4 h-4" />
+                        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all" onClick={(e) => e.stopPropagation()} title="Download">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-all" onClick={(e) => handleDelete(e, exp._id)} title="Delete">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

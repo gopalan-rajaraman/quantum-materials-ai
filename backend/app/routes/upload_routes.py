@@ -12,6 +12,7 @@ from app.database.mongodb_config import get_datasets_collection, get_activity_lo
 
 class SpreadsheetData(BaseModel):
     data: List[Dict[str, Any]]
+    name: Optional[str] = None
 
 router = APIRouter(
     prefix="/api/datasets",
@@ -210,6 +211,23 @@ async def get_saved_datasets():
     
     return {"datasets": enriched}
 
+@router.delete("/saved/{dataset_id}")
+async def delete_saved_dataset(dataset_id: str):
+    """Deletes a dataset from MongoDB by its ObjectId."""
+    collection = get_datasets_collection()
+    try:
+        if dataset_id == 'default_fallback':
+            return {"message": "Cannot delete default dataset."}
+        
+        result = await collection.delete_one({"_id": ObjectId(dataset_id)})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+            
+        await log_activity("Dataset Deleted", f"Deleted dataset with ID {dataset_id}", "bg-red-500")
+        return {"message": "Dataset deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/upload")
 async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional[str] = None):
     """
@@ -371,7 +389,7 @@ async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = No
             df = df.dropna(subset=['PL_FWHM']).reset_index(drop=True)
 
         dataset_record = {
-            "name": f"Manual_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            "name": payload.name if payload.name else f"Manual_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "created_at": datetime.utcnow().isoformat(),
             "rows": f"{len(df):,} Thermal CVD rows",

@@ -78,7 +78,7 @@ class ThermalCVDGPModel:
         """
         gp = GaussianProcessRegressor(
             kernel=self.kernel,
-            n_restarts_optimizer=5,
+            n_restarts_optimizer=15,
             normalize_y=True,
             random_state=self.random_state,
         )
