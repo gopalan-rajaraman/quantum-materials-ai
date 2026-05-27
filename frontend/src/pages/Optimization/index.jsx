@@ -149,15 +149,35 @@ const Optimization = () => {
     const startIndex = Math.max(0, totalCurves - 5);
     const visibleHistory = (plotData.ei_history || []).slice(startIndex);
     
-    const eiColors = ['#bae6fd', '#7dd3fc', '#38bdf8', '#0ea5e9', '#0284c7'];
+    const eiColors = ['#FFB74D', '#4DB6AC', '#AB47BC', '#FF7043'];
     eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
       const actualStep = startIndex + relativeIdx + 1;
       const isCurrent = relativeIdx === visibleHistory.length - 1;
       return {
         x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: isCurrent ? `Step ${actualStep} (Current)` : `Step ${actualStep}`,
-        line: { color: isCurrent ? '#1d4ed8' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 3 : 2, dash: 'solid' }
+        line: { color: isCurrent ? '#2962FF' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 3 : 2, dash: 'solid' }
       };
     });
+
+    if (visibleHistory.length > 0) {
+      const currentCurve = visibleHistory[visibleHistory.length - 1];
+      const maxIdx = currentCurve.indexOf(Math.max(...currentCurve));
+      const maxEIVal = currentCurve[maxIdx];
+      const maxEITemp = plotData.x[maxIdx];
+      
+      eiTraces.push({
+        x: [maxEITemp],
+        y: [maxEIVal],
+        type: 'scatter',
+        mode: 'markers',
+        marker: { color: '#2962FF', size: 10 },
+        showlegend: false,
+        hoverinfo: 'skip'
+      });
+      
+      plotData.maxEITemp = maxEITemp;
+      plotData.maxEIVal = maxEIVal;
+    }
   }
 
   const globalUncertaintyRed = plotData ? (Math.max(0, 100 - (plotData.sigma.reduce((a,b)=>a+b,0) / plotData.sigma.length) * 5)).toFixed(1) : 0;
@@ -278,7 +298,28 @@ const Optimization = () => {
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                    xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
                    yaxis: { title: 'EI Value', gridcolor: '#f1f5f9', color: '#64748b' },
-                   legend: { orientation: 'h', y: 1.1, font: {color: '#475569', size: 10} }
+                   legend: { orientation: 'h', y: 1.1, font: {color: '#475569', size: 10} },
+                   shapes: plotData && plotData.maxEITemp ? [{
+                    type: 'line',
+                    x0: plotData.maxEITemp,
+                    y0: 0,
+                    x1: plotData.maxEITemp,
+                    y1: plotData.maxEIVal,
+                    line: { color: '#2962FF', width: 1, dash: 'dot' }
+                  }] : [],
+                  annotations: plotData && plotData.maxEITemp ? [{
+                    x: plotData.maxEITemp,
+                    y: plotData.maxEIVal,
+                    text: `<b>Current Best</b><br>T: ${plotData.maxEITemp} °C<br>EI: ${plotData.maxEIVal.toFixed(2)}`,
+                    showarrow: true,
+                    arrowhead: 0,
+                    ax: 40,
+                    ay: -30,
+                    bgcolor: '#2962FF',
+                    font: { color: 'white', size: 10 },
+                    borderpad: 6,
+                    bordercolor: 'rgba(0,0,0,0)'
+                  }] : []
                  }}
                  useResizeHandler style={{width: '100%', height: '100%'}}
                />
