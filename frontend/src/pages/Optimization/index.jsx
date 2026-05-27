@@ -149,13 +149,13 @@ const Optimization = () => {
     const startIndex = Math.max(0, totalCurves - 5);
     const visibleHistory = (plotData.ei_history || []).slice(startIndex);
     
-    const eiColors = ['#cbd5e1', '#94a3b8', '#64748b', '#475569', '#3b82f6'];
+    const eiColors = ['#bae6fd', '#7dd3fc', '#38bdf8', '#0ea5e9', '#0284c7'];
     eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
       const actualStep = startIndex + relativeIdx + 1;
       const isCurrent = relativeIdx === visibleHistory.length - 1;
       return {
         x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: isCurrent ? `Step ${actualStep} (Current)` : `Step ${actualStep}`,
-        line: { color: isCurrent ? '#1e40af' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 3 : 2, dash: isCurrent ? 'solid' : 'dot' }
+        line: { color: isCurrent ? '#1d4ed8' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 3 : 2, dash: 'solid' }
       };
     });
   }
