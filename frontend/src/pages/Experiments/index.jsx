@@ -118,11 +118,6 @@ const Experiments = () => {
             />
           </div>
           <div className="flex items-center space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg text-[14px] font-semibold transition-colors">
-              <Filter className="w-4 h-4 text-slate-500" />
-              <span>Filter</span>
-              <span className="bg-[#4C3BDE] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">2</span>
-            </button>
             <div className="relative">
                <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -145,10 +140,6 @@ const Experiments = () => {
                   </div>
                 )}
             </div>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg text-[14px] font-semibold transition-colors">
-              <span>All Time</span>
-              <ChevronDown className="w-4 h-4 text-slate-500" />
-            </button>
             <button className="text-[#4C3BDE] hover:text-[#3D2EB0] text-[14px] font-semibold ml-2">
               Clear all
             </button>
