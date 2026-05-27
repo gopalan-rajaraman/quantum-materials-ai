@@ -141,7 +141,7 @@ const Experiments = () => {
                 <th className="px-4 py-5 whitespace-nowrap">Target Property</th>
                 <th className="px-4 py-5 whitespace-nowrap">Status</th>
                 <th className="px-4 py-5 whitespace-nowrap">Best FWHM Found</th>
-                <th className="px-4 py-5 whitespace-nowrap">Training Rows</th>
+
                 <th className="px-4 py-5 whitespace-nowrap">Created On</th>
                 <th className="px-6 py-5 text-center whitespace-nowrap">Actions</th>
               </tr>
@@ -149,7 +149,7 @@ const Experiments = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-12 text-center text-slate-500 animate-pulse">
+                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500 animate-pulse">
                     Loading experiments...
                   </td>
                 </tr>
@@ -190,7 +190,7 @@ const Experiments = () => {
                     <td className={`px-4 py-4 font-bold text-[13px] ${exp.status === 'Completed' ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
                       {exp.bestValue || '—'}
                     </td>
-                    <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.rows || '—'}</td>
+
                     <td className="px-4 py-4">
                       <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '—'}</div>
                       <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || ''}</div>
@@ -212,7 +212,7 @@ const Experiments = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="px-6 py-12 text-center">
+                  <td colSpan="8" className="px-6 py-12 text-center">
                     <div className="text-slate-500 text-[14px]">No experiments found. Upload a dataset to get started.</div>
                   </td>
                 </tr>
