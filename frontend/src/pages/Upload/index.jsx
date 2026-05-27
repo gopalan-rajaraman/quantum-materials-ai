@@ -241,9 +241,14 @@ const Upload = () => {
       const startIdx = i * SAMPLES_PER_EXPERIMENT;
       const endIdx = Math.min(startIdx + SAMPLES_PER_EXPERIMENT, parsedData.length);
       const samples = parsedData.slice(startIdx, endIdx);
+      
+      // Inherit the parent Dataset ID instead of using generic "EXP-1"
+      const currentDsId = datasetId || 'DS_NEW';
+      const expId = `${currentDsId}_${String(i + 1).padStart(3, '0')}`;
+      
       experiments.push({
-        id: `EXP-${i + 1}`,
-        label: `EXP-${i + 1}`,
+        id: expId,
+        label: expId,
         sampleCount: samples.length,
         startRow: startIdx + 1,
         endRow: endIdx,
@@ -784,9 +789,14 @@ const Upload = () => {
               <div className="animate-fade-in flex flex-col h-full">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-1">Confirm Experimental IDs</h2>
-                  <p className="text-slate-500 text-[13px]">
+                  <p className="text-slate-500 text-[13px] mb-4">
                     Please select an experimental ID to confirm it before locking the dataset.
                   </p>
+                  
+                  <div className="bg-slate-100/50 rounded-lg p-3 inline-flex items-center border border-slate-200 shadow-sm">
+                    <span className="text-slate-500 text-xs uppercase font-bold tracking-wider mr-2">Dataset ID:</span>
+                    <span className="font-mono text-slate-900 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{datasetId || 'NEW_DATASET'}</span>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-5 mb-6">
