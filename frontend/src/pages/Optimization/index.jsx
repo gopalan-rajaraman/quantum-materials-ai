@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
-import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy } from 'lucide-react';
+import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Optimization = () => {
@@ -194,6 +194,18 @@ const Optimization = () => {
           <p className="text-slate-500">Bayesian Optimization engine tracking FWHM minimization.</p>
         </div>
       </div>
+      
+      {plotData?.is_unstable_regime && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm animate-fade-in">
+          <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <h4 className="text-amber-800 font-bold text-sm">Warning: Surrogate model entered low-length-scale regime.</h4>
+            <p className="text-amber-700 text-sm mt-1">
+              The optimizer has collapsed to microscopic length scales due to sparse or noisy data. Predictions in unexplored regions may be unstable or flat. Consider adding more experiments to stabilize the model.
+            </p>
+          </div>
+        </div>
+      )}
       
       {/* Top Section: GP and Legend */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">

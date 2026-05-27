@@ -406,6 +406,7 @@ class ThermalCVDOptimizer:
             'kernel': self.gp_model.get_kernel_info(),
             'confidence': confidence,
             'inference_time_ms': round(inference_time_ms, 2),
+            'is_unstable_regime': self.gp_model.is_unstable_regime,
             **metrics,
             **self._training_info,
         }

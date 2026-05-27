@@ -524,6 +524,7 @@ def get_plot_data():
             'sigma': sigma_mev.tolist(),
             'ei': ei_vals.tolist(),
             'ei_history': ei_history,
+            'is_unstable_regime': getattr(optimizer_instance.gp_model, 'is_unstable_regime', False),
             'fixed_params': {
                 'GTI': fixed_params.get('GTI', 0),
                 'FRA': fixed_params.get('FRA', 0),
