@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText, Layers, Users, Shield, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -786,48 +786,118 @@ const Upload = () => {
             )}
 
             {step === 3 && (
-              <div className="animate-fade-in flex flex-col h-full">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-1">Confirm Experimental IDs</h2>
-                  <p className="text-slate-500 text-[13px] mb-4">
-                    Please select an experimental ID to confirm it before locking the dataset.
-                  </p>
-                  
-                  <div className="bg-slate-100/50 rounded-lg p-3 inline-flex items-center border border-slate-200 shadow-sm">
-                    <span className="text-slate-500 text-xs uppercase font-bold tracking-wider mr-2">Dataset ID:</span>
-                    <span className="font-mono text-slate-900 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{datasetId || 'NEW_DATASET'}</span>
+              <div className="animate-fade-in flex flex-col h-full bg-white relative">
+                <div className="mb-6 flex items-start gap-4">
+                  <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                    <Layers className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-1">Confirm Experiment Batches</h2>
+                    <p className="text-slate-500 text-[13px]">
+                      Samples will be grouped strictly in batches of {SAMPLES_PER_EXPERIMENT}.
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-5 mb-6">
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-50 rounded-lg text-indigo-500"><Layers className="w-4 h-4" /></div>
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-500">Dataset ID</p>
+                        <p className="font-bold text-indigo-600">{datasetId || 'DS_NEW'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-50 rounded-lg text-green-500"><FileText className="w-4 h-4" /></div>
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-500">Total Samples</p>
+                        <p className="font-bold text-green-600">{parsedData.length}</p>
+                      </div>
+                    </div>
+                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-50 rounded-lg text-blue-500"><Users className="w-4 h-4" /></div>
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-500">Batch Size (Fixed)</p>
+                        <p className="font-bold text-slate-800">{SAMPLES_PER_EXPERIMENT}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-50 rounded-lg text-orange-500"><Shield className="w-4 h-4" /></div>
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-500">Total Batches</p>
+                        <p className="font-bold text-orange-600">{Math.ceil(parsedData.length / SAMPLES_PER_EXPERIMENT)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 mb-6 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <p className="text-blue-700 text-[12px] font-medium">Samples will be grouped strictly in batches of {SAMPLES_PER_EXPERIMENT}. Last batch will contain the remaining samples if less than {SAMPLES_PER_EXPERIMENT}.</p>
+                </div>
+
+                <div className="flex-1 overflow-hidden bg-white rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col mb-6">
+                  <div className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <div className="col-span-1 text-[11px] font-bold text-slate-800">Batch No.</div>
+                    <div className="col-span-3 text-[11px] font-bold text-slate-800">Experiment ID</div>
+                    <div className="col-span-5 text-[11px] font-bold text-slate-800">Samples (Rows)</div>
+                    <div className="col-span-2 text-[11px] font-bold text-slate-800 text-center">No. of Samples</div>
+                    <div className="col-span-1 text-[11px] font-bold text-slate-800 text-right">Status</div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto">
                     {getExperimentalIds().map((exp, idx) => (
-                      <div 
-                        key={idx}
-                        onClick={() => toggleExpIdConfirmation(exp.id)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                          confirmedExpIds.has(exp.id) 
-                            ? 'bg-[#E8FFF3] border-[#00B050]/20' 
-                            : 'bg-white border-slate-100 hover:border-[#4C3BDE]/30 shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                              confirmedExpIds.has(exp.id) 
-                                ? 'border-[#00B050] bg-[#00B050]' 
-                                : 'border-slate-300'
-                            }`}>
-                              {confirmedExpIds.has(exp.id) && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-bold text-[13px] text-slate-900">{exp.label}</p>
-                              <p className="text-[11px] text-slate-500 mt-0.5">{exp.sampleCount} samples (Rows {exp.startRow}–{exp.endRow})</p>
-                            </div>
+                      <div key={idx} className="grid grid-cols-12 gap-4 px-6 py-5 border-b border-slate-50 items-center hover:bg-slate-50/30 transition-colors">
+                        <div className="col-span-1">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 font-bold text-sm flex items-center justify-center">
+                            {idx + 1}
                           </div>
+                        </div>
+                        
+                        <div className="col-span-3">
+                          <p className="font-bold text-[13px] text-indigo-700 mb-1">{exp.label}</p>
+                          <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded-md">
+                            Batch {idx + 1}
+                          </span>
+                        </div>
+                        
+                        <div className="col-span-5">
+                          <p className="text-[12px] text-slate-800 font-medium mb-2">Rows {exp.startRow}–{exp.endRow}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.from({ length: exp.endRow - exp.startRow + 1 }).map((_, i) => (
+                              <div key={i} className="w-5 h-5 rounded-full bg-indigo-50/80 text-indigo-600 text-[9px] font-bold flex items-center justify-center border border-indigo-100/50">
+                                {exp.startRow + i}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-2 flex justify-center">
+                          <div className="px-3 py-1 bg-green-50 text-green-700 font-bold text-[11px] rounded-lg border border-green-100">
+                            {exp.sampleCount}
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-1 flex justify-end">
+                          {exp.sampleCount === SAMPLES_PER_EXPERIMENT ? (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-600 border border-green-100 rounded-full text-[10px] font-bold">
+                              <CheckCircle2 className="w-3 h-3" /> Complete
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-bold">
+                              <Clock className="w-3 h-3" /> Partial
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -849,11 +919,11 @@ const Upload = () => {
                   </button>
                   <button 
                     onClick={() => setShowFinalLockModal(true)}
-                    disabled={confirmedExpIds.size === 0 || isLocking}
+                    disabled={isLocking}
                     className="flex items-center space-x-2 px-8 py-2.5 bg-[#4C3BDE] text-white rounded-lg font-semibold hover:bg-[#3D2EB0] transition-all shadow-sm text-[13px] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Lock className="w-4 h-4" />
-                    <span>Lock Dataset</span>
+                    <span>Confirm & Lock Dataset</span>
                   </button>
                 </div>
               </div>
