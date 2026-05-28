@@ -240,10 +240,16 @@ const Optimization = () => {
       {/* Top Section: GP and Legend */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <div className="lg:col-span-3 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              Gaussian Process Surrogate Model (GTE Sweep) <Info className="w-4 h-4 text-slate-400" />
-            </h3>
+          <div className="flex flex-col mb-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                Gaussian Process Surrogate Model (GTE Sweep) <Info className="w-4 h-4 text-slate-400" />
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Note: This 1D projection slice is evaluated at the current 4D coordinates of the Next Suggested Experiment. 
+              Historical points are projected onto this slice and may lie in a different sub-space, meaning their true multi-dimensional influence on the GP curve is not fully visible here.
+            </p>
           </div>
           <div className="h-[400px] w-full bg-slate-50/50 rounded-xl border border-slate-100 overflow-hidden relative">
              {loading && !plotData ? (

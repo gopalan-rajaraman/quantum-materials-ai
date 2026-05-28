@@ -6,9 +6,9 @@ class GPModel:
     def __init__(self, kernel_type="matern"):
         if kernel_type == "matern":
             # Matern kernel is generally preferred for physical processes (less smooth than RBF)
-            self.kernel = C(1.0, (1e-3, 1e3)) * Matern(length_scale=1.0, length_scale_bounds=(0.5, 20.0), nu=2.5)
+            self.kernel = C(1.0, (1e-3, 1e3)) * Matern(length_scale=1.0, length_scale_bounds=(0.1, 20.0), nu=2.5)
         else:
-            self.kernel = C(1.0, (1e-3, 1e3)) * RBF(1.0, length_scale_bounds=(0.5, 20.0))
+            self.kernel = C(1.0, (1e-3, 1e3)) * RBF(1.0, length_scale_bounds=(0.1, 20.0))
             
         self.model = GaussianProcessRegressor(
             kernel=self.kernel, 
