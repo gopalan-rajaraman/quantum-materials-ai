@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 from typing import Tuple, Optional
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern, ConstantKernel, WhiteKernel
+from sklearn.gaussian_process.kernels import Matern, ConstantKernel, WhiteKernel, RBF
 from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 
 
@@ -30,7 +30,7 @@ class ThermalCVDGPModel:
         # Stable bounds as requested for sparse dataset
         self.kernel = (
             ConstantKernel(1.0, (0.1, 10.0))
-            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.8, 3.0), nu=2.5)
+            * RBF(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.8, 3.0))
             + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-3, 1e-1))
         )
 
