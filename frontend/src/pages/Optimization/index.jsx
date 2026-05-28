@@ -152,6 +152,19 @@ const Optimization = () => {
 
     const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>4D Mismatch to Slice:</b> %{customdata[4]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
 
+    const visibleHistory = plotData.ei_history || [];
+    if (visibleHistory.length > 0) {
+      const currentCurve = visibleHistory[visibleHistory.length - 1];
+      const maxIdx = currentCurve.indexOf(Math.max(...currentCurve));
+      plotData.maxEITemp = plotData.x[maxIdx];
+      plotData.maxEIVal = currentCurve[maxIdx];
+      plotData.maxEIMu = plotData.mu[maxIdx];
+    }
+
+    const bestIdx = histY.indexOf(Math.min(...histY));
+    const bestX = bestIdx >= 0 ? histX[bestIdx] : null;
+    const bestY = bestIdx >= 0 ? histY[bestIdx] : null;
+
     gpTraces = [
       {
         x: plotData.x.concat(plotData.x.slice().reverse()),
@@ -167,13 +180,25 @@ const Optimization = () => {
       }
     ];
 
+    if (bestX !== null && bestY !== null) {
+      gpTraces.push({
+        x: [bestX], y: [bestY], type: 'scatter', mode: 'markers', name: 'Current Best',
+        marker: {color: 'transparent', size: 16, symbol: 'diamond', line: {color: '#22c55e', width: 3}}, hoverinfo: 'skip'
+      });
+    }
+
+    if (plotData.maxEITemp) {
+      gpTraces.push({
+        x: [plotData.maxEITemp], y: [plotData.maxEIMu], type: 'scatter', mode: 'markers', name: 'Next Suggested Experiment',
+        marker: {color: '#8b5cf6', size: 18, symbol: 'star', line: {color: '#4c1d95', width: 2}}, hoverinfo: 'skip'
+      });
+    }
+
     const xMin = Math.min(...plotData.x);
     const xMax = Math.max(...plotData.x);
     const xRange = [xMin - 50, xMax + 50];
 
-    const totalCurves = plotData.ei_history ? plotData.ei_history.length : 0;
     const startIndex = 0; // Show all steps
-    const visibleHistory = plotData.ei_history || [];
     
     const eiColors = ['#FFB74D', '#4DB6AC', '#AB47BC', '#FF7043', '#81C784', '#BA68C8', '#4DD0E1', '#FFD54F', '#FF8A65', '#A1887F'];
     eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
@@ -187,23 +212,15 @@ const Optimization = () => {
     });
 
     if (visibleHistory.length > 0) {
-      const currentCurve = visibleHistory[visibleHistory.length - 1];
-      const maxIdx = currentCurve.indexOf(Math.max(...currentCurve));
-      const maxEIVal = currentCurve[maxIdx];
-      const maxEITemp = plotData.x[maxIdx];
-      
       eiTraces.push({
-        x: [maxEITemp],
-        y: [maxEIVal],
+        x: [plotData.maxEITemp],
+        y: [plotData.maxEIVal],
         type: 'scatter',
         mode: 'markers',
         marker: { color: 'yellow', size: 12, symbol: 'diamond', line: {color: 'black', width: 1} },
         name: 'Next Best Guess',
         hoverinfo: 'skip'
       });
-      
-      plotData.maxEITemp = maxEITemp;
-      plotData.maxEIVal = maxEIVal;
     }
   }
 
@@ -296,7 +313,11 @@ const Optimization = () => {
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                    xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b' },
                    yaxis: { title: 'f(x)', gridcolor: '#f1f5f9', color: '#64748b' },
-                   legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 }
+                   legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 },
+                   shapes: plotData && plotData.maxEITemp ? [{
+                    type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper',
+                    line: { color: '#8b5cf6', width: 2, dash: 'dash' }
+                   }] : []
                  }}
                  useResizeHandler style={{width: '100%', height: '100%'}}
                />
@@ -319,7 +340,15 @@ const Optimization = () => {
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rotate-45 bg-[#ef4444] border border-[#991b1b]"></div>
-              <div className="text-sm"><span className="text-red-600 font-bold">Red Diamond:</span> <span className="text-slate-500">Observations (Experiments)</span></div>
+              <div className="text-sm"><span className="text-red-600 font-bold">Red Diamond:</span> <span className="text-slate-500">Historical Observations</span></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rotate-45 border-[2px] border-[#22c55e]"></div>
+              <div className="text-sm"><span className="text-green-500 font-bold">Green Outline:</span> <span className="text-slate-500">Current Best</span></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 flex items-center justify-center text-[#8b5cf6] font-bold text-lg">★</div>
+              <div className="text-sm"><span className="text-purple-500 font-bold">Purple Star:</span> <span className="text-slate-500">Next Suggested Exp.</span></div>
             </div>
           </div>
           
@@ -364,18 +393,19 @@ const Optimization = () => {
                     x0: plotData.maxEITemp,
                     y0: 0,
                     x1: plotData.maxEITemp,
-                    y1: plotData.maxEIVal,
-                    line: { color: '#2962FF', width: 1, dash: 'dot' }
+                    y1: 1,
+                    yref: 'paper',
+                    line: { color: '#8b5cf6', width: 2, dash: 'dash' }
                   }] : [],
                   annotations: plotData && plotData.maxEITemp ? [{
                     x: plotData.maxEITemp,
                     y: plotData.maxEIVal,
-                    text: `<b>Current Best</b><br>T: ${plotData.maxEITemp} °C<br>EI: ${plotData.maxEIVal.toFixed(2)}`,
+                    text: `<b>Selected by BO</b><br>Max Expected Improvement`,
                     showarrow: true,
                     arrowhead: 0,
                     ax: 40,
                     ay: -30,
-                    bgcolor: '#2962FF',
+                    bgcolor: '#8b5cf6',
                     font: { color: 'white', size: 10 },
                     borderpad: 6,
                     bordercolor: 'rgba(0,0,0,0)'

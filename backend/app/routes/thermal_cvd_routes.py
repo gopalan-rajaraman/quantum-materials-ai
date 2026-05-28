@@ -466,13 +466,20 @@ def get_plot_data(slice_mode: str = "suggestion"):
         mu_pred, sigma_pred = vis_gp.predict(x_dense, return_std=True)
         
         # Calculate a mock Expected Improvement for the Acquisition Function plot
-        y_best = np.min(y_train)
-        with np.errstate(divide='warn', invalid='ignore'):
-            imp = y_best - mu_pred - 0.01
-            Z = imp / sigma_pred
-            from scipy.stats import norm
-            ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
-            ei_vals[sigma_pred == 0.0] = 0.0
+        # only if we have at least one user experiment
+        initial_count = optimizer_instance._training_info.get('initial_samples', 0)
+        if n_points > initial_count:
+            y_best = np.min(y_train)
+            with np.errstate(divide='warn', invalid='ignore'):
+                imp = y_best - mu_pred - 0.01
+                Z = imp / sigma_pred
+                from scipy.stats import norm
+                ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
+                ei_vals[sigma_pred == 0.0] = 0.0
+            ei_history = [ei_vals.flatten().tolist()]
+        else:
+            ei_vals = np.zeros_like(mu_pred)
+            ei_history = []
             
         # Training points to send back
         unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
@@ -486,7 +493,7 @@ def get_plot_data(slice_mode: str = "suggestion"):
             'mu': mu_pred.flatten().tolist(),
             'sigma': sigma_pred.flatten().tolist(),
             'ei': ei_vals.flatten().tolist(),
-            'ei_history': [ei_vals.flatten().tolist()],
+            'ei_history': ei_history,
             'is_unstable_regime': False,
             'fixed_params': {
                 'GTI': 0,
