@@ -439,27 +439,33 @@ def health_check():
 
 
 @router.get("/plot-data")
-def get_plot_data():
+def get_plot_data(slice_mode: str = "suggestion"):
     """Get 1D slice of Surrogate and EI along GTE parameter."""
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
-        # Fix other variables at the last entered experiment
-        # This ensures the 1D slice passes through the point the user just added,
-        # showing the local deformation and uncertainty collapse near that experiment.
         try:
             if hasattr(optimizer_instance, 'X_train') and len(optimizer_instance.X_train) > 0:
-                # Get the highest EI suggestion to fix other variables
-                # This ensures the 1D slice passes exactly through the BO maximum
-                suggestions = optimizer_instance.suggest_next_experiment(n_suggestions=1)
-                best_suggestion = suggestions[0]
-                
-                fixed_params = {
-                    'GTI': float(best_suggestion['GTI_minutes']),
-                    'FRA': float(best_suggestion['FRA_sccm']),
-                    'Pressure': float(best_suggestion['Pressure_Torr'])
-                }
+                if slice_mode == "latest" and len(optimizer_instance.X_train) > optimizer_instance._training_info['initial_samples']:
+                    # Anchor slice at the most recent experiment
+                    unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
+                    var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
+                    latest_X = unscaled_X[-1]
+                    fixed_params = {
+                        'GTI': float(latest_X[var_map['GTI']]),
+                        'FRA': float(latest_X[var_map['FRA']]),
+                        'Pressure': float(latest_X[var_map['Pressure']])
+                    }
+                else:
+                    # Anchor slice at the next BO suggestion
+                    suggestions = optimizer_instance.suggest_next_experiment(n_suggestions=1)
+                    best_suggestion = suggestions[0]
+                    fixed_params = {
+                        'GTI': float(best_suggestion['GTI_minutes']),
+                        'FRA': float(best_suggestion['FRA_sccm']),
+                        'Pressure': float(best_suggestion['Pressure_Torr'])
+                    }
             else:
                 raise ValueError("No training data")
         except Exception:

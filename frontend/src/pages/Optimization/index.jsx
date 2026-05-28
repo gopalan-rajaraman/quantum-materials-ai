@@ -10,6 +10,8 @@ const Optimization = () => {
   const [timelineData, setTimelineData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [boProgress, setBoProgress] = useState(null);
+  const [sliceMode, setSliceMode] = useState('suggestion'); // 'suggestion' or 'latest'
+  const [error, setError] = useState(null);
   
   const [fwhmResult, setFwhmResult] = useState('');
   const predictedFwhm = suggestions.length > 0 ? Number(suggestions[0].predicted_FWHM_meV) : NaN;
@@ -49,7 +51,7 @@ const Optimization = () => {
           });
           if (suggRes.ok) setSuggestions((await suggRes.json()).recommendations);
           
-          const plotRes = await fetch('http://localhost:8000/thermal-cvd/plot-data');
+          const plotRes = await fetch(`http://localhost:8000/thermal-cvd/plot-data?slice_mode=${sliceMode}`);
           if (plotRes.ok) setPlotData(await plotRes.json());
           
           const timelineRes = await fetch('http://localhost:8000/thermal-cvd/timeline');
@@ -63,7 +65,9 @@ const Optimization = () => {
     }
   };
 
-  useEffect(() => { fetchModelData(); }, []);
+  useEffect(() => {
+    fetchModelData();
+  }, [sliceMode]); // Re-fetch when slice mode changes
 
   const handleAddExperiment = async (e) => {
     e.preventDefault();
@@ -249,13 +253,30 @@ const Optimization = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <div className="lg:col-span-3 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <div className="flex flex-col mb-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-start">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                 Gaussian Process Surrogate Model (GTE Sweep) <Info className="w-4 h-4 text-slate-400" />
               </h3>
+              
+              <div className="flex bg-slate-100 rounded-lg p-1 ml-4 shadow-sm border border-slate-200">
+                <button 
+                  onClick={() => setSliceMode('suggestion')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${sliceMode === 'suggestion' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  View at Next Suggestion
+                </button>
+                <button 
+                  onClick={() => setSliceMode('latest')}
+                  disabled={!plotData || plotData.training_points.x.length <= plotData.training_points.initial_count}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${sliceMode === 'latest' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  title="View slice anchored at your most recently logged experiment"
+                >
+                  View at Latest Experiment
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Note: This 1D projection slice is evaluated at the current 4D coordinates of the Next Suggested Experiment. 
+            <p className="text-xs text-slate-500 mt-2">
+              Note: This 1D projection slice is evaluated at the current 4D coordinates of the <strong>{sliceMode === 'suggestion' ? 'Next Suggested Experiment' : 'Most Recent Experiment'}</strong>. 
               Historical points are projected onto this slice and may lie in a different sub-space, meaning their true multi-dimensional influence on the GP curve is not fully visible here.
             </p>
           </div>
