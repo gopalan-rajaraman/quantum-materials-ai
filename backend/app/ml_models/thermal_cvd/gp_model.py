@@ -30,8 +30,8 @@ class ThermalCVDGPModel:
         # Stable bounds as requested for sparse dataset
         self.kernel = (
             ConstantKernel(1.0, (0.1, 10.0))
-            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.1, 10.0), nu=2.5)
-            + WhiteKernel(noise_level=1e-5, noise_level_bounds=(1e-8, 1e-1))
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.8, 10.0), nu=2.5)
+            + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-3, 1e-1))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None

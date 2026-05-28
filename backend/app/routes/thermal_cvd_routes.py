@@ -445,6 +445,13 @@ def get_plot_data(slice_mode: str = "suggestion"):
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
+        # Print kernel parameters for diagnostics
+        if hasattr(optimizer_instance.gp_model, 'gp') and optimizer_instance.gp_model.gp is not None:
+            print("\n" + "="*50)
+            print("CURRENT GP KERNEL PARAMETERS:")
+            print(optimizer_instance.gp_model.gp.kernel_)
+            print("="*50 + "\n")
+            
         try:
             if hasattr(optimizer_instance, 'X_train') and len(optimizer_instance.X_train) > 0:
                 if slice_mode == "latest" and len(optimizer_instance.X_train) > optimizer_instance._training_info['initial_samples']:
