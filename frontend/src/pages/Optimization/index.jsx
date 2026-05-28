@@ -145,11 +145,6 @@ const Optimization = () => {
 
     gpTraces = [
       {
-        x: plotData.x.concat(plotData.x.slice().reverse()),
-        y: plotData.mu.map((m, i) => m + 1.4 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.4 * plotData.sigma[i]).reverse()),
-        type: 'scatter', fill: 'toself', fillcolor: 'rgba(59, 130, 246, 0.22)', line: {color: 'transparent'}, name: 'Confidence Interval', hoverinfo: 'skip'
-      },
-      {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3}, hoverinfo: 'skip'
       },
       {
