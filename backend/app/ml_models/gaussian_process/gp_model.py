@@ -14,7 +14,7 @@ class GPModel:
             kernel=self.kernel, 
             n_restarts_optimizer=10, 
             normalize_y=True,
-            alpha=1e-2 # Added noise level to avoid numerical instability
+            alpha=1e-4 # Reduced noise level so uncertainty collapses aggressively around observations
         )
         self.is_trained = False
         
