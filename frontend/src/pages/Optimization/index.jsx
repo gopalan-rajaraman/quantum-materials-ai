@@ -11,6 +11,7 @@ const Optimization = () => {
   const [loading, setLoading] = useState(true);
   const [boProgress, setBoProgress] = useState(null);
   const [sliceMode, setSliceMode] = useState('suggestion'); // 'suggestion' or 'latest'
+  const [boStarted, setBoStarted] = useState(false);
   const [error, setError] = useState(null);
   
   const [fwhmResult, setFwhmResult] = useState('');
@@ -52,7 +53,13 @@ const Optimization = () => {
           if (suggRes.ok) setSuggestions((await suggRes.json()).recommendations);
           
           const plotRes = await fetch(`http://localhost:8000/thermal-cvd/plot-data?slice_mode=${sliceMode}`);
-          if (plotRes.ok) setPlotData(await plotRes.json());
+          if (plotRes.ok) {
+            const pd = await plotRes.json();
+            setPlotData(pd);
+            if (pd.training_points.x.length > pd.training_points.initial_count) {
+              setBoStarted(true);
+            }
+          }
           
           const timelineRes = await fetch('http://localhost:8000/thermal-cvd/timeline');
           if (timelineRes.ok) setTimelineData((await timelineRes.json()).timeline);
@@ -169,28 +176,28 @@ const Optimization = () => {
       {
         x: plotData.x.concat(plotData.x.slice().reverse()),
         y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()),
-        type: 'scatter', fill: 'toself', fillcolor: '#FCD16B', opacity: 0.8, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
+        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.28)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
       },
       {
-        x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: 'black', width: 2, dash: 'dash'}, hoverinfo: 'skip'
+        x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: '#2C3E50', width: 2, dash: 'dash'}, hoverinfo: 'skip'
       },
       {
         x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Observations',
-        marker: {color: 'red', size: 12, symbol: 'diamond', line: {color: '#991b1b', width: 1}, opacity: 1}, hovertemplate: hoverTemplate
+        marker: {color: '#ef4444', size: 12, symbol: 'diamond', line: {color: '#991b1b', width: 1}, opacity: 1}, hovertemplate: hoverTemplate
       }
     ];
 
-    if (bestX !== null && bestY !== null) {
+    if (boStarted && bestX !== null && bestY !== null) {
       gpTraces.push({
         x: [bestX], y: [bestY], type: 'scatter', mode: 'markers', name: 'Current Best',
-        marker: {color: 'transparent', size: 16, symbol: 'diamond', line: {color: '#22c55e', width: 3}}, hoverinfo: 'skip'
+        marker: {color: 'transparent', size: 16, symbol: 'diamond', line: {color: '#2ECC71', width: 3}}, hoverinfo: 'skip'
       });
     }
 
-    if (plotData.maxEITemp) {
+    if (boStarted && plotData.maxEITemp) {
       gpTraces.push({
         x: [plotData.maxEITemp], y: [plotData.maxEIMu], type: 'scatter', mode: 'markers', name: 'Next Suggested Experiment',
-        marker: {color: '#8b5cf6', size: 18, symbol: 'star', line: {color: '#4c1d95', width: 2}}, hoverinfo: 'skip'
+        marker: {color: '#7C4DFF', size: 20, symbol: 'star', line: {color: '#6C63FF', width: 2}, opacity: 0.95}, hoverinfo: 'skip'
       });
     }
 
@@ -200,13 +207,13 @@ const Optimization = () => {
 
     const startIndex = 0; // Show all steps
     
-    const eiColors = ['#FFB74D', '#4DB6AC', '#AB47BC', '#FF7043', '#81C784', '#BA68C8', '#4DD0E1', '#FFD54F', '#FF8A65', '#A1887F'];
+    const eiColors = ['#00BCD4', '#0097A7', '#00ACC1', '#4DD0E1', '#80DEEA', '#B2EBF2', '#E0F7FA'];
     eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
       const actualStep = startIndex + relativeIdx + 1;
       const isCurrent = relativeIdx === visibleHistory.length - 1;
       return {
         x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: 'Acquisition Function',
-        line: { color: isCurrent ? 'pink' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 2 : 1, dash: 'solid' },
+        line: { color: isCurrent ? '#00BCD4' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 2 : 1, dash: 'solid' },
         showlegend: isCurrent
       };
     });
@@ -314,9 +321,9 @@ const Optimization = () => {
                    xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b' },
                    yaxis: { title: 'f(x)', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 },
-                   shapes: plotData && plotData.maxEITemp ? [{
+                   shapes: boStarted && plotData && plotData.maxEITemp ? [{
                     type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper',
-                    line: { color: '#8b5cf6', width: 2, dash: 'dash' }
+                    line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' }
                    }] : []
                  }}
                  useResizeHandler style={{width: '100%', height: '100%'}}
@@ -326,29 +333,29 @@ const Optimization = () => {
         </div>
         
         <div className="lg:col-span-1 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">What do the points represent?</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Why This Experiment Was Selected</h3>
           <p className="text-sm text-slate-500 mb-6">Each point is a single experiment with 4 input variables and 1 measured output (PL FWHM).</p>
           
           <div className="space-y-4 flex-1">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-sm bg-[#FCD16B] opacity-80"></div>
-              <div className="text-sm"><span className="text-slate-700 font-bold">Yellow:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
+              <div className="w-4 h-4 rounded-sm" style={{backgroundColor: 'rgba(241, 196, 15, 0.28)'}}></div>
+              <div className="text-sm"><span className="text-amber-600 font-bold">Soft Gold:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 flex items-center justify-center text-black font-bold">--</div>
-              <div className="text-sm"><span className="text-black font-bold">Dashed Line:</span> <span className="text-slate-500">Surrogate Model</span></div>
+              <div className="w-4 h-4 flex items-center justify-center text-slate-800 font-bold">--</div>
+              <div className="text-sm"><span className="text-slate-700 font-bold">Dashed Line:</span> <span className="text-slate-500">Surrogate Model</span></div>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rotate-45 bg-[#ef4444] border border-[#991b1b]"></div>
               <div className="text-sm"><span className="text-red-600 font-bold">Red Diamond:</span> <span className="text-slate-500">Historical Observations</span></div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rotate-45 border-[2px] border-[#22c55e]"></div>
-              <div className="text-sm"><span className="text-green-500 font-bold">Green Outline:</span> <span className="text-slate-500">Current Best</span></div>
+              <div className="w-3 h-3 rotate-45 border-[2px] border-[#2ECC71]"></div>
+              <div className="text-sm"><span className="text-[#2ECC71] font-bold">Green Outline:</span> <span className="text-slate-500">Current Best</span></div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 flex items-center justify-center text-[#8b5cf6] font-bold text-lg">★</div>
-              <div className="text-sm"><span className="text-purple-500 font-bold">Purple Star:</span> <span className="text-slate-500">Next Suggested Exp.</span></div>
+              <div className="w-4 h-4 flex items-center justify-center text-[#7C4DFF] font-bold text-lg" style={{textShadow: '0 0 5px rgba(124, 77, 255, 0.5)'}}>★</div>
+              <div className="text-sm"><span className="text-[#7C4DFF] font-bold">Purple Star:</span> <span className="text-slate-500">Next Suggested Exp.</span></div>
             </div>
           </div>
           
@@ -363,12 +370,27 @@ const Optimization = () => {
       </div>
 
       {/* Bottom Section: EI, Timeline, Suggestion */}
+      {!boStarted ? (
+        <div className="bg-white rounded-2xl p-12 border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+          <Target className="w-16 h-16 text-[#7C4DFF] mb-4" />
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Ready to generate next BO suggestion</h3>
+          <p className="text-slate-500 mb-8 max-w-lg">
+            The initial dataset has been loaded and the Gaussian Process surrogate model is fitted. You can now begin the active learning loop to explore the parameter space.
+          </p>
+          <button 
+            onClick={() => setBoStarted(true)}
+            className="bg-[#7C4DFF] hover:bg-[#6C63FF] text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-purple-200 transition-all transform hover:scale-105"
+          >
+            Run Bayesian Optimization
+          </button>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
         {/* Acquisition History */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm xl:col-span-2">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-900">Acquisition Function Evolution <span className="text-sm font-normal text-slate-500">(Expected Improvement)</span></h3>
+            <h3 className="text-lg font-bold text-slate-900">Expected Improvement Landscape <span className="text-sm font-normal text-slate-500">(Acquisition Function)</span></h3>
             <Info className="w-5 h-5 text-blue-500" />
           </div>
           <div className="h-[350px] w-full rounded-xl overflow-hidden">
@@ -395,7 +417,7 @@ const Optimization = () => {
                     x1: plotData.maxEITemp,
                     y1: 1,
                     yref: 'paper',
-                    line: { color: '#8b5cf6', width: 2, dash: 'dash' }
+                    line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' }
                   }] : [],
                   annotations: plotData && plotData.maxEITemp ? [{
                     x: plotData.maxEITemp,
@@ -405,7 +427,7 @@ const Optimization = () => {
                     arrowhead: 0,
                     ax: 40,
                     ay: -30,
-                    bgcolor: '#8b5cf6',
+                    bgcolor: '#7C4DFF',
                     font: { color: 'white', size: 10 },
                     borderpad: 6,
                     bordercolor: 'rgba(0,0,0,0)'
@@ -499,6 +521,7 @@ const Optimization = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
