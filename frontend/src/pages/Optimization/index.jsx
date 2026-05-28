@@ -154,20 +154,18 @@ const Optimization = () => {
 
     gpTraces = [
       {
-        x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3, dash: 'dash'}, hoverinfo: 'skip'
+        x: plotData.x.concat(plotData.x.slice().reverse()),
+        y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()),
+        type: 'scatter', fill: 'toself', fillcolor: '#FCD16B', opacity: 0.8, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
       },
       {
-        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Historical Experiments',
-        marker: {color: '#cbd5e1', size: 10, symbol: 'circle', line: {color: '#94a3b8', width: 2}, opacity: histOpacities.length ? histOpacities : 1}, hovertemplate: hoverTemplate
+        x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: 'black', width: 2, dash: 'dash'}, hoverinfo: 'skip'
+      },
+      {
+        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Observations',
+        marker: {color: 'red', size: 12, symbol: 'diamond', line: {color: '#991b1b', width: 1}, opacity: 1}, hovertemplate: hoverTemplate
       }
     ];
-
-    if (n_total > n_init) {
-      gpTraces.push({
-        x: latestPt.x, y: latestPt.y, customdata: latestPt.customdata, type: 'scatter', mode: 'markers', name: 'Most Recent Experiment',
-        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}, opacity: 1}, hovertemplate: hoverTemplate
-      });
-    }
 
     const xMin = Math.min(...plotData.x);
     const xMax = Math.max(...plotData.x);
@@ -182,8 +180,9 @@ const Optimization = () => {
       const actualStep = startIndex + relativeIdx + 1;
       const isCurrent = relativeIdx === visibleHistory.length - 1;
       return {
-        x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: isCurrent ? `Step ${actualStep} (Current)` : `Step ${actualStep}`,
-        line: { color: isCurrent ? '#2962FF' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 4 : 2.5, dash: 'solid' }
+        x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: 'Acquisition Function',
+        line: { color: isCurrent ? 'pink' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 2 : 1, dash: 'solid' },
+        showlegend: isCurrent
       };
     });
 
@@ -198,8 +197,8 @@ const Optimization = () => {
         y: [maxEIVal],
         type: 'scatter',
         mode: 'markers',
-        marker: { color: '#2962FF', size: 10 },
-        showlegend: false,
+        marker: { color: 'yellow', size: 12, symbol: 'diamond', line: {color: 'black', width: 1} },
+        name: 'Next Best Guess',
         hoverinfo: 'skip'
       });
       
@@ -295,8 +294,8 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Growth Temp (GTE) °C', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
-                   yaxis: { title: 'PL FWHM (meV)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   yaxis: { title: 'f(x)', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 }
                  }}
                  useResizeHandler style={{width: '100%', height: '100%'}}
@@ -311,16 +310,16 @@ const Optimization = () => {
           
           <div className="space-y-4 flex-1">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full bg-[#cbd5e1] border-2 border-[#94a3b8]"></div>
-              <div className="text-sm"><span className="text-slate-700 font-bold">Gray:</span> <span className="text-slate-500">Initial Literature Dataset</span></div>
+              <div className="w-4 h-4 rounded-sm bg-[#FCD16B] opacity-80"></div>
+              <div className="text-sm"><span className="text-slate-700 font-bold">Yellow:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full bg-[#ef4444] border-2 border-[#fca5a5]"></div>
-              <div className="text-sm"><span className="text-red-600 font-bold">Red:</span> <span className="text-slate-500">BO Experiments (You)</span></div>
+              <div className="w-4 h-4 flex items-center justify-center text-black font-bold">--</div>
+              <div className="text-sm"><span className="text-black font-bold">Dashed Line:</span> <span className="text-slate-500">Surrogate Model</span></div>
             </div>
             <div className="flex items-center gap-3">
-              <Star className="w-5 h-5 text-[#22c55e] fill-[#22c55e]" />
-              <div className="text-sm"><span className="text-emerald-600 font-bold">Green:</span> <span className="text-slate-500">Next Suggested Point</span></div>
+              <div className="w-3 h-3 rotate-45 bg-[#ef4444] border border-[#991b1b]"></div>
+              <div className="text-sm"><span className="text-red-600 font-bold">Red Diamond:</span> <span className="text-slate-500">Observations (Experiments)</span></div>
             </div>
           </div>
           
@@ -350,8 +349,8 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
-                   yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   yaxis: { title: 'f(x)', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { 
                      orientation: 'h', 
                      y: 1.15, 

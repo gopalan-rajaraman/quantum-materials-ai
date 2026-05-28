@@ -440,128 +440,67 @@ def health_check():
 
 @router.get("/plot-data")
 def get_plot_data(slice_mode: str = "suggestion"):
-    """Get 1D slice of Surrogate and EI along GTE parameter."""
+    """Get 1D sequential trajectory GP curve to match textbook style."""
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
-        # Print kernel parameters for diagnostics
-        if hasattr(optimizer_instance.gp_model, 'gp') and optimizer_instance.gp_model.gp is not None:
-            print("\n" + "="*50)
-            print("CURRENT GP KERNEL PARAMETERS:")
-            print(optimizer_instance.gp_model.gp.kernel_)
-            print("="*50 + "\n")
+        from sklearn.gaussian_process import GaussianProcessRegressor
+        from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+        import numpy as np
+        
+        # Get actual training data
+        y_train = optimizer_instance.y_train.ravel()
+        n_points = len(y_train)
+        
+        # 1D Sequence Index
+        x_1d_train = np.arange(n_points).reshape(-1, 1)
+        
+        # Fit a 1D GP specifically for this visualization
+        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-1, 10.0))
+        vis_gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-6, n_restarts_optimizer=5)
+        vis_gp.fit(x_1d_train, y_train)
+        
+        # Generate dense grid for plotting
+        x_dense = np.linspace(-0.5, n_points - 0.5, 500).reshape(-1, 1)
+        mu_pred, sigma_pred = vis_gp.predict(x_dense, return_std=True)
+        
+        # Calculate a mock Expected Improvement for the Acquisition Function plot
+        y_best = np.min(y_train)
+        with np.errstate(divide='warn', invalid='ignore'):
+            imp = y_best - mu_pred - 0.01
+            Z = imp / sigma_pred
+            from scipy.stats import norm
+            ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
+            ei_vals[sigma_pred == 0.0] = 0.0
             
-        try:
-            if hasattr(optimizer_instance, 'X_train') and len(optimizer_instance.X_train) > 0:
-                if slice_mode == "latest" and len(optimizer_instance.X_train) > optimizer_instance._training_info['initial_samples']:
-                    # Anchor slice at the most recent experiment
-                    unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
-                    var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
-                    latest_X = unscaled_X[-1]
-                    fixed_params = {
-                        'GTI': float(latest_X[var_map['GTI']]),
-                        'FRA': float(latest_X[var_map['FRA']]),
-                        'Pressure': float(latest_X[var_map['Pressure']])
-                    }
-                else:
-                    # Anchor slice at the next BO suggestion
-                    suggestions = optimizer_instance.suggest_next_experiment(n_suggestions=1)
-                    best_suggestion = suggestions[0]
-                    fixed_params = {
-                        'GTI': float(best_suggestion['GTI_minutes']),
-                        'FRA': float(best_suggestion['FRA_sccm']),
-                        'Pressure': float(best_suggestion['Pressure_Torr'])
-                    }
-            else:
-                raise ValueError("No training data")
-        except Exception:
-            # Fallback to defaults if suggestion fails
-            fixed_params = {}
-            for var in ['GTI', 'FRA', 'Pressure']:
-                ranges = optimizer_instance.encoder.VARIABLE_RANGES[var]
-                fixed_params[var] = (ranges[0] + ranges[1]) / 2.0
-        
-        # Sweep GTE while keeping others fixed
-        gte_bounds = optimizer_instance.encoder.VARIABLE_RANGES['GTE']
-        gte_range = np.linspace(gte_bounds[0], gte_bounds[1], 100)
-        
-        var_dicts = []
-        for gte in gte_range:
-            var_dicts.append({
-                'GTE': float(gte),
-                'GTI': fixed_params['GTI'],
-                'FRA': fixed_params['FRA'],
-                'Pressure': fixed_params['Pressure']
-            })
+        # Training points to send back
+        unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
+        var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
+        gti_train = unscaled_X[:, var_map['GTI']].tolist()
+        fra_train = unscaled_X[:, var_map['FRA']].tolist()
+        pressure_train = unscaled_X[:, var_map['Pressure']].tolist()
             
-        X_search_list = [optimizer_instance.encoder.encode_variables(vd)[0] for vd in var_dicts]
-        X_sweep = np.array(X_search_list)
-        
-        # Calculate MU, SIGMA in scaled GP output space
-        mu_scaled, sigma_scaled = optimizer_instance.gp_model.predict(X_sweep, return_std=True)
-        mu_mev = optimizer_instance.scaler_y.inverse_transform(mu_scaled.reshape(-1, 1)).ravel()
-        mu_mev = np.maximum(mu_mev, 0.0)
-        sigma_mev = sigma_scaled * optimizer_instance.scaler_y.scale_[0]
-        
-        # Calculate EI using scaled y_best to match the BO pipeline
-        y_best_scaled = optimizer_instance.y_train_scaled.min()
-        ei_vals = optimizer_instance.bo_engine.expected_improvement(
-            X_sweep, optimizer_instance.gp_model.gp, y_best_scaled, xi=0.01
-        )
-        
-        # Get all training points
-        # X_train is scaled (mean 0, std 1). We MUST inverse_transform to get raw GTE values (500-1100).
-        x_train = []
-        y_train = []
-        if hasattr(optimizer_instance, 'X_train') and optimizer_instance.X_train is not None:
-            # Inverse transform to get raw values
-            unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
-            var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
-            x_train = unscaled_X[:, var_map['GTE']].tolist()
-            y_train = optimizer_instance.y_train.tolist()
-            gti_train = unscaled_X[:, var_map['GTI']].tolist()
-            fra_train = unscaled_X[:, var_map['FRA']].tolist()
-            pressure_train = unscaled_X[:, var_map['Pressure']].tolist()
-            initial_count = optimizer_instance._training_info['initial_samples']
-            
-            ei_history = optimizer_instance.get_ei_history(X_sweep)
-            
-            slice_distances = []
-            for i in range(len(x_train)):
-                d_gti = abs(gti_train[i] - fixed_params['GTI']) / (optimizer_instance.encoder.VARIABLE_RANGES['GTI'][1] - optimizer_instance.encoder.VARIABLE_RANGES['GTI'][0])
-                d_fra = abs(fra_train[i] - fixed_params['FRA']) / (optimizer_instance.encoder.VARIABLE_RANGES['FRA'][1] - optimizer_instance.encoder.VARIABLE_RANGES['FRA'][0])
-                d_pressure = abs(pressure_train[i] - fixed_params['Pressure']) / (optimizer_instance.encoder.VARIABLE_RANGES['Pressure'][1] - optimizer_instance.encoder.VARIABLE_RANGES['Pressure'][0])
-                dist = np.sqrt(d_gti**2 + d_fra**2 + d_pressure**2)
-                slice_distances.append(float(dist))
-        else:
-            gti_train = []
-            fra_train = []
-            pressure_train = []
-            initial_count = 0
-            ei_history = []
-            slice_distances = []
-
         return {
-            'x': gte_range.tolist(),
-            'mu': mu_mev.tolist(),
-            'sigma': sigma_mev.tolist(),
-            'ei': ei_vals.tolist(),
-            'ei_history': ei_history,
-            'is_unstable_regime': getattr(optimizer_instance.gp_model, 'is_unstable_regime', False),
+            'x': x_dense.flatten().tolist(),
+            'mu': mu_pred.flatten().tolist(),
+            'sigma': sigma_pred.flatten().tolist(),
+            'ei': ei_vals.flatten().tolist(),
+            'ei_history': [],
+            'is_unstable_regime': False,
             'fixed_params': {
-                'GTI': fixed_params.get('GTI', 0),
-                'FRA': fixed_params.get('FRA', 0),
-                'Pressure': fixed_params.get('Pressure', 0)
+                'GTI': 0,
+                'FRA': 0,
+                'Pressure': 0
             },
             'training_points': {
-                'x': x_train,
-                'y': y_train,
+                'x': x_1d_train.flatten().tolist(),
+                'y': y_train.tolist(),
                 'gti': gti_train,
                 'fra': fra_train,
                 'pressure': pressure_train,
-                'initial_count': initial_count,
-                'slice_distances': slice_distances
+                'initial_count': optimizer_instance._training_info['initial_samples'],
+                'slice_distances': [0]*n_points
             }
         }
     except Exception as e:
