@@ -112,12 +112,21 @@ const Optimization = () => {
         x: sliceData(plotData.training_points.x, start, end),
         y: sliceData(plotData.training_points.y, start, end),
         opacities: opacities,
-        customdata: sliceData(plotData.training_points.x, start, end).map((_, i) => [
-          `${prefix}-${i + 1 + indexOffset}`,
-          sliceData(plotData.training_points.gti, start, end)[i],
-          sliceData(plotData.training_points.fra, start, end)[i],
-          sliceData(plotData.training_points.pressure, start, end)[i]
-        ])
+        customdata: sliceData(plotData.training_points.x, start, end).map((_, i) => {
+          const dist = sliceDists[i];
+          let distText = 'Exact Match';
+          if (dist > 0.01) distText = 'Very Close';
+          if (dist > 0.15) distText = 'Moderate Mismatch';
+          if (dist > 0.4) distText = 'High Mismatch';
+          
+          return [
+            `${prefix}-${i + 1 + indexOffset}`,
+            sliceData(plotData.training_points.gti, start, end)[i],
+            sliceData(plotData.training_points.fra, start, end)[i],
+            sliceData(plotData.training_points.pressure, start, end)[i],
+            distText
+          ];
+        })
       };
     };
 
@@ -132,7 +141,7 @@ const Optimization = () => {
     const histCustom = [...initPts.customdata, ...oldBoPts.customdata];
     const histOpacities = [...initPts.opacities, ...oldBoPts.opacities];
 
-    const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
+    const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>4D Mismatch to Slice:</b> %{customdata[4]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
 
     gpTraces = [
       {
