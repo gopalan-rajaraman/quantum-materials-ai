@@ -46,7 +46,7 @@ class ThermalCVDEncoder:
     VARIABLE_RANGES = {
         'GTE':      (500, 1100),   # Growth Temperature [°C]
         'GTI':      (5, 60),       # Growth Time [min]
-        'FRA':      (0, 600),      # Ar Flow Rate [sccm]
+        'FRA':      (0, 100),      # Ar Flow Rate [sccm] - restricted to realistic window
         'Pressure': (1, 760),      # Chamber Pressure [Torr]
     }
 

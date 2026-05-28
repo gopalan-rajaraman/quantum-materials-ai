@@ -223,7 +223,7 @@ class ThermalCVDOptimizer:
                 "Model not fitted or search space not generated."
             )
 
-        bo_engine = BayesianOptimizationEngine(xi=0.01)
+        bo_engine = BayesianOptimizationEngine(xi=0.005)
         recommendations, history = bo_engine.run_bo_loop(
             self.X_train,
             self.y_train_scaled,  # use scaled y — matches notebook
