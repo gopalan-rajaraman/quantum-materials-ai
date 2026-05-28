@@ -100,8 +100,9 @@ const Optimization = () => {
     const sliceData = (arr, start, end) => arr ? arr.slice(start, end) : [];
     const createPoints = (start, end, prefix, indexOffset = 0) => {
       const sliceDists = sliceData(plotData.training_points.slice_distances || [], start, end);
-      // Map distance (0 to ~1.73 in normalized 3D) to opacity (0.1 to 1.0)
-      const opacities = sliceDists.map(d => Math.max(0.15, 1.0 - (d * 1.5)));
+      // Map distance (0 to ~1.73 in normalized 3D) to opacity with a much stronger falloff
+      // If a point is even moderately far in 4D space, it fades out aggressively to 0.05 opacity
+      const opacities = sliceDists.map(d => Math.max(0.05, 1.0 - (d * 3.0)));
       
       return {
         x: sliceData(plotData.training_points.x, start, end),
