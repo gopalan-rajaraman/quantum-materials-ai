@@ -154,7 +154,7 @@ const Optimization = () => {
 
     gpTraces = [
       {
-        x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3}, hoverinfo: 'skip'
+        x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3, dash: 'dash'}, hoverinfo: 'skip'
       },
       {
         x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'lines+markers', name: 'Historical Experiments',
@@ -335,11 +335,62 @@ const Optimization = () => {
         </div>
       </div>
 
-      {/* Bottom Section: Suggestion */}
-      <div className="flex justify-center mt-6">
+      {/* Bottom Section: EI, Timeline, Suggestion */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
+        {/* Acquisition History */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm xl:col-span-2">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-900">Acquisition Function Evolution <span className="text-sm font-normal text-slate-500">(Expected Improvement)</span></h3>
+            <Info className="w-5 h-5 text-blue-500" />
+          </div>
+          <div className="h-[350px] w-full rounded-xl overflow-hidden">
+             {eiTraces.length > 0 && (
+               <Plot
+                 data={eiTraces}
+                 layout={{
+                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
+                   paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                   xaxis: { title: 'Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b', range: plotData ? [Math.min(...plotData.x)-50, Math.max(...plotData.x)+50] : undefined },
+                   yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
+                   legend: { 
+                     orientation: 'h', 
+                     y: 1.15, 
+                     x: 0.5, 
+                     xanchor: 'center', 
+                     yanchor: 'bottom',
+                     font: {color: '#475569', size: 10}
+                   },
+                   shapes: plotData && plotData.maxEITemp ? [{
+                    type: 'line',
+                    x0: plotData.maxEITemp,
+                    y0: 0,
+                    x1: plotData.maxEITemp,
+                    y1: plotData.maxEIVal,
+                    line: { color: '#2962FF', width: 1, dash: 'dot' }
+                  }] : [],
+                  annotations: plotData && plotData.maxEITemp ? [{
+                    x: plotData.maxEITemp,
+                    y: plotData.maxEIVal,
+                    text: `<b>Current Best</b><br>T: ${plotData.maxEITemp} °C<br>EI: ${plotData.maxEIVal.toFixed(2)}`,
+                    showarrow: true,
+                    arrowhead: 0,
+                    ax: 40,
+                    ay: -30,
+                    bgcolor: '#2962FF',
+                    font: { color: 'white', size: 10 },
+                    borderpad: 6,
+                    bordercolor: 'rgba(0,0,0,0)'
+                  }] : []
+                 }}
+                 useResizeHandler style={{width: '100%', height: '100%'}}
+               />
+             )}
+          </div>
+        </div>
+
         {/* Next Suggestion Log / Convergence */}
-        <div className={`w-full max-w-lg bg-white rounded-2xl p-6 border shadow-sm flex flex-col relative overflow-hidden ${hasConverged ? 'border-amber-200 shadow-amber-50' : 'border-emerald-100 shadow-emerald-50'}`}>
+        <div className={`bg-white rounded-2xl p-6 border shadow-sm flex flex-col relative overflow-hidden ${hasConverged ? 'border-amber-200 shadow-amber-50' : 'border-emerald-100 shadow-emerald-50'}`}>
           <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${hasConverged ? 'from-amber-400 to-amber-300' : 'from-emerald-400 to-emerald-300'}`}></div>
           
           {hasConverged ? (
