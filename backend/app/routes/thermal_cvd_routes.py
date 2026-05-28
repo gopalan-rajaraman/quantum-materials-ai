@@ -513,12 +513,21 @@ def get_plot_data():
             initial_count = optimizer_instance._training_info['initial_samples']
             
             ei_history = optimizer_instance.get_ei_history(X_sweep)
+            
+            slice_distances = []
+            for i in range(len(x_train)):
+                d_gti = abs(gti_train[i] - fixed_params['GTI']) / (optimizer_instance.encoder.VARIABLE_RANGES['GTI'][1] - optimizer_instance.encoder.VARIABLE_RANGES['GTI'][0])
+                d_fra = abs(fra_train[i] - fixed_params['FRA']) / (optimizer_instance.encoder.VARIABLE_RANGES['FRA'][1] - optimizer_instance.encoder.VARIABLE_RANGES['FRA'][0])
+                d_pressure = abs(pressure_train[i] - fixed_params['Pressure']) / (optimizer_instance.encoder.VARIABLE_RANGES['Pressure'][1] - optimizer_instance.encoder.VARIABLE_RANGES['Pressure'][0])
+                dist = np.sqrt(d_gti**2 + d_fra**2 + d_pressure**2)
+                slice_distances.append(float(dist))
         else:
             gti_train = []
             fra_train = []
             pressure_train = []
             initial_count = 0
             ei_history = []
+            slice_distances = []
 
         return {
             'x': gte_range.tolist(),
@@ -538,7 +547,8 @@ def get_plot_data():
                 'gti': gti_train,
                 'fra': fra_train,
                 'pressure': pressure_train,
-                'initial_count': initial_count
+                'initial_count': initial_count,
+                'slice_distances': slice_distances
             }
         }
     except Exception as e:

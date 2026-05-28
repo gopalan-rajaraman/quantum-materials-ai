@@ -97,17 +97,24 @@ const Optimization = () => {
   if (plotData) {
     const n_init = plotData.training_points.initial_count;
     
-    const sliceData = (arr, start, end) => arr.slice(start, end);
-    const createPoints = (start, end, prefix, indexOffset = 0) => ({
-      x: sliceData(plotData.training_points.x, start, end),
-      y: sliceData(plotData.training_points.y, start, end),
-      customdata: sliceData(plotData.training_points.x, start, end).map((_, i) => [
-        `${prefix}-${i + 1 + indexOffset}`,
-        sliceData(plotData.training_points.gti, start, end)[i],
-        sliceData(plotData.training_points.fra, start, end)[i],
-        sliceData(plotData.training_points.pressure, start, end)[i]
-      ])
-    });
+    const sliceData = (arr, start, end) => arr ? arr.slice(start, end) : [];
+    const createPoints = (start, end, prefix, indexOffset = 0) => {
+      const sliceDists = sliceData(plotData.training_points.slice_distances || [], start, end);
+      // Map distance (0 to ~1.73 in normalized 3D) to opacity (0.1 to 1.0)
+      const opacities = sliceDists.map(d => Math.max(0.15, 1.0 - (d * 1.5)));
+      
+      return {
+        x: sliceData(plotData.training_points.x, start, end),
+        y: sliceData(plotData.training_points.y, start, end),
+        opacities: opacities,
+        customdata: sliceData(plotData.training_points.x, start, end).map((_, i) => [
+          `${prefix}-${i + 1 + indexOffset}`,
+          sliceData(plotData.training_points.gti, start, end)[i],
+          sliceData(plotData.training_points.fra, start, end)[i],
+          sliceData(plotData.training_points.pressure, start, end)[i]
+        ])
+      };
+    };
 
     const n_total = plotData.training_points.x.length;
     const initPts = createPoints(0, n_init, 'Init', 0);
@@ -118,6 +125,7 @@ const Optimization = () => {
     const histX = [...initPts.x, ...oldBoPts.x];
     const histY = [...initPts.y, ...oldBoPts.y];
     const histCustom = [...initPts.customdata, ...oldBoPts.customdata];
+    const histOpacities = [...initPts.opacities, ...oldBoPts.opacities];
 
     const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
 
@@ -132,14 +140,14 @@ const Optimization = () => {
       },
       {
         x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Historical Experiments',
-        marker: {color: '#cbd5e1', size: 10, symbol: 'circle', line: {color: '#94a3b8', width: 2}}, hovertemplate: hoverTemplate
+        marker: {color: '#cbd5e1', size: 10, symbol: 'circle', line: {color: '#94a3b8', width: 2}, opacity: histOpacities.length ? histOpacities : 1}, hovertemplate: hoverTemplate
       }
     ];
 
     if (n_total > n_init) {
       gpTraces.push({
         x: latestPt.x, y: latestPt.y, customdata: latestPt.customdata, type: 'scatter', mode: 'markers', name: 'Most Recent Experiment',
-        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}}, hovertemplate: hoverTemplate
+        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}, opacity: latestPt.opacities.length ? latestPt.opacities[0] : 1}, hovertemplate: hoverTemplate
       });
     }
     
