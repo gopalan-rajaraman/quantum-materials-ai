@@ -157,8 +157,7 @@ const Optimization = () => {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3, dash: 'dash'}, hoverinfo: 'skip'
       },
       {
-        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'lines+markers', name: 'Historical Experiments',
-        line: {color: '#cbd5e1', width: 2, dash: 'dot'},
+        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Historical Experiments',
         marker: {color: '#cbd5e1', size: 10, symbol: 'circle', line: {color: '#94a3b8', width: 2}, opacity: histOpacities.length ? histOpacities : 1}, hovertemplate: hoverTemplate
       }
     ];
