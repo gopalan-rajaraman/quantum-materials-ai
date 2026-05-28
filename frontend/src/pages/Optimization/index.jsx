@@ -154,6 +154,11 @@ const Optimization = () => {
 
     gpTraces = [
       {
+        x: plotData.x.concat(plotData.x.slice().reverse()),
+        y: plotData.mu.map((m, i) => m + 1.4 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.4 * plotData.sigma[i]).reverse()),
+        type: 'scatter', fill: 'toself', fillcolor: 'rgba(59, 130, 246, 0.22)', line: {color: 'transparent'}, name: 'Confidence Interval', hoverinfo: 'skip'
+      },
+      {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3}, hoverinfo: 'skip'
       },
       {
@@ -167,14 +172,6 @@ const Optimization = () => {
       gpTraces.push({
         x: latestPt.x, y: latestPt.y, customdata: latestPt.customdata, type: 'scatter', mode: 'markers', name: 'Most Recent Experiment',
         marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}, opacity: 1}, hovertemplate: hoverTemplate
-      });
-    }
-    
-    if (suggestions.length > 0) {
-      gpTraces.push({
-        x: [suggestions[0].GTE_celsius], y: [predictedFwhm], type: 'scatter', mode: 'markers', name: 'Next Suggested Point',
-        marker: {color: '#10b981', size: 18, symbol: 'star', line: {color: '#064e3b', width: 2}},
-        hovertemplate: `<b>Next Suggestion</b><br><br>GTE: %{x} °C<br>Predicted FWHM: %{y:.2f} meV<extra></extra>`
       });
     }
 
