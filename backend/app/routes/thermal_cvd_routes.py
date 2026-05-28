@@ -486,7 +486,7 @@ def get_plot_data(slice_mode: str = "suggestion"):
             'mu': mu_pred.flatten().tolist(),
             'sigma': sigma_pred.flatten().tolist(),
             'ei': ei_vals.flatten().tolist(),
-            'ei_history': [],
+            'ei_history': [ei_vals.flatten().tolist()],
             'is_unstable_regime': False,
             'fixed_params': {
                 'GTI': 0,
