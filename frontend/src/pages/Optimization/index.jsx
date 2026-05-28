@@ -232,6 +232,18 @@ const Optimization = () => {
   }
 
   const globalUncertaintyRed = plotData ? (Math.max(0, 100 - (plotData.sigma.reduce((a,b)=>a+b,0) / plotData.sigma.length) * 5)).toFixed(1) : 0;
+  let confidenceLevel = "Low";
+  let confidenceColor = "text-amber-600";
+  let confidenceBg = "bg-amber-50 border-amber-100";
+  if (globalUncertaintyRed > 70) {
+    confidenceLevel = "High";
+    confidenceColor = "text-emerald-600";
+    confidenceBg = "bg-emerald-50 border-emerald-100";
+  } else if (globalUncertaintyRed > 40) {
+    confidenceLevel = "Medium";
+    confidenceColor = "text-blue-600";
+    confidenceBg = "bg-blue-50 border-blue-100";
+  }
 
   // Convergence check logic
   let hasConverged = false;
@@ -318,8 +330,8 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b' },
-                   yaxis: { title: 'f(x)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { title: 'Growth Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   yaxis: { title: 'Predicted FWHM (meV)', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 },
                    shapes: boStarted && plotData && plotData.maxEITemp ? [{
                     type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper',
@@ -333,10 +345,10 @@ const Optimization = () => {
         </div>
         
         <div className="lg:col-span-1 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Why This Experiment Was Selected</h3>
-          <p className="text-sm text-slate-500 mb-6">Each point is a single experiment with 4 input variables and 1 measured output (PL FWHM).</p>
+          <h3 className="text-md font-semibold text-slate-800 mb-2">Why This Experiment Was Selected</h3>
+          <p className="text-xs text-slate-500 mb-6 leading-relaxed">Each point is a single experiment with 4 input variables and 1 measured output (PL FWHM).</p>
           
-          <div className="space-y-4 flex-1">
+          <div className="space-y-5 flex-1 opacity-90">
             <div className="flex items-center gap-3">
               <div className="w-4 h-4 rounded-sm" style={{backgroundColor: 'rgba(241, 196, 15, 0.28)'}}></div>
               <div className="text-sm"><span className="text-amber-600 font-bold">Soft Gold:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
@@ -359,12 +371,14 @@ const Optimization = () => {
             </div>
           </div>
           
-          <div className="mt-auto bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-            <h4 className="text-blue-700 font-bold text-sm mb-2 flex items-center gap-2"><TrendingDown className="w-4 h-4" /> Model Confidence</h4>
-            <div className="w-full bg-blue-200 rounded-full h-2 mb-1">
-              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{width: `${globalUncertaintyRed}%`}}></div>
+          <div className={`mt-auto p-4 rounded-xl border ${confidenceBg}`}>
+            <h4 className={`font-semibold text-sm mb-1 flex items-center gap-2 ${confidenceColor}`}>
+              <TrendingDown className="w-4 h-4" /> Surrogate Model Confidence
+            </h4>
+            <div className="flex items-end justify-between mt-2">
+              <span className={`text-xl font-bold ${confidenceColor}`}>{confidenceLevel}</span>
+              <span className={`text-xs ${confidenceColor} opacity-75`}>Based on global uncertainty</span>
             </div>
-            <p className="text-xs text-blue-600 text-right mt-2">Uncertainty decreasing</p>
           </div>
         </div>
       </div>
@@ -400,8 +414,8 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b' },
-                   yaxis: { title: 'f(x)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { title: 'Growth Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { 
                      orientation: 'h', 
                      y: 1.15, 
