@@ -98,19 +98,26 @@ const Optimization = () => {
     const n_init = plotData.training_points.initial_count;
     
     const sliceData = (arr, start, end) => arr.slice(start, end);
-    const createPoints = (start, end, prefix) => ({
+    const createPoints = (start, end, prefix, indexOffset = 0) => ({
       x: sliceData(plotData.training_points.x, start, end),
       y: sliceData(plotData.training_points.y, start, end),
       customdata: sliceData(plotData.training_points.x, start, end).map((_, i) => [
-        `${prefix}-${i + 1}`,
+        `${prefix}-${i + 1 + indexOffset}`,
         sliceData(plotData.training_points.gti, start, end)[i],
         sliceData(plotData.training_points.fra, start, end)[i],
         sliceData(plotData.training_points.pressure, start, end)[i]
       ])
     });
 
-    const initPts = createPoints(0, n_init, 'Init');
-    const userPts = createPoints(n_init, undefined, 'BO');
+    const n_total = plotData.training_points.x.length;
+    const initPts = createPoints(0, n_init, 'Init', 0);
+    const oldBoPts = n_total > n_init ? createPoints(n_init, n_total - 1, 'BO', 0) : {x:[], y:[], customdata:[]};
+    const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total, 'BO', n_total - 1 - n_init) : {x:[], y:[], customdata:[]};
+
+    // Combine Init and Old BO experiments as Grey Historical Points
+    const histX = [...initPts.x, ...oldBoPts.x];
+    const histY = [...initPts.y, ...oldBoPts.y];
+    const histCustom = [...initPts.customdata, ...oldBoPts.customdata];
 
     const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
 
@@ -124,14 +131,17 @@ const Optimization = () => {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3}, hoverinfo: 'skip'
       },
       {
-        x: initPts.x, y: initPts.y, customdata: initPts.customdata, type: 'scatter', mode: 'markers', name: 'Initial Dataset (Literature)',
+        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Historical Experiments',
         marker: {color: '#cbd5e1', size: 10, symbol: 'circle', line: {color: '#94a3b8', width: 2}}, hovertemplate: hoverTemplate
-      },
-      {
-        x: userPts.x, y: userPts.y, customdata: userPts.customdata, type: 'scatter', mode: 'markers', name: 'BO Experiments (You)',
-        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}}, hovertemplate: hoverTemplate
       }
     ];
+
+    if (n_total > n_init) {
+      gpTraces.push({
+        x: latestPt.x, y: latestPt.y, customdata: latestPt.customdata, type: 'scatter', mode: 'markers', name: 'Most Recent Experiment',
+        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}}, hovertemplate: hoverTemplate
+      });
+    }
     
     if (suggestions.length > 0) {
       gpTraces.push({
