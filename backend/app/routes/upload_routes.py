@@ -196,18 +196,6 @@ async def get_saved_datasets():
         enriched.append(entry)
         i += 1
     
-    # If model is auto-loaded at startup but no manual upload happened, still show it
-    if not enriched and cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:
-        best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
-        enriched.append({
-            'id': 'EXP-101',
-            'name': 'labelled.xlsx (auto-loaded)',
-            'date': cvd_routes.optimizer_instance._training_info.get('timestamp', 'N/A'),
-            'rows': str(cvd_routes.optimizer_instance._training_info.get('n_training_samples', 0)),
-            'target': 'PL_FWHM (meV)',
-            'bestValue': f'{best_fwhm:.2f} meV',
-            'status': 'Completed',
-        })
     
     return {"datasets": enriched}
 

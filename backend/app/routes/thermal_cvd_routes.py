@@ -450,13 +450,15 @@ def get_plot_data():
         # showing the local deformation and uncertainty collapse near that experiment.
         try:
             if hasattr(optimizer_instance, 'X_train') and len(optimizer_instance.X_train) > 0:
-                unscaled_last_x = optimizer_instance.encoder.scaler_X.inverse_transform([optimizer_instance.X_train[-1]])[0]
-                var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
-                # X_train is ordered by encoder: GTE, GTI, FRA, Pressure
+                # Get the highest EI suggestion to fix other variables
+                # This ensures the 1D slice passes exactly through the BO maximum
+                suggestions = optimizer_instance.suggest_next_experiment(n_suggestions=1)
+                best_suggestion = suggestions[0]
+                
                 fixed_params = {
-                    'GTI': float(unscaled_last_x[var_map['GTI']]),
-                    'FRA': float(unscaled_last_x[var_map['FRA']]),
-                    'Pressure': float(unscaled_last_x[var_map['Pressure']])
+                    'GTI': float(best_suggestion['GTI_minutes']),
+                    'FRA': float(best_suggestion['FRA_sccm']),
+                    'Pressure': float(best_suggestion['Pressure_Torr'])
                 }
             else:
                 raise ValueError("No training data")
