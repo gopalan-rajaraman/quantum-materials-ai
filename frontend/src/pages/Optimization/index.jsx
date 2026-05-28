@@ -136,10 +136,19 @@ const Optimization = () => {
     const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total, 'BO', n_total - 1 - n_init) : {x:[], y:[], customdata:[], opacities:[]};
 
     // Combine Init and Old BO experiments as Grey Historical Points
-    const histX = [...initPts.x, ...oldBoPts.x];
-    const histY = [...initPts.y, ...oldBoPts.y];
-    const histCustom = [...initPts.customdata, ...oldBoPts.customdata];
-    const histOpacities = [...initPts.opacities, ...oldBoPts.opacities];
+    let histX = [...initPts.x, ...oldBoPts.x];
+    let histY = [...initPts.y, ...oldBoPts.y];
+    let histCustom = [...initPts.customdata, ...oldBoPts.customdata];
+    let histOpacities = [...initPts.opacities, ...oldBoPts.opacities];
+
+    // Sort historical points by X so connecting line goes smoothly left to right
+    const zipped = histX.map((x, i) => ({x, y: histY[i], custom: histCustom[i], op: histOpacities[i]}));
+    zipped.sort((a, b) => a.x - b.x);
+    
+    histX = zipped.map(z => z.x);
+    histY = zipped.map(z => z.y);
+    histCustom = zipped.map(z => z.custom);
+    histOpacities = zipped.map(z => z.op);
 
     const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>4D Mismatch to Slice:</b> %{customdata[4]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
 
@@ -148,7 +157,8 @@ const Optimization = () => {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'GP Mean (Predicted FWHM)', line: {color: '#3b82f6', width: 3}, hoverinfo: 'skip'
       },
       {
-        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'markers', name: 'Historical Experiments',
+        x: histX, y: histY, customdata: histCustom, type: 'scatter', mode: 'lines+markers', name: 'Historical Experiments',
+        line: {color: '#cbd5e1', width: 2, dash: 'dot'},
         marker: {color: '#cbd5e1', size: 10, symbol: 'circle', line: {color: '#94a3b8', width: 2}, opacity: histOpacities.length ? histOpacities : 1}, hovertemplate: hoverTemplate
       }
     ];
