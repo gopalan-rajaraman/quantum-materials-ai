@@ -161,7 +161,7 @@ const Optimization = () => {
     if (n_total > n_init) {
       gpTraces.push({
         x: latestPt.x, y: latestPt.y, customdata: latestPt.customdata, type: 'scatter', mode: 'markers', name: 'Most Recent Experiment',
-        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}, opacity: latestPt.opacities.length ? latestPt.opacities[0] : 1}, hovertemplate: hoverTemplate
+        marker: {color: '#ef4444', size: 12, symbol: 'circle', line: {color: '#fca5a5', width: 2}, opacity: 1}, hovertemplate: hoverTemplate
       });
     }
     
