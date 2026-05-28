@@ -118,8 +118,8 @@ const Optimization = () => {
 
     const n_total = plotData.training_points.x.length;
     const initPts = createPoints(0, n_init, 'Init', 0);
-    const oldBoPts = n_total > n_init ? createPoints(n_init, n_total - 1, 'BO', 0) : {x:[], y:[], customdata:[]};
-    const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total, 'BO', n_total - 1 - n_init) : {x:[], y:[], customdata:[]};
+    const oldBoPts = n_total > n_init ? createPoints(n_init, n_total - 1, 'BO', 0) : {x:[], y:[], customdata:[], opacities:[]};
+    const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total, 'BO', n_total - 1 - n_init) : {x:[], y:[], customdata:[], opacities:[]};
 
     // Combine Init and Old BO experiments as Grey Historical Points
     const histX = [...initPts.x, ...oldBoPts.x];
