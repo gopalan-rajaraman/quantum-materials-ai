@@ -131,7 +131,8 @@ const Optimization = () => {
             sliceData(plotData.training_points.gti, start, end)[i],
             sliceData(plotData.training_points.fra, start, end)[i],
             sliceData(plotData.training_points.pressure, start, end)[i],
-            distText
+            distText,
+            sliceData(plotData.training_points.gte, start, end)[i]
           ];
         })
       };
@@ -142,11 +143,11 @@ const Optimization = () => {
     const oldBoPts = n_total > n_init ? createPoints(n_init, n_total - 1, 'BO', 0) : {x:[], y:[], customdata:[], opacities:[]};
     const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total, 'BO', n_total - 1 - n_init) : {x:[], y:[], customdata:[], opacities:[]};
 
-    // Combine Init and Old BO experiments as Grey Historical Points
-    let histX = [...initPts.x, ...oldBoPts.x];
-    let histY = [...initPts.y, ...oldBoPts.y];
-    let histCustom = [...initPts.customdata, ...oldBoPts.customdata];
-    let histOpacities = [...initPts.opacities, ...oldBoPts.opacities];
+    // Combine Init, Old BO, and Latest experiments as Historical Points
+    let histX = [...initPts.x, ...oldBoPts.x, ...latestPt.x];
+    let histY = [...initPts.y, ...oldBoPts.y, ...latestPt.y];
+    let histCustom = [...initPts.customdata, ...oldBoPts.customdata, ...latestPt.customdata];
+    let histOpacities = [...initPts.opacities, ...oldBoPts.opacities, ...latestPt.opacities];
 
     // Sort historical points by X so connecting line goes smoothly left to right
     const zipped = histX.map((x, i) => ({x, y: histY[i], custom: histCustom[i], op: histOpacities[i]}));
@@ -157,7 +158,7 @@ const Optimization = () => {
     histCustom = zipped.map(z => z.custom);
     histOpacities = zipped.map(z => z.op);
 
-    const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{x} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>4D Mismatch to Slice:</b> %{customdata[4]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
+    const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{customdata[5]} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>4D Mismatch to Slice:</b> %{customdata[4]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
 
     const visibleHistory = plotData.ei_history || [];
     if (visibleHistory.length > 0) {
@@ -189,21 +190,29 @@ const Optimization = () => {
 
     if (boStarted && bestX !== null && bestY !== null) {
       gpTraces.push({
-        x: [bestX], y: [bestY], type: 'scatter', mode: 'markers', name: 'Current Best',
+        x: [bestX], y: [bestY], type: 'scatter', mode: 'markers', name: 'Best Historical Experiment',
         marker: {color: 'transparent', size: 16, symbol: 'diamond', line: {color: '#2ECC71', width: 3}}, hoverinfo: 'skip'
       });
     }
 
     if (boStarted && plotData.maxEITemp) {
+      const sug = suggestions && suggestions.length > 0 ? suggestions[0] : null;
+      let starHover = '<b>Suggested Experiment</b><extra></extra>';
+      if (sug) {
+        const gte = sug.GTE_celsius || sug.GTE || 0;
+        const gti = sug.GTI_minutes || sug.GTI || 0;
+        const fra = sug.FRA_sccm || sug.FRA || 0;
+        const pressure = sug.Pressure_Torr || sug.Pressure || 0;
+        const predFWHM = Number(sug.predicted_FWHM_meV || 0).toFixed(1);
+        const predSigma = Number(sug.predicted_FWHM_sigma || 0).toFixed(1);
+        
+        starHover = `<b>Suggested Experiment</b><br><br>GTE: ${gte} °C<br>GTI: ${gti} min<br>FRA: ${fra} sccm<br>Pressure: ${pressure} Torr<br><br><b>Predicted FWHM: ${predFWHM} ± ${predSigma} meV</b><extra></extra>`;
+      }
       gpTraces.push({
         x: [plotData.maxEITemp], y: [plotData.maxEIMu], type: 'scatter', mode: 'markers', name: 'Next Suggested Experiment',
-        marker: {color: '#7C4DFF', size: 20, symbol: 'star', line: {color: '#6C63FF', width: 2}, opacity: 0.95}, hoverinfo: 'skip'
+        marker: {color: '#7C4DFF', size: 20, symbol: 'star', line: {color: '#6C63FF', width: 2}, opacity: 0.95}, hovertemplate: starHover
       });
     }
-
-    const xMin = Math.min(...plotData.x);
-    const xMax = Math.max(...plotData.x);
-    const xRange = [xMin - 50, xMax + 50];
 
     const startIndex = 0; // Show all steps
     
@@ -231,18 +240,38 @@ const Optimization = () => {
     }
   }
 
-  const globalUncertaintyRed = plotData ? (Math.max(0, 100 - (plotData.sigma.reduce((a,b)=>a+b,0) / plotData.sigma.length) * 5)).toFixed(1) : 0;
-  let confidenceLevel = "Low";
-  let confidenceColor = "text-amber-600";
-  let confidenceBg = "bg-amber-50 border-amber-100";
-  if (globalUncertaintyRed > 70) {
-    confidenceLevel = "High";
-    confidenceColor = "text-emerald-600";
-    confidenceBg = "bg-emerald-50 border-emerald-100";
-  } else if (globalUncertaintyRed > 40) {
-    confidenceLevel = "Medium";
-    confidenceColor = "text-blue-600";
-    confidenceBg = "bg-blue-50 border-blue-100";
+  let confidenceLevel = "Calculating...";
+  let confidenceColor = "text-slate-500";
+  let confidenceBg = "bg-slate-50";
+
+  if (plotData && plotData.sigma && plotData.sigma.length > 0) {
+    // Use maximum posterior standard deviation (uncertainty) to detect unexplored regions
+    const maxUncertainty = Math.max(...plotData.sigma);
+    
+    if (maxUncertainty > 15.0) {
+      confidenceLevel = "Low (High Uncertainty)";
+      confidenceColor = "text-amber-600";
+      confidenceBg = "bg-amber-50";
+    } else if (maxUncertainty > 8.0) {
+      confidenceLevel = "Moderate";
+      confidenceColor = "text-blue-600";
+      confidenceBg = "bg-blue-50";
+    } else {
+      confidenceLevel = "High";
+      confidenceColor = "text-emerald-600";
+      confidenceBg = "bg-emerald-50";
+    }
+  } else if (modelInfo) {
+    // Fallback if plotData isn't loaded yet
+    if (modelInfo.n_train_samples < 20) {
+      confidenceLevel = "Low (Exploration)";
+      confidenceColor = "text-amber-600";
+      confidenceBg = "bg-amber-50";
+    } else {
+      confidenceLevel = "Moderate";
+      confidenceColor = "text-blue-600";
+      confidenceBg = "bg-blue-50";
+    }
   }
 
   // Convergence check logic
@@ -268,6 +297,13 @@ const Optimization = () => {
       }
     }
   }
+
+  // Shared plot variables for axes formatting
+  const sharedXMin = plotData && plotData.x ? Math.min(...plotData.x) : 0;
+  const sharedXMax = plotData && plotData.x ? Math.max(...plotData.x) : 0;
+  const sharedXRange = [sharedXMin - 0.5, sharedXMax + 0.5];
+  const sharedTickVals = Array.from({length: Math.max(0, Math.ceil(sharedXMax) + 1)}, (_, i) => i);
+  const sharedTickText = sharedTickVals.map(i => `Exp ${i + 1}`);
 
   return (
     <div className="p-6 bg-slate-50 min-h-full text-slate-800 animate-fade-in font-sans">
@@ -296,7 +332,7 @@ const Optimization = () => {
           <div className="flex flex-col mb-4">
             <div className="flex justify-between items-start">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                Gaussian Process Surrogate Model (GTE Sweep) <Info className="w-4 h-4 text-slate-400" />
+                Gaussian Process Surrogate Model (Sequence Visualization) <Info className="w-4 h-4 text-slate-400" />
               </h3>
               
               <div className="flex bg-slate-100 rounded-lg p-1 ml-4 shadow-sm border border-slate-200">
@@ -316,10 +352,16 @@ const Optimization = () => {
                 </button>
               </div>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              Note: This 1D projection slice is evaluated at the current 4D coordinates of the <strong>{sliceMode === 'suggestion' ? 'Next Suggested Experiment' : 'Most Recent Experiment'}</strong>. 
-              Historical points are projected onto this slice and may lie in a different sub-space, meaning their true multi-dimensional influence on the GP curve is not fully visible here.
-            </p>
+            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 mt-3 text-xs text-slate-600">
+              <strong className="text-blue-800 mb-1 block">Sequence Visualization GP</strong>
+              <ul className="list-disc pl-4 space-y-1 mb-2">
+                <li><strong>X-axis:</strong> Experiment Index (not a physical process variable)</li>
+                <li><strong>Purpose:</strong> Visualize surrogate learning and uncertainty contraction.</li>
+              </ul>
+              <p className="text-blue-800/80 italic">
+                All Bayesian Optimization decisions and Expected Improvement calculations are computed using the full 4D GP over: [GTE, GTI, FRA, Pressure].
+              </p>
+            </div>
           </div>
           <div className="h-[400px] w-full bg-slate-50/50 rounded-xl border border-slate-100 overflow-hidden relative">
              {loading && !plotData ? (
@@ -330,7 +372,15 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Growth Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { 
+                     title: 'Design Space Index (Sequential)', 
+                     gridcolor: '#f1f5f9', 
+                     color: '#64748b',
+                     tickmode: 'array',
+                     tickvals: sharedTickVals,
+                     ticktext: sharedTickText,
+                     range: sharedXRange
+                   },
                    yaxis: { title: 'Predicted FWHM (meV)', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 },
                    shapes: boStarted && plotData && plotData.maxEITemp ? [{
@@ -414,17 +464,21 @@ const Optimization = () => {
                  layout={{
                    autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                   xaxis: { title: 'Growth Temperature (°C)', gridcolor: '#f1f5f9', color: '#64748b' },
+                   xaxis: { 
+                     title: 'Design Space Index (Sequential)', 
+                     gridcolor: '#f1f5f9', 
+                     color: '#64748b',
+                     tickmode: 'array',
+                     tickvals: sharedTickVals,
+                     ticktext: sharedTickText,
+                     range: sharedXRange
+                   },
                    yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
                    legend: { 
                      orientation: 'h', 
-                     y: 1.15, 
-                     x: 0.5, 
-                     xanchor: 'center', 
-                     yanchor: 'bottom',
-                     font: {color: '#475569', size: 10}
+                     yanchor: 'bottom', y: 1.02, xanchor: 'right', x: 1
                    },
-                   shapes: plotData && plotData.maxEITemp ? [{
+                   shapes: boStarted && plotData && plotData.maxEITemp ? [{
                     type: 'line',
                     x0: plotData.maxEITemp,
                     y0: 0,

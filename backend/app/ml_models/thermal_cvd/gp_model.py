@@ -27,11 +27,11 @@ class ThermalCVDGPModel:
         self.random_state = random_state
         self.n_restarts = n_restarts
 
-        # Stable bounds as requested for sparse dataset
+        # Stable bounds as requested for sparse dataset, but relaxed to allow local structure
         self.kernel = (
             ConstantKernel(1.0, (0.1, 10.0))
-            * RBF(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.8, 3.0))
-            + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-3, 1e-1))
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.1, 10.0), nu=2.5)
+            + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-4, 1e-1))
         )
 
         self.gp: Optional[GaussianProcessRegressor] = None

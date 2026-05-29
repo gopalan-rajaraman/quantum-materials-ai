@@ -445,111 +445,63 @@ def get_plot_data(slice_mode: str = "suggestion"):
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
+        from sklearn.gaussian_process import GaussianProcessRegressor
+        from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
         import numpy as np
-        import pandas as pd
-        from scipy.stats import norm
         
-        # 1. Determine the Anchor Point
-        anchor_dict = {}
-        if slice_mode == 'suggestion':
-            best_rec = optimizer_instance.suggest_next_experiment(n_suggestions=1)[0]
-            anchor_dict = {
-                'GTE': best_rec['GTE_celsius'],
-                'GTI': best_rec['GTI_minutes'],
-                'FRA': best_rec['FRA_sccm'],
-                'Pressure': best_rec['Pressure_Torr']
-            }
-        else:
-            # slice_mode == 'latest'
-            latest = optimizer_instance.df_raw.iloc[-1]
-            anchor_dict = {
-                'GTE': float(latest['GTE']),
-                'GTI': float(latest['GTI']),
-                'FRA': float(latest['FRA']),
-                'Pressure': float(latest['Pressure'])
-            }
-
-        # 2. Create the 1D Sweep for GTE
-        ranges = optimizer_instance.encoder.VARIABLE_RANGES
-        x_min, x_max = ranges['GTE']
-        x_dense_values = np.linspace(x_min, x_max, 500)
-        
-        # Build dataframe for encoder using the last raw row as a template for constants
-        df_sweep = pd.DataFrame([optimizer_instance.df_raw.iloc[-1]] * 500).reset_index(drop=True)
-        
-        # Update the 4 variables to the anchor values
-        df_sweep['GTI'] = anchor_dict['GTI']
-        df_sweep['FRA'] = anchor_dict['FRA']
-        df_sweep['Pressure'] = anchor_dict['Pressure']
-        
-        # Sweep GTE
-        df_sweep['GTE'] = x_dense_values
-        
-        # 3. Encode and Predict
-        X_scaled_sweep = optimizer_instance.encoder.encode_parameters(df_sweep)
-        mu_scaled, sigma_scaled = optimizer_instance.gp_model.predict(X_scaled_sweep, return_std=True)
-        
-        # Inverse transform to get real meV
-        mu_pred = optimizer_instance.scaler_y.inverse_transform(mu_scaled.reshape(-1, 1)).ravel()
-        # For standard deviation, multiply by the scale of scaler_y
-        y_scale = optimizer_instance.scaler_y.scale_[0]
-        sigma_pred = sigma_scaled * y_scale
-
-        # 4. Compute Expected Improvement
+        # Get actual training data (Your live measured FWHM dataset)
         y_train = optimizer_instance.y_train.ravel()
         n_points = len(y_train)
         initial_count = optimizer_instance._training_info.get('initial_samples', 0)
         
-        if n_points > initial_count:
-            y_best = np.min(y_train)
-            with np.errstate(divide='warn', invalid='ignore'):
-                imp = y_best - mu_pred - 0.01  # xi = 0.01
-                Z = imp / sigma_pred
-                ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
-                ei_vals[sigma_pred == 0.0] = 0.0
-            ei_history = [ei_vals.flatten().tolist()]
-        else:
-            ei_vals = np.zeros_like(mu_pred)
-            ei_history = []
-
-        # 5. Get Historical Points for Plotting
+        # 1D Sequence Index
+        x_1d_train = np.arange(n_points).reshape(-1, 1)
+        
+        # Fit a 1D GP specifically for this visualization
+        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-1, 10.0))
+        vis_gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-6, normalize_y=True, n_restarts_optimizer=5)
+        vis_gp.fit(x_1d_train, y_train)
+        
+        # Generate dense grid (including space for the "Next" experiment at index n_points)
+        x_dense = np.linspace(-0.5, n_points + 0.5, 500).reshape(-1, 1)
+        mu_pred, sigma_pred = vis_gp.predict(x_dense, return_std=True)
+        
+        # Calculate Mock Expected Improvement for the 1D visualization
+        y_best = np.min(y_train)
+        with np.errstate(divide='warn', invalid='ignore'):
+            imp = y_best - mu_pred - 0.01
+            Z = imp / sigma_pred
+            from scipy.stats import norm
+            ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
+            ei_vals[sigma_pred == 0.0] = 0.0
+            
+        # Extract the original raw parameters to show in tooltips
         unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
         var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
-        
         gte_train = unscaled_X[:, var_map['GTE']].tolist()
         gti_train = unscaled_X[:, var_map['GTI']].tolist()
         fra_train = unscaled_X[:, var_map['FRA']].tolist()
         pressure_train = unscaled_X[:, var_map['Pressure']].tolist()
 
-        # Compute the distance from anchor (for fading out non-slice points)
-        gti_range = ranges['GTI'][1] - ranges['GTI'][0] or 1.0
-        fra_range = ranges['FRA'][1] - ranges['FRA'][0] or 1.0
-        press_range = ranges['Pressure'][1] - ranges['Pressure'][0] or 1.0
-
-        slice_distances = []
-        for i in range(len(gte_train)):
-            d_gti = (gti_train[i] - anchor_dict['GTI']) / gti_range
-            d_fra = (fra_train[i] - anchor_dict['FRA']) / fra_range
-            d_press = (pressure_train[i] - anchor_dict['Pressure']) / press_range
-            dist = np.sqrt(d_gti**2 + d_fra**2 + d_press**2)
-            slice_distances.append(float(dist))
-
         return {
-            'x': x_dense_values.flatten().tolist(),
+            'x': x_dense.flatten().tolist(),
             'mu': mu_pred.flatten().tolist(),
             'sigma': sigma_pred.flatten().tolist(),
             'ei': ei_vals.flatten().tolist(),
-            'ei_history': ei_history,
+            'ei_history': [ei_vals.flatten().tolist()],
             'is_unstable_regime': False,
-            'fixed_params': anchor_dict,
+            'fixed_params': {
+                'GTI': 0, 'FRA': 0, 'Pressure': 0
+            },
             'training_points': {
-                'x': gte_train,
+                'x': x_1d_train.flatten().tolist(),
                 'y': y_train.tolist(),
+                'gte': gte_train,
                 'gti': gti_train,
                 'fra': fra_train,
                 'pressure': pressure_train,
                 'initial_count': initial_count,
-                'slice_distances': slice_distances
+                'slice_distances': [0] * n_points
             }
         }
     except Exception as e:
