@@ -458,8 +458,10 @@ def get_plot_data(slice_mode: str = "suggestion"):
         x_1d_train = np.arange(n_points).reshape(-1, 1)
         
         # Fit a 1D GP specifically for this visualization
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-1, 10.0))
-        vis_gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-6, normalize_y=True, n_restarts_optimizer=5)
+        # We increase alpha to 1e-2 to allow non-zero uncertainty at observations,
+        # and adjust length_scale_bounds to (0.5, 10.0) to ensure a smooth surrogate model.
+        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(0.5, 10.0))
+        vis_gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-2, normalize_y=True, n_restarts_optimizer=5)
         vis_gp.fit(x_1d_train, y_train)
         
         # Generate dense grid (including space for the "Next" experiment at index n_points)
@@ -474,6 +476,13 @@ def get_plot_data(slice_mode: str = "suggestion"):
             from scipy.stats import norm
             ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
             ei_vals[sigma_pred == 0.0] = 0.0
+            
+            # Clip and apply power-transform (square root) to normalized EI values
+            # so secondary peaks are visually prominent on the linear dashboard plot
+            ei_vals = np.clip(ei_vals, 0.0, None)
+            max_ei = np.max(ei_vals)
+            if max_ei > 0:
+                ei_vals = (ei_vals / max_ei) ** 0.5 * max_ei
             
         # Extract the original raw parameters to show in tooltips
         unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
