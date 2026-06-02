@@ -237,15 +237,15 @@ const Upload = () => {
     setConfirmedExpIds(new Set([expId]));
   };
 
-  const SAMPLES_PER_EXPERIMENT = 10;
+  const [samplesPerExperiment, setSamplesPerExperiment] = useState(10);
 
   const getExperimentalIds = () => {
     if (parsedData.length === 0) return [];
-    const totalExperiments = Math.ceil(parsedData.length / SAMPLES_PER_EXPERIMENT);
+    const totalExperiments = Math.ceil(parsedData.length / samplesPerExperiment);
     const experiments = [];
     for (let i = 0; i < totalExperiments; i++) {
-      const startIdx = i * SAMPLES_PER_EXPERIMENT;
-      const endIdx = Math.min(startIdx + SAMPLES_PER_EXPERIMENT, parsedData.length);
+      const startIdx = i * samplesPerExperiment;
+      const endIdx = Math.min(startIdx + samplesPerExperiment, parsedData.length);
       const samples = parsedData.slice(startIdx, endIdx);
       
       const currentDsId = datasetId || 'DS_NEW';
@@ -909,7 +909,7 @@ const Upload = () => {
                     <div>
                       <h2 className="text-xl font-bold text-slate-900 mb-1">Confirm Experiment Batches</h2>
                       <p className="text-slate-500 text-[13px]">
-                        Samples will be grouped strictly in batches of {SAMPLES_PER_EXPERIMENT}.
+                        Samples will be grouped in batches of {samplesPerExperiment}.
                       </p>
                     </div>
                   </div>
@@ -935,12 +935,22 @@ const Upload = () => {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
-                      <div className="flex items-center gap-3">
+                    <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm bg-white">
+                      <div className="flex items-center gap-3 w-full">
                         <div className="p-2 bg-blue-50 rounded-lg text-blue-500"><Users className="w-4 h-4" /></div>
-                        <div>
-                          <p className="text-[11px] font-bold text-slate-500">Batch Size (Fixed)</p>
-                          <p className="font-bold text-slate-800">{SAMPLES_PER_EXPERIMENT}</p>
+                        <div className="flex-1">
+                          <p className="text-[11px] font-bold text-slate-500">Batch Size</p>
+                          <input 
+                            type="number"
+                            min="1"
+                            max="1000"
+                            value={samplesPerExperiment}
+                            onChange={(e) => {
+                              const val = Math.max(1, parseInt(e.target.value) || 1);
+                              setSamplesPerExperiment(val);
+                            }}
+                            className="font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded px-2 py-0.5 w-16 text-sm focus:outline-none focus:border-indigo-500 mt-0.5"
+                          />
                         </div>
                       </div>
                     </div>
@@ -950,7 +960,7 @@ const Upload = () => {
                         <div className="p-2 bg-orange-50 rounded-lg text-orange-500"><Shield className="w-4 h-4" /></div>
                         <div>
                           <p className="text-[11px] font-bold text-slate-500">Total Batches</p>
-                          <p className="font-bold text-orange-600">{Math.ceil(parsedData.length / SAMPLES_PER_EXPERIMENT)}</p>
+                          <p className="font-bold text-orange-600">{Math.ceil(parsedData.length / samplesPerExperiment)}</p>
                         </div>
                       </div>
                     </div>
@@ -959,7 +969,7 @@ const Upload = () => {
                   <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-slate-600 text-[13px] font-medium leading-tight mb-1">Samples will be grouped strictly in batches of {SAMPLES_PER_EXPERIMENT}.</p>
+                      <p className="text-slate-600 text-[13px] font-medium leading-tight mb-1">Samples will be grouped in batches of {samplesPerExperiment}.</p>
                       <p className="text-blue-600 text-[13px] font-bold">You can select and lock one batch at a time.</p>
                     </div>
                   </div>
@@ -1012,7 +1022,7 @@ const Upload = () => {
                             </div>
                             
                             <div className="col-span-2 flex justify-center">
-                              <div className={`px-3.5 py-1.5 font-bold text-[11px] rounded-lg border shadow-sm ${exp.sampleCount === SAMPLES_PER_EXPERIMENT ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                              <div className="px-3.5 py-1.5 font-bold text-[11px] rounded-lg border shadow-sm bg-green-50 text-green-700 border-green-100">
                                 {exp.sampleCount}
                               </div>
                             </div>
@@ -1023,15 +1033,9 @@ const Upload = () => {
                                   <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div> Selected
                                 </div>
                               ) : (
-                                exp.sampleCount === SAMPLES_PER_EXPERIMENT ? (
-                                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[11px] font-bold shadow-sm">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Ready to Lock
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[11px] font-bold shadow-sm">
-                                    <Clock className="w-3.5 h-3.5" /> Incomplete
-                                  </div>
-                                )
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[11px] font-bold shadow-sm">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready to Lock
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1053,13 +1057,6 @@ const Upload = () => {
                     </div>
                   )}
                   
-                  {Array.from(confirmedExpIds).length > 0 && getExperimentalIds().find(e => e.id === Array.from(confirmedExpIds)[0])?.sampleCount < SAMPLES_PER_EXPERIMENT && (
-                    <div className="bg-amber-50 text-amber-700 px-4 py-3 rounded-lg mb-4 border border-amber-200 text-sm font-medium flex items-center gap-2 animate-fade-in">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      <span>Cannot lock this batch. It has {getExperimentalIds().find(e => e.id === Array.from(confirmedExpIds)[0])?.sampleCount} samples, but exactly {SAMPLES_PER_EXPERIMENT} are required.</span>
-                    </div>
-                  )}
-
                   <div className="flex justify-between items-center">
                     <button 
                       onClick={() => setStep(2)}
@@ -1070,7 +1067,7 @@ const Upload = () => {
                     <div className="flex flex-col items-end">
                       <button 
                         onClick={() => setShowFinalLockModal(true)}
-                        disabled={confirmedExpIds.size === 0 || isLocking || (Array.from(confirmedExpIds).length > 0 && getExperimentalIds().find(e => e.id === Array.from(confirmedExpIds)[0])?.sampleCount < SAMPLES_PER_EXPERIMENT)}
+                        disabled={confirmedExpIds.size === 0 || isLocking}
                         className="flex items-center space-x-2 px-10 py-3.5 bg-[#4C3BDE] text-white rounded-xl font-bold hover:bg-[#3D2EB0] transition-all shadow-md text-[13px] disabled:opacity-50 disabled:cursor-not-allowed mb-2"
                       >
                         <Lock className="w-4 h-4" />
