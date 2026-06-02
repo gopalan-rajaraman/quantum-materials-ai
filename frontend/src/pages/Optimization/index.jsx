@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
-import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy, AlertTriangle } from 'lucide-react';
+import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Optimization = () => {
@@ -298,6 +298,47 @@ const Optimization = () => {
     }
   }
 
+  // --- Campaign History & Convergence Processing ---
+  let initialData = [];
+  let boData = [];
+  let convergenceSeries = [];
+  let initialBestFWHM = null;
+  let currentBestFWHM = null;
+  let improvementPercent = 0;
+
+  if (timelineData && timelineData.length > 0) {
+    initialData = timelineData.filter(r => r.type === 'Initial');
+    boData = timelineData.filter(r => r.type === 'User');
+
+    if (initialData.length > 0) {
+      initialBestFWHM = Math.min(...initialData.map(r => parseFloat(r.fwhm)));
+      currentBestFWHM = initialBestFWHM;
+      
+      // Init convergence series at Iteration 0
+      convergenceSeries.push({
+        iteration: 0,
+        bestFWHM: initialBestFWHM
+      });
+
+      // Calculate monotonic best for each BO iteration
+      boData = boData.map((row, idx) => {
+        const val = parseFloat(row.fwhm);
+        if (val < currentBestFWHM) {
+          currentBestFWHM = val;
+        }
+        convergenceSeries.push({
+          iteration: idx + 1,
+          bestFWHM: currentBestFWHM
+        });
+        return { ...row, bestSoFar: currentBestFWHM };
+      });
+
+      if (initialBestFWHM > 0) {
+        improvementPercent = ((initialBestFWHM - currentBestFWHM) / initialBestFWHM) * 100;
+      }
+    }
+  }
+
   // Shared plot variables for axes formatting
   const sharedXMin = plotData && plotData.x ? Math.min(...plotData.x) : 0;
   const sharedXMax = plotData && plotData.x ? Math.max(...plotData.x) : 0;
@@ -568,6 +609,10 @@ const Optimization = () => {
                       <span className="text-emerald-600 text-2xl font-bold">{predictedFwhm.toFixed(1)} <span className="text-sm font-normal opacity-70">± {predictedUncertainty.toFixed(1)}</span></span>
                     </div>
                   </div>
+
+                  <p className="text-[11px] text-slate-400 mt-2 italic text-center px-4">
+                    Note: The Sequence GP plot (top) is a 1D visualization only. This suggested experiment is the true optimal point mathematically derived from the full 4D physical parameter space.
+                  </p>
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-slate-500">No suggestions ready.</div>
@@ -589,6 +634,155 @@ const Optimization = () => {
           )}
         </div>
       </div>
+      )}
+
+      {/* Campaign Convergence & History */}
+      {boStarted && timelineData && timelineData.length > 0 && (
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm mt-6 mb-6 animate-fade-in">
+          <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <TrendingDown className="w-5 h-5 text-[#7C4DFF]" /> BO Campaign History & Convergence
+          </h3>
+
+          {/* KPI Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Initial Best FWHM</p>
+              <p className="text-2xl font-bold text-slate-700">{initialBestFWHM?.toFixed(1) || '--'} meV</p>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Current Best FWHM</p>
+              <p className="text-2xl font-bold text-emerald-700">{currentBestFWHM?.toFixed(1) || '--'} meV</p>
+            </div>
+            
+            {boData.length > 0 ? (
+              <>
+                <div className="bg-[#f3f0ff] border border-[#e5d9f2] rounded-xl p-4">
+                  <p className="text-xs font-bold text-[#7C4DFF] uppercase tracking-wide mb-1">Improvement</p>
+                  <p className="text-2xl font-bold text-[#6C63FF]">{improvementPercent.toFixed(1)}%</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">BO Iterations</p>
+                  <p className="text-2xl font-bold text-blue-700">{boData.length}</p>
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-center">
+                <p className="text-sm font-bold text-amber-700 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin-slow opacity-75" />
+                  Status: Awaiting Experimental Validation
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Convergence Plot */}
+            <div>
+              <h4 className="font-bold text-slate-800 mb-2">Convergence Plot</h4>
+              <div className="h-[300px] w-full border border-slate-100 rounded-xl bg-slate-50/50 flex flex-col overflow-hidden">
+                {boData.length > 0 ? (
+                  <Plot
+                    data={[{
+                      x: convergenceSeries.map(d => d.iteration),
+                      y: convergenceSeries.map(d => d.bestFWHM),
+                      type: 'scatter',
+                      mode: 'lines+markers',
+                      line: { shape: 'hv', color: '#7C4DFF', width: 3 }, // Monotonic Step function
+                      marker: { size: 8, color: '#7C4DFF' },
+                      name: 'Best FWHM'
+                    }]}
+                    layout={{
+                      autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
+                      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                      xaxis: { title: 'BO Iteration (0 = Initial Dataset)', gridcolor: '#f1f5f9', tickmode: 'linear', dtick: 1 },
+                      yaxis: { title: 'Best FWHM (meV)', gridcolor: '#f1f5f9' },
+                      hovermode: 'x unified'
+                    }}
+                    useResizeHandler style={{width: '100%', height: '100%'}}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-75">
+                    <TrendingDown className="w-10 h-10 text-slate-300 mb-3" />
+                    <p className="text-slate-500 font-medium">No BO iterations completed yet.</p>
+                    <p className="text-sm text-slate-400 mt-1 max-w-xs">Convergence tracking will appear after the first suggested experiment is experimentally validated.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Data Tables */}
+            <div className="flex flex-col h-[300px]">
+              <h4 className="font-bold text-slate-800 mb-2">BO Campaign (User Experiments)</h4>
+              <div className="overflow-y-auto flex-1 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-slate-600 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
+                    <tr>
+                      <th className="px-4 py-3">Iter</th>
+                      <th className="px-4 py-3">GTE</th>
+                      <th className="px-4 py-3">GTI</th>
+                      <th className="px-4 py-3">FRA</th>
+                      <th className="px-4 py-3">Press</th>
+                      <th className="px-4 py-3 text-emerald-600">FWHM</th>
+                      <th className="px-4 py-3 text-[#7C4DFF]">Best So Far</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {boData.map((row) => (
+                      <tr key={row.experiment_id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-900">{row.step}</td>
+                        <td className="px-4 py-3 text-slate-500">{row.gte}</td>
+                        <td className="px-4 py-3 text-slate-500">{row.gti}</td>
+                        <td className="px-4 py-3 text-slate-500">{row.fra}</td>
+                        <td className="px-4 py-3 text-slate-500">{row.pressure}</td>
+                        <td className="px-4 py-3 font-bold text-emerald-600">{row.fwhm}</td>
+                        <td className="px-4 py-3 font-bold text-[#7C4DFF]">{row.bestSoFar?.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    {boData.length === 0 && (
+                      <tr>
+                        <td colSpan="7" className="px-4 py-8 text-center text-slate-500">
+                          No BO iterations completed yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <details className="mt-4 group">
+                <summary className="text-sm font-semibold text-slate-600 cursor-pointer hover:text-[#7C4DFF] flex items-center gap-1 transition-colors">
+                  ▶ View Initial Training Dataset ({initialData.length} samples)
+                </summary>
+                <div className="overflow-y-auto max-h-[160px] mt-2 border border-slate-200 rounded-xl">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2">Sample ID</th>
+                        <th className="px-4 py-2">GTE</th>
+                        <th className="px-4 py-2">GTI</th>
+                        <th className="px-4 py-2">FRA</th>
+                        <th className="px-4 py-2">Pressure</th>
+                        <th className="px-4 py-2">FWHM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {initialData.map((row) => (
+                        <tr key={row.experiment_id} className="border-b border-slate-100">
+                          <td className="px-4 py-2 font-medium text-slate-700">{row.experiment_id}</td>
+                          <td className="px-4 py-2 text-slate-500">{row.gte}</td>
+                          <td className="px-4 py-2 text-slate-500">{row.gti}</td>
+                          <td className="px-4 py-2 text-slate-500">{row.fra}</td>
+                          <td className="px-4 py-2 text-slate-500">{row.pressure}</td>
+                          <td className="px-4 py-2 text-slate-700 font-semibold">{row.fwhm}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

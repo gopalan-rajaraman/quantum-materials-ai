@@ -66,8 +66,8 @@ const Upload = () => {
         const data = XLSX.utils.sheet_to_json(ws);
         
         if (data.length > 0) {
-          if (data.length < 10) {
-            alert('Error: Uploaded file must contain at least 10 experimental entries. Please upload a file with more data.');
+          if (data.length < 7) {
+            alert('Error: Uploaded file must contain at least 7 experimental entries. Please upload a file with more data.');
             setFile(null);
             return;
           }

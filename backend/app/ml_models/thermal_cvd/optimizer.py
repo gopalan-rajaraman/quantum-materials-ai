@@ -103,13 +103,22 @@ class ThermalCVDOptimizer:
         if not self.encoder._fitted:
             raise RuntimeError("Encoder not fitted. Call load_training_data first.")
 
-        np.random.seed(42)
-        var_dicts = []
+        from scipy.stats import qmc
 
-        for _ in range(n_points):
-            var_dict = {}
-            for var, (lo, hi) in self.encoder.VARIABLE_RANGES.items():
-                var_dict[var] = np.random.uniform(lo, hi)
+        # 1. Define bounds for the 4 variables
+        var_names = list(self.encoder.VARIABLE_RANGES.keys())
+        l_bounds = [self.encoder.VARIABLE_RANGES[v][0] for v in var_names]
+        u_bounds = [self.encoder.VARIABLE_RANGES[v][1] for v in var_names]
+
+        # 2. Use Latin Hypercube Sampling for superior 4D space coverage
+        sampler = qmc.LatinHypercube(d=len(var_names), seed=42)
+        sample = sampler.random(n=n_points)
+        scaled_sample = qmc.scale(sample, l_bounds, u_bounds)
+
+        # 3. Convert to dictionaries and encode
+        var_dicts = []
+        for row in scaled_sample:
+            var_dict = {var_names[i]: row[i] for i in range(len(var_names))}
             var_dicts.append(var_dict)
 
         # Encode all points
@@ -319,6 +328,12 @@ class ThermalCVDOptimizer:
         self.X_train = np.vstack([self.X_train, X_new])
         self.y_train = np.append(self.y_train, float(fwhm_result))
         self.y_train_scaled = np.append(self.y_train_scaled, fwhm_scaled)
+
+        import pandas as pd
+        new_row = var_dict.copy()
+        new_row['PL_FWHM'] = float(fwhm_result)
+        new_row_df = pd.DataFrame([new_row])
+        self.df_raw = pd.concat([self.df_raw, new_row_df], ignore_index=True)
 
         metrics = self.train_gp()
         self._training_info['n_training_samples'] = len(self.y_train)
