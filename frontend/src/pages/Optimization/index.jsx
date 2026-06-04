@@ -204,7 +204,7 @@ const Optimization = () => {
         const fra = sug.FRA_sccm || sug.FRA || 0;
         const pressure = sug.Pressure_Torr || sug.Pressure || 0;
         const predFWHM = Number(sug.predicted_FWHM_meV || 0).toFixed(1);
-        const predSigma = Number(sug.predicted_FWHM_sigma || 0).toFixed(1);
+        const predSigma = Number(sug.uncertainty_meV || 0).toFixed(1);
         
         starHover = `<b>Suggested Experiment</b><br><br>GTE: ${gte} °C<br>GTI: ${gti} min<br>FRA: ${fra} sccm<br>Pressure: ${pressure} Torr<br><br><b>Predicted FWHM: ${predFWHM} ± ${predSigma} meV</b><extra></extra>`;
       }

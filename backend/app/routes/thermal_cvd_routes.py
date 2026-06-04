@@ -424,6 +424,8 @@ def add_experiment(request: AddExperimentRequest):
         log_activity("Experiment Result Added", f"FWHM: {request.PL_FWHM:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
         return result
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/health")
