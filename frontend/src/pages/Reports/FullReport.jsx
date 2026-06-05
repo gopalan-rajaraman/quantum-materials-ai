@@ -364,36 +364,7 @@ const FullReport = () => {
                     </ResponsiveContainer>
                   ) : <div className="flex h-full items-center justify-center text-slate-400 text-sm">No data</div>}
                 </div>
-                {/* Best FWHM line chart */}
-                <div className="h-[80px] mt-1">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={bestFwhmSeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="bestGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#4C3BDE" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#4C3BDE" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="name" hide />
-                      <YAxis hide />
-                      <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 10 }} formatter={(v) => [fmt(v, 1) + ' meV', 'Best FWHM']} />
-                      <Area type="monotone" dataKey="fwhm" stroke="#4C3BDE" strokeWidth={2} fill="url(#bestGrad)" dot={false} name="Best FWHM So Far" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex items-center gap-4 mt-1 justify-center">
-                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500"><div className="w-3 h-1 bg-[#ef4444] rounded" />Actual FWHM</div>
-                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500"><div className="w-3 h-1 bg-[#4C3BDE] rounded" />Best FWHM So Far</div>
-                  {suggestions.length > 0 && <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500"><div className="w-3 h-1 border border-dashed border-[#7C3AED] rounded" />BO Recommendation</div>}
-                </div>
 
-                {/* Best annotation */}
-                {initBestFwhm && currentBestFwhm && (
-                  <div className="mt-3 bg-[#F4F0FF] rounded-lg px-3 py-2 text-[11px] text-[#4C3BDE] font-medium">
-                    Initial Best: <strong>{fmt(initBestFwhm, 1)} meV</strong> &rarr; BO Best: <strong>{fmt(currentBestFwhm, 1)} meV</strong>
-                    {improvePct > 0 && <span className="ml-2 text-[#00B050] font-black">↓ {improvePct.toFixed(0)}%</span>}
-                  </div>
-                )}
               </div>
 
               {/* Parameter Impact Analysis */}
