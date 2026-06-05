@@ -382,17 +382,18 @@ def run_optimization(request: OptimizeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/simulate-run")
-def simulate_run():
+async def simulate_run():
     """Simulate running the highest EI experiment and update the model."""
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
-        result = optimizer_instance.simulate_experiment()
+        import asyncio
+        result = await asyncio.to_thread(optimizer_instance.simulate_experiment)
         # Log activity
         from app.routes.upload_routes import log_activity
         fwhm = result.get('predicted_FWHM_meV', '?')
-        log_activity("BO Experiment Simulated", f"Predicted FWHM: {fwhm:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
+        await log_activity("BO Experiment Simulated", f"Predicted FWHM: {fwhm:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -405,7 +406,7 @@ class AddExperimentRequest(BaseModel):
     PL_FWHM: float
 
 @router.post("/add-experiment")
-def add_experiment(request: AddExperimentRequest):
+async def add_experiment(request: AddExperimentRequest):
     """Add a manual experiment result and update the model."""
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
@@ -417,11 +418,12 @@ def add_experiment(request: AddExperimentRequest):
             'FRA': request.FRA,
             'Pressure': request.Pressure,
         }
-        result = optimizer_instance.add_experiment(var_dict, request.PL_FWHM)
+        import asyncio
+        result = await asyncio.to_thread(optimizer_instance.add_experiment, var_dict, request.PL_FWHM)
         
         # Log activity
         from app.routes.upload_routes import log_activity
-        log_activity("Experiment Result Added", f"FWHM: {request.PL_FWHM:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
+        await log_activity("Experiment Result Added", f"FWHM: {request.PL_FWHM:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
         return result
     except Exception as e:
         import traceback

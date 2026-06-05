@@ -51,6 +51,7 @@ class ThermalCVDOptimizer:
         Args:
             df: Filtered Thermal CVD dataframe
         """
+        df = df.loc[:, ~df.columns.duplicated()].copy()
         self.df_raw = df
 
         # Fit encoder (fits scaler_X and imputer inside)

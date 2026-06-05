@@ -10,12 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
-    "plotly.js-dist-min": "^2.30.0",
+    "plotly.js": "^3.6.0",
+    "plotly.js-dist-min": "^2.35.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^6.22.3",
+    "react-to-print": "^3.3.0",
     "recharts": "^3.8.1",
     "xlsx": "^0.18.5"
   },
