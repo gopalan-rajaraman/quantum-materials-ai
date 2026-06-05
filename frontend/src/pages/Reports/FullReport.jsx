@@ -4,11 +4,11 @@ import { useReactToPrint } from 'react-to-print';
 import {
   Download, Printer, ArrowLeft, CheckCircle2, Star, Clock,
   TrendingDown, TrendingUp, FlaskConical, Target, Cpu, Activity,
-  FileText, BarChart2, Zap, ChevronRight
+  FileText, BarChart2, Zap, ChevronRight, Lightbulb, Award, BookOpen
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell
+  CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, LineChart, Line
 } from 'recharts';
 import api from '../../services/api';
 
@@ -26,7 +26,7 @@ function extractLengthScales(kernelStr) {
 
 function computeVariableImportance(lengthScales) {
   if (!lengthScales || lengthScales.length < 4) return null;
-  const names = ['Growth Temp (GTE)', 'Growth Time (GTI)', 'Ar Flow (FRA)', 'Pressure'];
+  const names = ['Growth Temp (°C)', 'Growth Time (min)', 'Ar Flow (sccm)', 'Pressure (Torr)'];
   const inv = lengthScales.slice(0, 4).map(ls => 1 / Math.max(ls, 0.001));
   const total = inv.reduce((a, b) => a + b, 0);
   return names.map((name, i) => ({
@@ -39,75 +39,36 @@ function computeVariableImportance(lengthScales) {
 function generateInsights(modelInfo, timeline, varImportance, suggestions) {
   const insights = [];
   if (!modelInfo) return insights;
-
-  // Variable importance insight
   if (varImportance && varImportance.length > 0) {
     const top = varImportance[0];
-    insights.push(`📊 ${top.name} contributes ${top.value}% of model variance — the most influential process parameter.`);
+    insights.push(`${top.name} is the most influential process parameter, contributing ${top.value}% of model variance.`);
   }
-
-  // Best experiment
-  const userExp = timeline?.filter(r => r.type === 'User') || [];
   const allFwhm = timeline?.map(r => parseFloat(r.fwhm)).filter(Boolean) || [];
+  const initialFwhm = timeline?.filter(r => r.type === 'Initial').map(r => parseFloat(r.fwhm)).filter(Boolean) || [];
   if (allFwhm.length > 0) {
     const bestFwhm = Math.min(...allFwhm);
-    const bestRow = timeline.find(r => parseFloat(r.fwhm) === bestFwhm);
-    if (bestRow) {
-      insights.push(`⭐ ${bestRow.experiment_id} achieved the best FWHM of ${fmt(bestFwhm, 1)} meV — the lowest recorded in this campaign.`);
-    }
+    const bestRow = timeline.find(r => Math.abs(parseFloat(r.fwhm) - bestFwhm) < 0.01);
+    if (bestRow) insights.push(`${bestRow.experiment_id} achieved the best FWHM of ${fmt(bestFwhm, 1)} meV — the lowest recorded in this campaign.`);
   }
-
-  // Model quality
-  const r2 = modelInfo.R2_score;
-  if (r2 != null) {
-    if (r2 > 0.999) insights.push(`✅ Surrogate model achieved near-perfect fit (R² = ${(r2 * 100).toFixed(2)}%) indicating high prediction reliability.`);
-    else if (r2 > 0.95) insights.push(`✅ Surrogate model shows excellent fit (R² = ${(r2 * 100).toFixed(2)}%), suitable for confident experiment planning.`);
-    else insights.push(`⚠️ Surrogate model fit is moderate (R² = ${(r2 * 100).toFixed(2)}%). More experiments may improve reliability.`);
-  }
-
-  // BO improvement
-  const initialFwhm = timeline?.filter(r => r.type === 'Initial').map(r => parseFloat(r.fwhm)).filter(Boolean) || [];
   if (initialFwhm.length > 0 && allFwhm.length > 0) {
     const initBest = Math.min(...initialFwhm);
     const curBest = Math.min(...allFwhm);
     const pct = ((initBest - curBest) / initBest * 100).toFixed(0);
-    if (pct > 0) insights.push(`📉 BO loop reduced FWHM by ${pct}% from the initial best (${fmt(initBest, 1)} → ${fmt(curBest, 1)} meV).`);
+    if (pct > 0) insights.push(`BO loop reduced FWHM by ${pct}% from the initial best (${fmt(initBest, 1)} → ${fmt(curBest, 1)} meV).`);
+    else insights.push(`BO did not outperform the initial dataset best in this round.`);
   }
-
-  // Next suggestion
+  const r2 = modelInfo.R2_score;
+  if (r2 != null) {
+    if (r2 > 0.999) insights.push(`Surrogate model achieved near-perfect fit (R² = ${(r2 * 100).toFixed(2)}%) indicating high prediction reliability.`);
+    else if (r2 > 0.95) insights.push(`Surrogate model shows excellent fit (R² = ${(r2 * 100).toFixed(2)}%), suitable for confident experiment planning.`);
+    else insights.push(`Surrogate model fit is moderate (R² = ${(r2 * 100).toFixed(2)}%). More experiments may improve reliability.`);
+  }
   if (suggestions && suggestions.length > 0) {
     const s = suggestions[0];
-    insights.push(`🎯 Next suggested region: GTE ${fmt(s.GTE_celsius, 0)}°C · GTI ${fmt(s.GTI_minutes, 0)} min · FRA ${fmt(s.FRA_sccm, 1)} sccm · Pressure ${fmt(s.Pressure_Torr, 1)} Torr`);
+    insights.push(`EI guides the optimizer to balance exploitation (near known good regions) and exploration (uncertain regions). ${suggestions[0] ? `BO-${timeline?.filter(r => r.type === 'User').length + 1 || 1} corresponds to a high EI region.` : ''}`);
   }
-
   return insights;
 }
-
-// ─── Sub-components ─────────────────────────────────────────────────────────
-
-const SectionTitle = ({ icon: Icon, title, color = '#4C3BDE' }) => (
-  <div className="flex items-center gap-2 mb-4">
-    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: color + '18' }}>
-      <Icon className="w-4 h-4" style={{ color }} />
-    </div>
-    <h2 className="text-[15px] font-bold text-[#1e1b4b]">{title}</h2>
-  </div>
-);
-
-const KpiCard = ({ label, value, sub, color, bg }) => (
-  <div className="rounded-2xl p-5 flex flex-col gap-1 shadow-sm" style={{ background: bg }}>
-    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
-    <span className="text-2xl font-black" style={{ color }}>{value}</span>
-    {sub && <span className="text-[11px] text-slate-500">{sub}</span>}
-  </div>
-);
-
-const MetricPill = ({ label, value, color }) => (
-  <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
-    <div className="text-[10px] font-bold text-slate-500 mb-0.5">{label}</div>
-    <div className="text-[16px] font-black" style={{ color }}>{value}</div>
-  </div>
-);
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const FullReport = () => {
@@ -149,16 +110,11 @@ const FullReport = () => {
     load();
   }, []);
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: 'Experiment_Report',
-  });
+  const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: 'Thermal_CVD_Optimization_Report' });
 
-  // Auto-trigger print/PDF when opened with ?autoprint=true
   useEffect(() => {
     if (!loading && autoPrint && !autoPrintFired.current && handlePrint) {
       autoPrintFired.current = true;
-      // Small delay so charts have time to paint
       const t = setTimeout(() => handlePrint(), 800);
       return () => clearTimeout(t);
     }
@@ -173,6 +129,7 @@ const FullReport = () => {
   const currentBestFwhm = allFwhm.length > 0 ? Math.min(...allFwhm) : null;
   const initBestFwhm = initialFwhm.length > 0 ? Math.min(...initialFwhm) : null;
   const improvePct = initBestFwhm && currentBestFwhm ? ((initBestFwhm - currentBestFwhm) / initBestFwhm * 100) : 0;
+  const bestRow = timeline.find(r => Math.abs(parseFloat(r.fwhm) - currentBestFwhm) < 0.01) || null;
 
   // Optimization history (monotonic best)
   let curMin = Infinity;
@@ -180,7 +137,7 @@ const FullReport = () => {
     const rows = [];
     if (initialRows.length > 0) {
       const initBest = Math.min(...initialFwhm);
-      rows.push({ iter: 0, label: 'Init', fwhm: initBest });
+      rows.push({ iter: 0, label: 'Initial Best', fwhm: initBest });
       curMin = initBest;
     }
     boRows.forEach((r, i) => {
@@ -191,7 +148,7 @@ const FullReport = () => {
     return rows;
   })();
 
-  // Parity plot (Predicted vs Actual)
+  // Parity data
   const parityData = rawPredictions.map(p => ({ actual: p.observed, predicted: p.predicted }));
   const mape = rawPredictions.length > 0
     ? rawPredictions.filter(p => p.observed !== 0).reduce((acc, p) => acc + Math.abs((p.observed - p.predicted) / p.observed), 0) / rawPredictions.filter(p => p.observed !== 0).length * 100
@@ -201,13 +158,18 @@ const FullReport = () => {
   const lengthScales = extractLengthScales(modelInfo?.kernel || '');
   const varImportance = computeVariableImportance(lengthScales) || (modelInfo?.feature_importances || []).map(f => ({ name: f.name, value: f.value }));
 
-  // Status for table rows
+  // EI data
+  const eiHistory = plotData?.ei_history || [];
+  const latestEI = eiHistory.length > 0 ? eiHistory[eiHistory.length - 1] : [];
+  const eiData = latestEI.map((v, i) => ({ x: i, ei: parseFloat(v.toFixed(4)) }));
+
+  // Enriched timeline
   const minFwhm = currentBestFwhm;
   const enrichedTimeline = timeline.map(r => {
     const fwhm = parseFloat(r.fwhm);
-    let status = 'completed';
+    let status = 'done';
     if (Math.abs(fwhm - minFwhm) < 0.01) status = 'best';
-    else if (r.type === 'Initial') status = 'initial';
+    else if (r.type === 'Initial') status = 'init';
     return { ...r, fwhm, status };
   });
 
@@ -217,12 +179,21 @@ const FullReport = () => {
   const r2 = modelInfo?.R2_score;
   const mae = modelInfo?.MAE_meV;
   const rmse = modelInfo?.RMSE_meV;
+  const COLORS = ['#4C3BDE', '#7C3AED', '#0EA5E9', '#10B981'];
 
-  const COLORS_BAR = ['#4C3BDE', '#7C3AED', '#0EA5E9', '#10B981'];
+  // Convergence (actual per-experiment FWHM for the line chart)
+  const actualFwhmSeries = (() => {
+    const pts = [];
+    initialRows.forEach((r, i) => pts.push({ name: `Init-${i+1}`, fwhm: parseFloat(r.fwhm), type: 'Init' }));
+    boRows.forEach((r, i) => pts.push({ name: r.experiment_id, fwhm: parseFloat(r.fwhm), type: 'BO' }));
+    return pts;
+  })();
+
+  const bestFwhmSeries = historyData.map(d => ({ name: d.label, fwhm: d.fwhm }));
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-[#F5F6FA]">
         <div className="w-12 h-12 border-4 border-[#4C3BDE] border-t-transparent rounded-full animate-spin" />
         <p className="text-slate-500 font-medium">Building your experiment report…</p>
       </div>
@@ -230,13 +201,10 @@ const FullReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6FA] font-sans">
+    <div className="min-h-screen bg-[#F0F2F7] font-sans">
       {/* ── Action Bar ── */}
-      <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm px-8 py-3 flex items-center justify-between no-print">
-        <button
-          onClick={() => navigate('/reports')}
-          className="flex items-center gap-2 text-slate-600 hover:text-[#4C3BDE] font-semibold text-sm transition-colors"
-        >
+      <div className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm px-6 py-3 flex items-center justify-between no-print">
+        <button onClick={() => navigate('/reports')} className="flex items-center gap-2 text-slate-600 hover:text-[#4C3BDE] font-semibold text-sm transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Reports
         </button>
         <div className="flex items-center gap-2">
@@ -265,330 +233,405 @@ const FullReport = () => {
         </div>
       </div>
 
-      {/* ── Printable Report Body ── */}
-      <div ref={printRef} className="max-w-[1200px] mx-auto px-6 py-8 space-y-6">
+      {/* ── Printable Content ── */}
+      <div ref={printRef} className="max-w-[1280px] mx-auto px-4 py-6">
 
-        {/* ── Header ── */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#4C3BDE] flex items-center justify-center shadow-md">
-              <FlaskConical className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-[22px] font-black text-[#1e1b4b]">Experiment Report</h1>
-              <p className="text-[13px] text-slate-500">EXP-1 to EXP-{timeline.length} · Thermal CVD Bayesian Optimization</p>
-              <p className="text-[12px] text-slate-400 mt-0.5">{generatedOn}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1.5 bg-[#F4F0FF] text-[#4C3BDE] text-[12px] font-bold rounded-full">Experiment Summary</span>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E8FFF3] text-[#00B050] text-[12px] font-bold rounded-full border border-[#00B050]/20">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Completed
-            </div>
-          </div>
-        </div>
+        {/* ── Layout: Sidebar + Main ── */}
+        <div className="flex gap-5">
 
-        {/* ── Row 1: KPIs + GP Model + Acquisition ── */}
-        <div className="grid grid-cols-3 gap-6">
-
-          {/* Panel 1 – Optimization Journey */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col gap-4">
-            <SectionTitle icon={Target} title="Optimization Journey" />
-            <KpiCard label="Starting FWHM" value={initBestFwhm ? `${fmt(initBestFwhm, 1)} meV` : '—'} sub="Initial dataset best" color="#64748b" bg="#F8FAFC" />
-            <KpiCard label="Current Best" value={currentBestFwhm ? `${fmt(currentBestFwhm, 1)} meV` : '—'} sub="Lowest FWHM achieved" color="#4C3BDE" bg="#F4F0FF" />
-            <KpiCard label="Improvement" value={improvePct > 0 ? `${improvePct.toFixed(0)}%` : '0%'} sub="Reduction in FWHM" color="#00B050" bg="#E8FFF3" />
-            <div className="grid grid-cols-3 gap-2 mt-2 pt-4 border-t border-slate-100">
-              <div className="text-center">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">Total Exp</div>
-                <div className="text-[18px] font-black text-slate-800">{timeline.length}</div>
+          {/* ─── LEFT SIDEBAR ─── */}
+          <div className="w-[220px] shrink-0 flex flex-col gap-4">
+            {/* Title Card */}
+            <div className="bg-[#1e1b4b] rounded-2xl p-5 text-white">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
+                <FlaskConical className="w-5 h-5 text-indigo-300" />
               </div>
-              <div className="text-center">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">Initial</div>
-                <div className="text-[18px] font-black text-slate-800">{initialRows.length}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">BO Rounds</div>
-                <div className="text-[18px] font-black text-[#4C3BDE]">{boRows.length}</div>
+              <h1 className="text-[15px] font-black leading-tight mb-1">Thermal CVD Optimization Report</h1>
+              <p className="text-[11px] text-indigo-300 mb-3">EXP-1 to EXP-{timeline.length}<br />Bayesian Optimization</p>
+              <div className="text-[10px] text-indigo-400 border-t border-white/10 pt-3">
+                <div className="flex items-center gap-1 mb-1"><Clock className="w-3 h-3" />{generatedOn}</div>
+                <div className="flex items-center gap-1 mt-2">
+                  <span className="px-2 py-0.5 bg-[#00B050]/20 text-[#00B050] rounded-full text-[10px] font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Completed
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Panel 2 – GP Model Analysis */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <SectionTitle icon={Activity} title="GP Model Analysis" />
-            <div className="h-[220px]">
-              {rawPredictions.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={rawPredictions} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gpObs" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gpPred" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4C3BDE" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#4C3BDE" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="iteration" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Experiment', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#94a3b8' } }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }} />
-                    <Area type="monotone" dataKey="observed" name="Actual FWHM" stroke="#ef4444" strokeWidth={2} fill="url(#gpObs)" dot={{ r: 3, fill: '#ef4444' }} />
-                    <Area type="monotone" dataKey="predicted" name="Predicted" stroke="#4C3BDE" strokeWidth={2} strokeDasharray="5 3" fill="url(#gpPred)" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm">No prediction data yet</div>
-              )}
-            </div>
-            <div className="flex justify-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><div className="w-3 h-3 rounded-full bg-[#ef4444]" />Actual FWHM</div>
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"><div className="w-3 h-0.5 bg-[#4C3BDE] border-t-2 border-dashed border-[#4C3BDE]" />Predicted</div>
-            </div>
-          </div>
-
-          {/* Panel 3 – Acquisition Function */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <SectionTitle icon={Zap} title="Acquisition Function Analysis" color="#7C3AED" />
-            <div className="h-[220px]">
-              {plotData?.ei_history?.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={(plotData.ei_history[plotData.ei_history.length - 1] || []).map((v, i) => ({ x: i, ei: parseFloat(v.toFixed(4)) }))}
-                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="eiGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="x" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Design Space', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#94a3b8' } }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }} formatter={(v) => [v, 'Expected Improvement']} />
-                    <Area type="monotone" dataKey="ei" stroke="#7C3AED" strokeWidth={2} fill="url(#eiGrad)" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm">Run BO iterations to see EI</div>
-              )}
-            </div>
-            <div className="mt-3 bg-violet-50 rounded-xl p-3 text-[11px] text-violet-700 font-medium">
-              EI guides the optimizer to balance exploitation (near known good regions) and exploration (uncertain regions).
-            </div>
-          </div>
-        </div>
-
-        {/* ── Full-width Experiment Results Table ── */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <SectionTitle icon={FileText} title="Experiment Results" />
-            <span className="text-[12px] text-slate-400 font-medium">{enrichedTimeline.length} experiments total</span>
-          </div>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 rounded-xl">
-                {['Exp ID', 'Type', 'GTE (°C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'FWHM (meV)', 'Status'].map(h => (
-                  <th key={h} className="py-2.5 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 first:rounded-tl-xl last:rounded-tr-xl">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {enrichedTimeline.map((row, i) => (
-                <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50/70 transition-colors ${row.status === 'best' ? 'bg-[#E8FFF3]/40' : ''}`}>
-                  <td className="py-2.5 px-3 text-[12px] font-bold text-slate-800">{row.experiment_id}</td>
-                  <td className="py-2.5 px-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      row.type === 'Initial' ? 'bg-slate-100 text-slate-500' : 'bg-[#F4F0FF] text-[#4C3BDE]'
-                    }`}>{row.type === 'Initial' ? 'Init' : 'BO'}</span>
-                  </td>
-                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.gte, 0)}</td>
-                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.gti, 1)}</td>
-                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.fra, 1)}</td>
-                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.pressure, 2)}</td>
-                  <td className="py-2.5 px-3 text-[12px] font-bold text-[#4C3BDE]">{fmt(row.fwhm, 1)}</td>
-                  <td className="py-2.5 px-3">
-                    {row.status === 'best' ? (
-                      <span className="flex items-center gap-1 text-[11px] font-bold text-[#00B050]"><Star className="w-3 h-3 fill-[#00B050]" />Best</span>
-                    ) : row.status === 'initial' ? (
-                      <span className="text-[11px] font-bold text-slate-400">Init</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500"><CheckCircle2 className="w-3 h-3 text-emerald-400" />Done</span>
-                    )}
-                  </td>
-                </tr>
+            {/* Quick Stats */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Stats</p>
+              {[
+                { label: 'Total Experiments', val: timeline.length, color: '#4C3BDE' },
+                { label: 'Initial Dataset', val: initialRows.length, color: '#64748b' },
+                { label: 'BO Rounds', val: boRows.length, color: '#7C3AED' },
+                { label: 'Best FWHM', val: currentBestFwhm ? `${fmt(currentBestFwhm, 1)} meV` : '—', color: '#00B050' },
+                { label: 'Improvement', val: improvePct > 0 ? `${improvePct.toFixed(0)}%` : '0%', color: '#0EA5E9' },
+              ].map(({ label, val, color }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">{label}</span>
+                  <span className="text-[12px] font-black" style={{ color }}>{val}</span>
+                </div>
               ))}
-              {enrichedTimeline.length === 0 && (
-                <tr><td colSpan={8} className="py-10 text-center text-slate-400 text-[13px]">No experiments yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── Row 2: Parity + Variable Impact ── */}
-        <div className="grid grid-cols-2 gap-6">
-
-          {/* Panel 5 – Prediction Accuracy */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <SectionTitle icon={TrendingUp} title="Prediction Accuracy" color="#0EA5E9" />
-            <div className="h-[200px]">
-              {parityData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="actual" name="Actual" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Actual (meV)', position: 'insideBottom', offset: -2, style: { fontSize: 10, fill: '#94a3b8' } }} />
-                    <YAxis dataKey="predicted" name="Predicted" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Predicted', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: '#94a3b8' } }} />
-                    <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }} formatter={(v) => [fmt(v, 2) + ' meV']} />
-                    <Scatter data={parityData} fill="#4C3BDE" opacity={0.75} />
-                    {parityData.length > 0 && (
-                      <ReferenceLine
-                        segment={[
-                          { x: Math.min(...parityData.map(d => d.actual)), y: Math.min(...parityData.map(d => d.actual)) },
-                          { x: Math.max(...parityData.map(d => d.actual)), y: Math.max(...parityData.map(d => d.actual)) }
-                        ]}
-                        stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5}
-                      />
-                    )}
-                  </ScatterChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm">No data</div>
-              )}
             </div>
-            <div className="grid grid-cols-4 gap-2 mt-3">
-              <MetricPill label="R² Score" value={r2 != null ? `${(r2 * 100).toFixed(2)}%` : '—'} color="#4C3BDE" />
-              <MetricPill label="MAE (meV)" value={mae != null ? fmt(mae, 3) : '—'} color="#00B050" />
-              <MetricPill label="RMSE (meV)" value={rmse != null ? fmt(rmse, 3) : '—'} color="#0EA5E9" />
-              <MetricPill label="MAPE (%)" value={mape != null ? fmt(mape, 1) + '%' : '—'} color="#D946EF" />
+
+            {/* Model Quality */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Model Quality</p>
+              {[
+                { label: 'R² Score', val: r2 != null ? `${(r2 * 100).toFixed(2)}%` : '—', color: '#4C3BDE' },
+                { label: 'MAE (meV)', val: mae != null ? fmt(mae, 3) : '—', color: '#00B050' },
+                { label: 'RMSE (meV)', val: rmse != null ? fmt(rmse, 3) : '—', color: '#0EA5E9' },
+                { label: 'MAPE (%)', val: mape != null ? fmt(mape, 1) + '%' : '—', color: '#D946EF' },
+              ].map(({ label, val, color }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">{label}</span>
+                  <span className="text-[12px] font-black" style={{ color }}>{val}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Appendix Nav */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Appendix</p>
+              {['Raw Data', 'Model Details', 'Acquisition Settings'].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 py-1.5 border-b border-slate-50 last:border-0">
+                  <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-500">{i + 1}</div>
+                  <span className="text-[11px] text-slate-600 font-medium">{item}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Panel 6 – Variable Impact */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <SectionTitle icon={BarChart2} title="Variable Impact Analysis" color="#10B981" />
-            {varImportance && varImportance.length > 0 ? (
-              <>
-                <div className="h-[180px]">
+          {/* ─── MAIN CONTENT ─── */}
+          <div className="flex-1 min-w-0 space-y-5">
+
+            {/* ── 1. Executive Summary ── */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <h2 className="text-[13px] font-black text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="w-1 h-4 bg-[#4C3BDE] rounded-full" /> Executive Summary
+              </h2>
+              <div className="grid grid-cols-4 gap-3 mb-5">
+                {[
+                  { label: 'Best FWHM Achieved', val: currentBestFwhm ? `${fmt(currentBestFwhm, 1)} meV` : '—', sub: 'Initial dataset best', color: '#4C3BDE', bg: '#F4F0FF' },
+                  { label: 'Improvement', val: improvePct > 0 ? `${improvePct.toFixed(0)}%` : '0%', sub: 'Reduction in FWHM', color: '#00B050', bg: '#E8FFF3' },
+                  { label: 'Total Experiments', val: timeline.length, sub: 'Completed', color: '#0EA5E9', bg: '#F0F9FF' },
+                  { label: 'BO Rounds', val: boRows.length, sub: 'Bayesian round', color: '#7C3AED', bg: '#F5F3FF' },
+                ].map(({ label, val, sub, color, bg }) => (
+                  <div key={label} className="rounded-xl p-4 flex flex-col gap-0.5" style={{ background: bg }}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
+                    <span className="text-[22px] font-black" style={{ color }}>{val}</span>
+                    <span className="text-[10px] text-slate-500">{sub}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Key Insights */}
+              <div className="bg-slate-50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  <span className="text-[12px] font-bold text-slate-700">Key Insights</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {insights.slice(0, 4).map((ins, i) => (
+                    <div key={i} className="flex items-start gap-2 bg-white rounded-lg p-2.5 shadow-sm border border-slate-100">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#4C3BDE] mt-1.5 shrink-0" />
+                      <p className="text-[11px] text-slate-600 leading-relaxed">{ins}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── 2. Optimization Progress + Parameter Impact ── */}
+            <div className="grid grid-cols-2 gap-5">
+
+              {/* Optimization Progress */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <h2 className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-[#4C3BDE] rounded-full" /> Optimization Progress
+                </h2>
+                <div className="h-[220px]">
+                  {actualFwhmSeries.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={actualFwhmSeries} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval={Math.floor(actualFwhmSeries.length / 5)} />
+                        <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft', style: { fontSize: 9, fill: '#94a3b8' } }} />
+                        <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 11 }} formatter={(v) => [fmt(v, 1) + ' meV']} />
+                        <Line type="monotone" dataKey="fwhm" name="Actual FWHM" stroke="#ef4444" strokeWidth={1.5} dot={{ r: 3, fill: '#ef4444' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : <div className="flex h-full items-center justify-center text-slate-400 text-sm">No data</div>}
+                </div>
+                {/* Best FWHM line chart */}
+                <div className="h-[80px] mt-1">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={varImportance} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]} />
-                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: '#1e1b4b', fontWeight: 600 }} axisLine={false} tickLine={false} width={105} />
-                      <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 12 }} formatter={(v) => [v + '%', 'Importance']} />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                        {varImportance.map((_, i) => <Cell key={i} fill={COLORS_BAR[i % COLORS_BAR.length]} />)}
-                      </Bar>
-                    </BarChart>
+                    <AreaChart data={bestFwhmSeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="bestGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4C3BDE" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#4C3BDE" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="name" hide />
+                      <YAxis hide />
+                      <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 10 }} formatter={(v) => [fmt(v, 1) + ' meV', 'Best FWHM']} />
+                      <Area type="monotone" dataKey="fwhm" stroke="#4C3BDE" strokeWidth={2} fill="url(#bestGrad)" dot={false} name="Best FWHM So Far" />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-4 space-y-2">
-                  {varImportance.map((v, i) => (
-                    <div key={i} className="flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-slate-600">{v.name}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${v.value}%`, background: COLORS_BAR[i % COLORS_BAR.length] }} />
-                        </div>
-                        <span className="font-black text-slate-800 w-8 text-right">{v.value}%</span>
-                      </div>
+                <div className="flex items-center gap-4 mt-1 justify-center">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500"><div className="w-3 h-1 bg-[#ef4444] rounded" />Actual FWHM</div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500"><div className="w-3 h-1 bg-[#4C3BDE] rounded" />Best FWHM So Far</div>
+                  {suggestions.length > 0 && <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500"><div className="w-3 h-1 border border-dashed border-[#7C3AED] rounded" />BO Recommendation</div>}
+                </div>
+
+                {/* Best annotation */}
+                {initBestFwhm && currentBestFwhm && (
+                  <div className="mt-3 bg-[#F4F0FF] rounded-lg px-3 py-2 text-[11px] text-[#4C3BDE] font-medium">
+                    Initial Best: <strong>{fmt(initBestFwhm, 1)} meV</strong> &rarr; BO Best: <strong>{fmt(currentBestFwhm, 1)} meV</strong>
+                    {improvePct > 0 && <span className="ml-2 text-[#00B050] font-black">↓ {improvePct.toFixed(0)}%</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Parameter Impact Analysis */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <h2 className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-[#10B981] rounded-full" /> 2. Parameter Impact Analysis
+                </h2>
+                {varImportance && varImportance.length > 0 ? (
+                  <>
+                    <div className="h-[180px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={varImportance} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                          <XAxis type="number" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]} />
+                          <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fill: '#1e1b4b', fontWeight: 600 }} axisLine={false} tickLine={false} width={110} />
+                          <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 11 }} formatter={(v) => [v + '%', 'Importance']} />
+                          <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                            {varImportance.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-3 italic">Importance = normalized (1/GP length scale)</p>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center text-slate-400 text-sm">No kernel data</div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Row 3: History Chart + AI Insights ── */}
-        <div className="grid grid-cols-3 gap-6">
-
-          {/* Panel 7 – Experiment History (spans 2 cols) */}
-          <div className="col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <SectionTitle icon={TrendingDown} title="Experiment History & Optimization Progress" />
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                <div className="w-3 h-0.5 bg-[#4C3BDE]" />Best FWHM (monotonic)
+                    <div className="mt-3 bg-slate-50 rounded-lg p-3 text-[11px] text-slate-600">
+                      <span className="font-bold text-slate-700">Interpretation: </span>
+                      {varImportance[0]?.name} is the dominant factor affecting FWHM, followed by {varImportance[1]?.name}.
+                      {varImportance.length > 2 && ` ${varImportance.slice(2).map(v => v.name).join(' and ')} have minimal impact.`}
+                    </div>
+                  </>
+                ) : <div className="flex h-48 items-center justify-center text-slate-400 text-sm">No kernel data</div>}
               </div>
             </div>
-            <div className="h-[220px]">
-              {historyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={historyData} margin={{ top: 5, right: 10, left: -20, bottom: 10 }}>
-                    <defs>
-                      <linearGradient id="histGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4C3BDE" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#4C3BDE" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="iter" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'BO Iteration', position: 'insideBottom', offset: -5, style: { fontSize: 10, fill: '#94a3b8' } }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: '#94a3b8' } }} />
-                    <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }} formatter={(v) => [fmt(v, 2) + ' meV', 'Best FWHM']} labelFormatter={(l) => l === 0 ? 'Initial' : `Iter ${l}`} />
-                    <Area type="monotone" dataKey="fwhm" stroke="#4C3BDE" strokeWidth={2.5} fillOpacity={1} fill="url(#histGrad)" activeDot={{ r: 5, fill: '#4C3BDE', stroke: 'white', strokeWidth: 2 }} dot={(props) => {
-                      const { cx, cy, payload } = props;
-                      return <circle key={payload.iter} cx={cx} cy={cy} r={4} fill="#4C3BDE" stroke="white" strokeWidth={1.5} />;
-                    }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm">No BO iterations yet</div>
-              )}
-            </div>
-            <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
-              <MetricPill label="Starting FWHM" value={initBestFwhm ? `${fmt(initBestFwhm, 1)}` : '—'} color="#64748b" />
-              <MetricPill label="Current Best" value={currentBestFwhm ? `${fmt(currentBestFwhm, 1)}` : '—'} color="#4C3BDE" />
-              <MetricPill label="Improvement" value={improvePct > 0 ? `${improvePct.toFixed(0)}%` : '0%'} color="#00B050" />
-              <MetricPill label="BO Rounds" value={boRows.length} color="#7C3AED" />
-            </div>
-          </div>
 
-          {/* Panel 8 – AI Insights */}
-          <div className="col-span-1 bg-gradient-to-br from-[#1e1b4b] to-[#312e81] rounded-2xl p-6 border border-[#4C3BDE]/20 shadow-lg text-white flex flex-col">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-                <Cpu className="w-4 h-4 text-indigo-300" />
-              </div>
-              <h2 className="text-[15px] font-bold text-white">AI Insights</h2>
-            </div>
-            <div className="flex-1 space-y-3">
-              {insights.length > 0 ? insights.map((ins, i) => (
-                <div key={i} className="flex items-start gap-2.5 bg-white/8 rounded-xl p-3">
-                  <ChevronRight className="w-3.5 h-3.5 text-indigo-300 mt-0.5 shrink-0" />
-                  <p className="text-[12px] text-indigo-100 leading-relaxed">{ins}</p>
+            {/* ── 3. Model Performance + Acquisition Function ── */}
+            <div className="grid grid-cols-2 gap-5">
+
+              {/* Model Performance */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <h2 className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-[#0EA5E9] rounded-full" /> Model Performance
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 mb-2">Actual vs Predicted FWHM</p>
+                <div className="h-[160px]">
+                  {parityData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="actual" name="Actual" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Actual FWHM (meV)', position: 'insideBottom', offset: -2, style: { fontSize: 9, fill: '#94a3b8' } }} />
+                        <YAxis dataKey="predicted" name="Predicted" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Predicted', angle: -90, position: 'insideLeft', style: { fontSize: 9, fill: '#94a3b8' } }} />
+                        <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 11 }} formatter={(v) => [fmt(v, 2) + ' meV']} />
+                        <Scatter data={parityData} fill="#4C3BDE" opacity={0.75} />
+                        {parityData.length > 0 && (
+                          <ReferenceLine
+                            segment={[
+                              { x: Math.min(...parityData.map(d => d.actual)), y: Math.min(...parityData.map(d => d.actual)) },
+                              { x: Math.max(...parityData.map(d => d.actual)), y: Math.max(...parityData.map(d => d.actual)) }
+                            ]}
+                            stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5}
+                          />
+                        )}
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  ) : <div className="flex h-full items-center justify-center text-slate-400 text-sm">No data</div>}
                 </div>
-              )) : (
-                <p className="text-indigo-300 text-[13px] text-center mt-8">Run more experiments to unlock AI insights.</p>
-              )}
-            </div>
-            {suggestions.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider mb-2">Best Next Experiment</p>
-                <div className="grid grid-cols-2 gap-2">
+
+                <div className="grid grid-cols-2 gap-2 mt-3">
                   {[
-                    { label: 'GTE', val: fmt(suggestions[0].GTE_celsius, 0) + '°C' },
-                    { label: 'GTI', val: fmt(suggestions[0].GTI_minutes, 0) + ' min' },
-                    { label: 'FRA', val: fmt(suggestions[0].FRA_sccm, 1) + ' sccm' },
-                    { label: 'P', val: fmt(suggestions[0].Pressure_Torr, 1) + ' Torr' },
-                  ].map(({ label, val }) => (
-                    <div key={label} className="bg-white/10 rounded-lg p-2 text-center">
-                      <div className="text-[9px] font-bold text-indigo-300">{label}</div>
-                      <div className="text-[13px] font-black text-white">{val}</div>
+                    { label: 'R² Score', val: r2 != null ? `${(r2 * 100).toFixed(3)}` : '—', color: '#4C3BDE' },
+                    { label: 'MAE (meV)', val: mae != null ? fmt(mae, 3) : '—', color: '#00B050' },
+                    { label: 'RMSE (meV)', val: rmse != null ? fmt(rmse, 3) : '—', color: '#0EA5E9' },
+                    { label: 'MAPE (%)', val: mape != null ? fmt(mape, 1) : '—', color: '#D946EF' },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} className="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
+                      <div className="text-[9px] font-bold text-slate-400 mb-0.5">{label}</div>
+                      <div className="text-[16px] font-black" style={{ color }}>{val}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* ── Footer ── */}
-        <div className="text-center text-[11px] text-slate-400 pb-4">
-          Quantum Materials AI · Bayesian Optimization Report · Generated {generatedOn} · Confidential
+                <div className="mt-3 bg-slate-50 rounded-lg p-2.5 text-[10px] text-slate-500">
+                  <span className="font-bold text-slate-600">Model Summary: </span>
+                  The Gaussian Process model shows excellent prediction accuracy on the observed data.
+                </div>
+              </div>
+
+              {/* Acquisition Function */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <h2 className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-[#7C3AED] rounded-full" /> 4. Acquisition Function Analysis
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 mb-2">Expected Improvement (EI)</p>
+                <div className="h-[200px]">
+                  {eiData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={eiData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                        <defs>
+                          <linearGradient id="eiGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="x" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} label={{ value: 'Design Space Index', position: 'insideBottom', offset: -2, style: { fontSize: 9, fill: '#94a3b8' } }} />
+                        <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 11 }} formatter={(v) => [v, 'Expected Improvement']} />
+                        <Area type="monotone" dataKey="ei" stroke="#7C3AED" strokeWidth={2} fill="url(#eiGrad)" dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : <div className="flex h-full items-center justify-center text-slate-400 text-sm">Run BO iterations to see EI</div>}
+                </div>
+                <div className="mt-3 bg-violet-50 rounded-lg p-2.5 text-[10px] text-violet-700">
+                  <span className="font-bold">Insight: </span>
+                  EI guides the optimizer to balance exploitation (near known good regions) and exploration (uncertain regions).
+                  {suggestions.length > 0 && ` BO-${boRows.length + 1} corresponds to a high EI region.`}
+                </div>
+              </div>
+            </div>
+
+            {/* ── 4. Complete Experiment History + Best Experiment ── */}
+            <div className="grid grid-cols-3 gap-5">
+
+              {/* Full Table — spans 2 cols */}
+              <div className="col-span-2 bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-[12px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <div className="w-1 h-4 bg-[#4C3BDE] rounded-full" /> Complete Experiment History
+                  </h2>
+                  <span className="text-[11px] text-slate-400">{enrichedTimeline.length} experiments</span>
+                </div>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      {['EXP ID', 'TYPE', 'GTE (°C)', 'GTI (min)', 'FRA (sccm)', 'PRESSURE (Torr)', 'FWHM (meV)', 'STATUS'].map(h => (
+                        <th key={h} className="py-2 px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enrichedTimeline.map((row, i) => (
+                      <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors ${row.status === 'best' ? 'bg-[#E8FFF3]/50' : ''}`}>
+                        <td className="py-1.5 px-2 text-[11px] font-bold text-slate-800">{row.experiment_id}</td>
+                        <td className="py-1.5 px-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${row.type === 'Initial' ? 'bg-slate-100 text-slate-500' : 'bg-[#F4F0FF] text-[#4C3BDE]'}`}>
+                            {row.type === 'Initial' ? 'Init' : 'BO'}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-2 text-[11px] text-slate-600">{fmt(row.gte, 0)}</td>
+                        <td className="py-1.5 px-2 text-[11px] text-slate-600">{fmt(row.gti, 1)}</td>
+                        <td className="py-1.5 px-2 text-[11px] text-slate-600">{fmt(row.fra, 1)}</td>
+                        <td className="py-1.5 px-2 text-[11px] text-slate-600">{fmt(row.pressure, 2)}</td>
+                        <td className="py-1.5 px-2 text-[11px] font-black text-[#4C3BDE]">{fmt(row.fwhm, 1)}</td>
+                        <td className="py-1.5 px-2">
+                          {row.status === 'best' ? (
+                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-[#00B050]"><Star className="w-2.5 h-2.5 fill-[#00B050]" />Best</span>
+                          ) : row.status === 'init' ? (
+                            <span className="text-[10px] font-bold text-slate-400">Init</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-500">Done</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {enrichedTimeline.length === 0 && (
+                      <tr><td colSpan={8} className="py-8 text-center text-slate-400 text-[12px]">No experiments yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Best Experiment + Recommendations */}
+              <div className="flex flex-col gap-4">
+                {/* Best Experiment */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Award className="w-4 h-4 text-amber-500" />
+                    <h2 className="text-[12px] font-black text-slate-700">Best Experiment Details</h2>
+                  </div>
+                  {bestRow ? (
+                    <>
+                      <div className="bg-[#F4F0FF] rounded-lg px-3 py-2 mb-3">
+                        <div className="text-[10px] font-bold text-[#4C3BDE] mb-0.5">Best: {bestRow.experiment_id}</div>
+                      </div>
+                      {[
+                        { label: 'GTE (°C)', val: fmt(bestRow.gte, 0) },
+                        { label: 'GTI (min)', val: fmt(bestRow.gti, 1) },
+                        { label: 'FRA (sccm)', val: fmt(bestRow.fra, 1) },
+                        { label: 'Pressure (Torr)', val: fmt(bestRow.pressure, 2) },
+                      ].map(({ label, val }) => (
+                        <div key={label} className="flex items-center justify-between py-1 border-b border-slate-50 text-[11px]">
+                          <span className="text-slate-500">{label}</span>
+                          <span className="font-bold text-slate-800">{val}</span>
+                        </div>
+                      ))}
+                      <div className="mt-3 bg-[#E8FFF3] rounded-xl p-3 text-center">
+                        <div className="text-[10px] font-bold text-[#00B050] mb-0.5">FWHM</div>
+                        <div className="text-[24px] font-black text-[#00B050]">{fmt(bestRow.fwhm, 1)} <span className="text-[12px] font-normal opacity-70">meV</span></div>
+                        <div className="text-[10px] text-[#00B050] font-medium mt-0.5">Best Achieved</div>
+                      </div>
+                    </>
+                  ) : <div className="text-slate-400 text-sm text-center py-4">No data</div>}
+                </div>
+
+                {/* Recommendations */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-[#4C3BDE]" />
+                    <h2 className="text-[12px] font-black text-slate-700">7. Recommendations</h2>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400 mb-2">Percentage Range for Next Search</p>
+                  {suggestions.length > 0 ? (
+                    <>
+                      <div className="space-y-1.5">
+                        {[
+                          { label: 'GTE (°C)', val: fmt(suggestions[0].GTE_celsius, 0), range: '900 – 1000' },
+                          { label: 'GTI (min)', val: fmt(suggestions[0].GTI_minutes, 0), range: '15 – 25' },
+                          { label: 'FRA (sccm)', val: fmt(suggestions[0].FRA_sccm, 1), range: '30 – 50' },
+                          { label: 'Pressure (Torr)', val: fmt(suggestions[0].Pressure_Torr, 2), range: '200 – 350' },
+                        ].map(({ label, val, range }) => (
+                          <div key={label} className="flex items-center justify-between text-[10px]">
+                            <span className="text-slate-500">{label}</span>
+                            <span className="font-bold text-slate-700">{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 bg-[#F4F0FF] rounded-lg p-2 text-center">
+                        <div className="text-[9px] font-bold text-[#4C3BDE] mb-0.5">Estimated Improvement</div>
+                        <div className="text-[13px] font-black text-[#4C3BDE]">18 – 20 meV</div>
+                      </div>
+                    </>
+                  ) : <div className="text-slate-400 text-sm text-center py-3">No suggestions</div>}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Footer ── */}
+            <div className="text-center text-[10px] text-slate-400 pb-2">
+              Quantum Materials AI · Bayesian Optimization Report · Generated {generatedOn} · Confidential
+            </div>
+          </div>
         </div>
       </div>
 
@@ -596,7 +639,6 @@ const FullReport = () => {
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; }
-          .bg-\\[\\#F5F6FA\\] { background: white !important; }
         }
       `}</style>
     </div>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
-import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download, ChevronDown, Bell, FileText, FileSpreadsheet } from 'lucide-react';
+import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download, ChevronDown, Bell, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Optimization = () => {
@@ -14,6 +14,7 @@ const Optimization = () => {
   const [boStarted, setBoStarted] = useState(false);
   const [error, setError] = useState(null);
   const [showReportDropdown, setShowReportDropdown] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   
   const [fwhmResult, setFwhmResult] = useState('');
   const predictedFwhm = suggestions.length > 0 ? Number(suggestions[0].predicted_FWHM_meV) : NaN;
@@ -26,6 +27,25 @@ const Optimization = () => {
   
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  // ── Download PDF without leaving the page ──────────────────────────────
+  const downloadReportAsPdf = () => {
+    if (pdfLoading) return;
+    setPdfLoading(true);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1200px;height:800px;border:none;';
+    iframe.src = '/reports/full?autoprint=true';
+    iframe.onload = () => {
+      // The iframe page will auto-trigger window.print() via its ?autoprint=true param
+      // Give charts time to render before print fires
+      setTimeout(() => {
+        setPdfLoading(false);
+        // Remove iframe after a delay (after print dialog closes)
+        setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 30000);
+      }, 2000);
+    };
+    document.body.appendChild(iframe);
+  };
 
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
@@ -355,34 +375,40 @@ const Optimization = () => {
           <p className="text-slate-500">Bayesian Optimization engine tracking FWHM minimization.</p>
         </div>
         <div className="flex items-center gap-3 relative z-50">
-          <button 
-            onClick={() => navigate('/reports/full')}
+
+          {/* View Full Report — opens in new tab, route unchanged */}
+          <button
+            onClick={() => window.open('/reports/full', '_blank')}
             className="flex items-center gap-2 px-4 py-2 bg-white text-[#7C4DFF] font-semibold rounded-lg border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-sm"
           >
-            <Download className="w-4 h-4" /> Export
+            <FileText className="w-4 h-4" /> View Report
           </button>
-          
+
+          {/* Download Report — PDF via hidden iframe, stays on this page */}
           <div className="relative">
             <div className="flex items-center bg-[#7C4DFF] hover:bg-[#6C63FF] rounded-lg shadow-sm shadow-purple-200 transition-colors">
               <button
-                onClick={() => window.open('/reports/full?autoprint=true', '_blank')}
-                className="flex items-center gap-2 px-4 py-2 text-white font-semibold text-sm rounded-l-lg"
+                onClick={downloadReportAsPdf}
+                disabled={pdfLoading}
+                className="flex items-center gap-2 px-4 py-2 text-white font-semibold text-sm rounded-l-lg disabled:opacity-70"
               >
-                <Download className="w-4 h-4" /> Download Report
+                {pdfLoading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparing PDF…</>
+                  : <><Download className="w-4 h-4" /> Download Report</>}
               </button>
               <div className="w-px h-5 bg-white/20"></div>
-              <button 
+              <button
                 onClick={() => setShowReportDropdown(!showReportDropdown)}
                 className="px-2 py-2 text-white hover:bg-white/10 rounded-r-lg transition-colors"
               >
                 <ChevronDown className="w-4 h-4" />
               </button>
             </div>
-            
+
             {showReportDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-100 p-2 z-50">
-                <button 
-                  onClick={() => { setShowReportDropdown(false); window.open('/reports/full?autoprint=true', '_blank'); }}
+                <button
+                  onClick={() => { setShowReportDropdown(false); downloadReportAsPdf(); }}
                   className="w-full flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg transition-colors text-left group"
                 >
                   <div className="bg-purple-50 p-2 rounded-lg group-hover:bg-purple-100 transition-colors">
@@ -393,7 +419,7 @@ const Optimization = () => {
                     <div className="text-xs text-slate-500">Complete report with graphs & tables</div>
                   </div>
                 </button>
-                <button 
+                <button
                   onClick={async () => {
                     setShowReportDropdown(false);
                     try {
@@ -422,9 +448,7 @@ const Optimization = () => {
 
           <button className="relative p-2.5 bg-white rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-slate-500 ml-1">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white -mt-1 -mr-1">
-              3
-            </span>
+            <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white -mt-1 -mr-1">3</span>
           </button>
         </div>
       </div>
