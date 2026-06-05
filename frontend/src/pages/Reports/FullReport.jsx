@@ -54,8 +54,26 @@ function buildProgressData(timeline) {
 }
 
 function buildGpData(plotData) {
-  if (!plotData?.x?.length || !plotData?.mu?.length || !plotData?.sigma?.length) return [];
-  return plotData.x.map((x, index) => {
+  if (!plotData) {
+    console.warn('buildGpData: plotData is null/undefined');
+    return [];
+  }
+  
+  if (!plotData?.x?.length) {
+    console.warn('buildGpData: plotData.x is empty or missing', plotData);
+    return [];
+  }
+  
+  if (!plotData?.mu?.length || !plotData?.sigma?.length) {
+    console.warn('buildGpData: plotData.mu or sigma missing', {
+      xLen: plotData.x?.length,
+      muLen: plotData.mu?.length,
+      sigmaLen: plotData.sigma?.length,
+    });
+    return [];
+  }
+
+  const result = plotData.x.map((x, index) => {
     const mean = asNumber(plotData.mu[index]);
     const sigma = asNumber(plotData.sigma[index]);
     if (mean == null || sigma == null) return null;
@@ -67,6 +85,9 @@ function buildGpData(plotData) {
       ciRange: 3.92 * sigma,
     };
   }).filter(Boolean);
+
+  console.log('buildGpData result:', result.length, 'points');
+  return result;
 }
 
 function buildTrainingPoints(plotData) {
@@ -239,13 +260,37 @@ const FullReport = () => {
     const predictionMap = buildPredictionMap(modelInfo);
     const topParameter = importance[0]?.name || 'the dominant process parameter';
     const progressData = buildProgressData(timeline);
-    const gpData = buildGpData(plotData);
-    const trainingPoints = buildTrainingPoints(plotData);
-    const searchEi = buildSearchEi(plotData);
-    const recommendationPoint = suggestion ? {
-      x: trainingPoints.length,
+    
+    // Build GP data with training points and recommendation merged in
+    let baseGpData = buildGpData(plotData);
+    const trainingPts = buildTrainingPoints(plotData);
+    const recPoint = suggestion ? {
+      x: trainingPts.length + 0.5,
       y: asNumber(suggestion.predicted_FWHM_meV),
     } : null;
+    
+    // Create lookup maps for efficient merge
+    const trainingMap = new Map(trainingPts.map(pt => [pt.x, pt.y]));
+    const gpData = baseGpData.map(pt => ({
+      ...pt,
+      trainY: trainingMap.get(pt.x) || null,
+      recY: recPoint && Math.abs(pt.x - recPoint.x) < 0.5 ? recPoint.y : null,
+    }));
+    
+    // Add recommendation point if exists
+    if (recPoint) {
+      gpData.push({
+        x: recPoint.x,
+        mean: recPoint.y,
+        ciBase: recPoint.y,
+        ciRange: 0,
+        trainY: null,
+        recY: recPoint.y,
+      });
+    }
+    
+    const searchEi = buildSearchEi(plotData);
+    
     const expectedImprovement = bestRow && suggestion
       ? Math.max(0, bestRow.fwhmValue - Number(suggestion.predicted_FWHM_meV || bestRow.fwhmValue))
       : null;
@@ -260,22 +305,12 @@ const FullReport = () => {
       topParameter,
       progressData,
       gpData,
-      trainingPoints,
+      trainingPoints: trainingPts,
       searchEi,
       predictionMap,
-      recommendationPoint,
       expectedImprovement,
     };
   }, [timeline, suggestions, modelInfo, plotData]);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f5f7]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#3d2fb5] border-t-transparent" />
-        <p className="text-sm font-medium text-slate-500">Preparing technical report...</p>
-      </div>
-    );
-  }
 
   const {
     boRows,
@@ -288,7 +323,6 @@ const FullReport = () => {
     trainingPoints,
     searchEi,
     predictionMap,
-    recommendationPoint,
     expectedImprovement,
   } = derived;
 
@@ -404,10 +438,8 @@ const FullReport = () => {
                 <Area dataKey="ciBase" stackId="ci" stroke="transparent" fill="transparent" legendType="none" />
                 <Area name="95% confidence interval" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#c7c2ff" fillOpacity={0.58} />
                 <Line name="GP mean prediction" dataKey="mean" stroke="#3d2fb5" strokeWidth={2.8} dot={false} />
-                <Scatter name="Training data points" data={trainingPoints} dataKey="y" fill="#111827" />
-                {recommendationPoint?.y != null && (
-                  <Scatter name="BO recommendation" data={[recommendationPoint]} dataKey="y" fill="#dc2626" shape="star" />
-                )}
+                <Scatter name="Training data points" dataKey="trainY" fill="#111827" />
+                <Scatter name="BO recommendation" dataKey="recY" fill="#dc2626" shape="star" />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
