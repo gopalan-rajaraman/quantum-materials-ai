@@ -113,6 +113,14 @@ function computeImportance(modelInfo) {
   ];
 }
 
+function buildPredictionMap(modelInfo) {
+  const rows = modelInfo?.prediction_data || [];
+  return rows.reduce((map, row) => {
+    map.set(Number(row.iteration), row);
+    return map;
+  }, new Map());
+}
+
 function confidenceFromUncertainty(sigma) {
   const value = asNumber(sigma);
   if (value == null) return 'Not available';
@@ -193,9 +201,10 @@ const FullReport = () => {
   }, [loading, autoPrint, handlePrint]);
 
   const exportCsv = useCallback(() => {
+    const predictionMap = buildPredictionMap(modelInfo);
     const csvRows = [
-      ['Experiment ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'FWHM (meV)'],
-      ...timeline.map((row) => [
+      ['Experiment ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Actual FWHM (meV)', 'Predicted FWHM (meV)'],
+      ...timeline.map((row, index) => [
         row.experiment_id,
         row.type,
         row.gte,
@@ -203,6 +212,7 @@ const FullReport = () => {
         row.fra,
         row.pressure,
         row.fwhm,
+        predictionMap.get(index + 1)?.predicted ?? '',
       ]),
     ];
     const csv = csvRows.map((row) => row.join(',')).join('\n');
@@ -213,7 +223,7 @@ const FullReport = () => {
     a.download = 'thermal_cvd_report_data.csv';
     a.click();
     URL.revokeObjectURL(url);
-  }, [timeline]);
+  }, [timeline, modelInfo]);
 
   const derived = useMemo(() => {
     const initialRows = timeline.filter((row) => row.type === 'Initial');
@@ -226,6 +236,7 @@ const FullReport = () => {
     ), null);
     const suggestion = suggestions[0] || null;
     const importance = computeImportance(modelInfo);
+    const predictionMap = buildPredictionMap(modelInfo);
     const topParameter = importance[0]?.name || 'the dominant process parameter';
     const progressData = buildProgressData(timeline);
     const gpData = buildGpData(plotData);
@@ -251,6 +262,7 @@ const FullReport = () => {
       gpData,
       trainingPoints,
       searchEi,
+      predictionMap,
       recommendationPoint,
       expectedImprovement,
     };
@@ -275,6 +287,7 @@ const FullReport = () => {
     gpData,
     trainingPoints,
     searchEi,
+    predictionMap,
     recommendationPoint,
     expectedImprovement,
   } = derived;
@@ -523,13 +536,15 @@ const FullReport = () => {
                 <th>GTI (min)</th>
                 <th>FRA (sccm)</th>
                 <th>Pressure (Torr)</th>
-                <th>FWHM (meV)</th>
+                <th>Actual FWHM (meV)</th>
+                <th>Predicted FWHM (meV)</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {timeline.map((row) => {
                 const isBest = bestRow && row.experiment_id === bestRow.experiment_id;
+                const prediction = predictionMap.get(Number(row.step || timeline.indexOf(row) + 1)) || predictionMap.get(timeline.indexOf(row) + 1);
                 return (
                   <tr key={row.experiment_id} className={isBest ? 'best-history-row' : ''}>
                     <td>{row.experiment_id}</td>
@@ -539,6 +554,7 @@ const FullReport = () => {
                     <td>{fmt(row.fra, 1)}</td>
                     <td>{fmt(row.pressure, 2)}</td>
                     <td>{fmt(row.fwhm, 1)}</td>
+                    <td>{fmt(prediction?.predicted, 1)}</td>
                     <td>{isBest ? 'Best observed' : row.type === 'Initial' ? 'Training sample' : 'BO result'}</td>
                   </tr>
                 );

@@ -235,13 +235,15 @@ def get_model_info():
         if opt.gp_model.gp is not None:
             try:
                 mu, sigma = opt.gp_model.predict(opt.X_train, return_std=True)
-                for idx in range(min(20, len(opt.y_train))):
+                mu_mev = opt.scaler_y.inverse_transform(mu.reshape(-1, 1)).ravel()
+                sigma_mev = sigma * opt.scaler_y.scale_[0]
+                for idx in range(len(opt.y_train)):
                     prediction_data.append({
                         "iteration": idx + 1,
                         "observed": round(float(opt.y_train[idx]), 1),
-                        "predicted": round(float(mu[idx]), 1),
-                        "lower": round(float(mu[idx] - 1.96 * sigma[idx]), 1),
-                        "upper": round(float(mu[idx] + 1.96 * sigma[idx]), 1)
+                        "predicted": round(float(max(mu_mev[idx], 0.0)), 1),
+                        "lower": round(float(max(mu_mev[idx] - 1.96 * sigma_mev[idx], 0.0)), 1),
+                        "upper": round(float(max(mu_mev[idx] + 1.96 * sigma_mev[idx], 0.0)), 1)
                     })
             except Exception:
                 pass
