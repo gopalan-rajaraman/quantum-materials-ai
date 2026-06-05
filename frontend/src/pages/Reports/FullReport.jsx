@@ -480,20 +480,64 @@ const FullReport = () => {
 
           <div className="narrative-block roomy">
             <p>
-              The best experiment likely performed well because its parameter combination produced a favorable balance
-              between precursor transport, residence time, and growth kinetics. The measured FWHM indicates that this
-              condition produced comparatively narrow emission, which is consistent with improved material uniformity and
-              reduced defect-related broadening.
+              This result was achieved at <strong>{fmt(bestRow?.pressure, 2)} Torr</strong> pressure and <strong>{fmt(bestRow?.gte, 0)}°C</strong> growth temperature. The model identifies <strong>{topParameter}</strong> as the dominant variable explaining FWHM variation. The best experiment's performance suggests an optimum in this region of parameter space.
             </p>
             <p>
-              Because <strong>{topParameter}</strong> is the leading contributor in the model analysis, the best recipe
-              should be treated as a local anchor for the next experiment design. Follow-up experiments should perturb the
-              most influential parameter in controlled increments while keeping the remaining variables close to the best
-              observed condition unless the EI recommendation indicates otherwise.
+              Since <strong>{topParameter}</strong> is the most influential parameter, the next search should prioritize careful control of this variable while exploring nearby conditions. The observed FWHM of <strong>{fmt(bestRow?.fwhmValue, 1)} meV</strong> serves as the baseline for measuring improvement. Any new condition must exceed this value to constitute genuine progress in the optimization campaign.
             </p>
           </div>
 
-          <SectionHeading number="5" title="Next Search Recommendations" />
+          <SectionHeading number="5" title="Next Bayesian Optimization Recommendation" />
+          
+          <div className="bo-recommendation-card">
+            <div className="bo-card-header">
+              <h4>Recommended Next Experiment</h4>
+              <span className={`confidence-badge confidence-${(confidenceFromUncertainty(suggestion?.uncertainty_meV) || 'Unknown').toLowerCase()}`}>
+                {confidenceFromUncertainty(suggestion?.uncertainty_meV)} Confidence
+              </span>
+            </div>
+            
+            <div className="bo-card-grid">
+              <div className="bo-param">
+                <span>Growth Temperature</span>
+                <strong>{fmt(suggestion?.GTE_celsius, 0)}°C</strong>
+              </div>
+              <div className="bo-param">
+                <span>Growth Time</span>
+                <strong>{fmt(suggestion?.GTI_minutes, 1)} min</strong>
+              </div>
+              <div className="bo-param">
+                <span>Ar Flow Rate</span>
+                <strong>{fmt(suggestion?.FRA_sccm, 1)} sccm</strong>
+              </div>
+              <div className="bo-param">
+                <span>Pressure</span>
+                <strong>{fmt(suggestion?.Pressure_Torr, 2)} Torr</strong>
+              </div>
+            </div>
+            
+            <div className="bo-card-metrics">
+              <div className="bo-metric">
+                <label>Predicted FWHM</label>
+                <value>{fmt(suggestion?.predicted_FWHM_meV, 1)} meV</value>
+              </div>
+              <div className="bo-metric">
+                <label>Uncertainty (±1.96σ)</label>
+                <value>±{fmt(suggestion?.uncertainty_meV, 1)} meV</value>
+              </div>
+              <div className="bo-metric">
+                <label>Expected Improvement</label>
+                <value>{fmt(expectedImprovement, 1)} meV</value>
+              </div>
+            </div>
+            
+            <p className="bo-card-notes">
+              This recommendation maximizes Expected Improvement by balancing predicted performance and exploration of uncertain regions. 
+              The confidence level reflects model certainty at this point. Implement this experiment to advance the optimization.
+            </p>
+          </div>
+
+          <h3>Detailed Parameter Ranges</h3>
           <table className="recommendation-table">
             <thead>
               <tr>
@@ -503,22 +547,12 @@ const FullReport = () => {
               </tr>
             </thead>
             <tbody>
-              <tr><td>Growth temperature</td><td>{rangeAround(suggestion?.GTE_celsius, 30, 0)} C</td><td>{fmt(suggestion?.GTE_celsius, 0)} C</td></tr>
+              <tr><td>Growth temperature</td><td>{rangeAround(suggestion?.GTE_celsius, 30, 0)} °C</td><td>{fmt(suggestion?.GTE_celsius, 0)} °C</td></tr>
               <tr><td>Growth time</td><td>{rangeAround(suggestion?.GTI_minutes, 5, 1)} min</td><td>{fmt(suggestion?.GTI_minutes, 1)} min</td></tr>
               <tr><td>Ar flow</td><td>{rangeAround(suggestion?.FRA_sccm, 25, 1)} sccm</td><td>{fmt(suggestion?.FRA_sccm, 1)} sccm</td></tr>
               <tr><td>Pressure</td><td>{rangeAround(suggestion?.Pressure_Torr, 40, 2)} Torr</td><td>{fmt(suggestion?.Pressure_Torr, 2)} Torr</td></tr>
             </tbody>
           </table>
-
-          <div className="recommendation-summary">
-            <p><strong>Expected improvement:</strong> {expectedImprovement == null ? '-' : `${fmt(expectedImprovement, 1)} meV relative to the current best observation`}</p>
-            <p><strong>Confidence level:</strong> {confidenceFromUncertainty(suggestion?.uncertainty_meV)}</p>
-            <p>
-              The recommended region should be interpreted as an experimental planning window, not a guaranteed optimum.
-              A moderate or exploratory confidence level means the GP is intentionally testing a less certain region in
-              exchange for a higher Expected Improvement score.
-            </p>
-          </div>
         </section>
 
         <section className="report-sheet history-sheet">
@@ -591,7 +625,7 @@ const FullReport = () => {
 
         .report-sheet {
           width: 210mm;
-          min-height: 297mm;
+          min-height: auto;
           margin: 0 auto 28px;
           padding: 18mm;
           background: #fff;
@@ -617,7 +651,7 @@ const FullReport = () => {
         }
 
         h1 {
-          margin: 30px 0 12px;
+          margin: 20px 0 10px;
           color: #151827;
           font-size: 34px;
           line-height: 1.15;
@@ -627,14 +661,14 @@ const FullReport = () => {
 
         .lead {
           max-width: 640px;
-          margin: 0 0 30px;
+          margin: 0 0 22px;
           color: #4b5563;
           font-size: 14px;
           line-height: 1.65;
         }
 
         .section-heading {
-          margin: 26px 0 16px;
+          margin: 18px 0 12px;
           border-bottom: 2px solid #30259a;
           padding-bottom: 8px;
         }
@@ -668,7 +702,7 @@ const FullReport = () => {
         }
 
         h3 {
-          margin: 22px 0 10px;
+          margin: 16px 0 8px;
           color: #151827;
           font-size: 15px;
           font-weight: 800;
@@ -678,6 +712,7 @@ const FullReport = () => {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           border: 1px solid #d8dbe5;
+          margin-bottom: 18px;
         }
 
         .finding-grid div {
@@ -708,14 +743,15 @@ const FullReport = () => {
         }
 
         .narrative-block {
-          margin-top: 20px;
+          margin-top: 16px;
+          margin-bottom: 16px;
           column-count: 3;
           column-gap: 22px;
         }
 
         .narrative-block.roomy {
           column-count: 2;
-          margin-bottom: 34px;
+          margin-bottom: 20px;
         }
 
         .narrative-block p,
@@ -729,25 +765,25 @@ const FullReport = () => {
         }
 
         .chart-large {
-          height: 310px;
-          border: 1px solid #d8dbe5;
-          padding: 10px 12px 4px;
-        }
-
-        .chart-hero {
-          height: 390px;
+          height: 340px;
           border: 1px solid #d8dbe5;
           padding: 12px;
         }
 
-        .chart-medium {
-          height: 210px;
+        .chart-hero {
+          height: 420px;
           border: 1px solid #d8dbe5;
-          padding: 8px 10px 2px;
+          padding: 14px;
+        }
+
+        .chart-medium {
+          height: 260px;
+          border: 1px solid #d8dbe5;
+          padding: 10px 12px 4px;
         }
 
         .interpretation {
-          margin-top: 14px;
+          margin-top: 10px;
           border-left: 3px solid #30259a;
           padding-left: 14px;
         }
@@ -755,17 +791,17 @@ const FullReport = () => {
         .two-column-text {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 24px;
-          margin: 16px 0 18px;
+          gap: 16px;
+          margin: 12px 0 14px;
         }
 
         .hero-analysis {
           display: grid;
           grid-template-columns: 1fr 1.2fr;
-          gap: 28px;
+          gap: 20px;
           border: 1px solid #d8dbe5;
-          padding: 28px;
-          margin-bottom: 24px;
+          padding: 22px;
+          margin-bottom: 20px;
         }
 
         .hero-analysis span {
@@ -823,7 +859,7 @@ const FullReport = () => {
         .history-table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 16px;
+          margin-top: 12px;
         }
 
         .recommendation-table th,
@@ -852,8 +888,120 @@ const FullReport = () => {
           padding-top: 18px;
         }
 
+        .bo-recommendation-card {
+          border: 2px solid #30259a;
+          border-radius: 8px;
+          padding: 24px;
+          background: #f9f8ff;
+          margin-bottom: 28px;
+        }
+
+        .bo-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+          padding-bottom: 14px;
+          border-bottom: 1px solid #d8dbe5;
+        }
+
+        .bo-card-header h4 {
+          margin: 0;
+          color: #30259a;
+          font-size: 16px;
+          font-weight: 900;
+        }
+
+        .confidence-badge {
+          display: inline-block;
+          padding: 6px 12px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+
+        .confidence-badge.confidence-high {
+          background: #d1fae5;
+          color: #065f46;
+        }
+
+        .confidence-badge.confidence-moderate {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        .confidence-badge.confidence-exploratory {
+          background: #fecaca;
+          color: #7f1d1d;
+        }
+
+        .bo-card-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 20px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .bo-param {
+          text-align: center;
+        }
+
+        .bo-param span {
+          display: block;
+          color: #5b6475;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .bo-param strong {
+          display: block;
+          color: #30259a;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .bo-card-metrics {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+          margin-bottom: 16px;
+        }
+
+        .bo-metric {
+          text-align: center;
+        }
+
+        .bo-metric label {
+          display: block;
+          color: #5b6475;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .bo-metric value {
+          display: block;
+          color: #dc2626;
+          font-size: 22px;
+          font-weight: 900;
+        }
+
+        .bo-card-notes {
+          color: #4b5563;
+          font-size: 12px;
+          line-height: 1.6;
+          margin: 0;
+          font-style: italic;
+        }
+
         .history-sheet {
-          min-height: 297mm;
+          min-height: auto;
         }
 
         .history-table {
