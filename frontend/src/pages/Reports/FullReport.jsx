@@ -381,50 +381,59 @@ const FullReport = () => {
           </div>
         </div>
 
-        {/* ── Row 2: Results Table + Parity + Variable Impact ── */}
-        <div className="grid grid-cols-3 gap-6">
-
-          {/* Panel 4 – Experiment Results Table */}
-          <div className="col-span-1 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm overflow-hidden">
+        {/* ── Full-width Experiment Results Table ── */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
             <SectionTitle icon={FileText} title="Experiment Results" />
-            <div className="overflow-y-auto max-h-[320px] rounded-xl border border-slate-100">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-slate-50 z-10">
-                  <tr>
-                    {['Exp', 'GTE', 'FWHM', 'Status'].map(h => (
-                      <th key={h} className="py-2 px-2 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-100">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {enrichedTimeline.map((row, i) => (
-                    <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50 transition-colors ${row.status === 'best' ? 'bg-[#E8FFF3]/50' : ''}`}>
-                      <td className="py-2 px-2 text-[11px] font-bold text-slate-700">{row.experiment_id}</td>
-                      <td className="py-2 px-2 text-[11px] text-slate-600">{fmt(row.gte, 0)}°C</td>
-                      <td className="py-2 px-2 text-[11px] font-bold text-[#4C3BDE]">{fmt(row.fwhm, 1)}</td>
-                      <td className="py-2 px-2">
-                        {row.status === 'best' ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-[#00B050]"><Star className="w-3 h-3 fill-[#00B050]" />Best</span>
-                        ) : row.status === 'initial' ? (
-                          <span className="text-[10px] font-bold text-slate-400">Init</span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500"><CheckCircle2 className="w-3 h-3 text-emerald-400" />Done</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {enrichedTimeline.length === 0 && (
-                    <tr><td colSpan={4} className="py-8 text-center text-slate-400 text-[12px]">No experiments yet</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <span className="text-[12px] text-slate-400 font-medium">{enrichedTimeline.length} experiments total</span>
           </div>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 rounded-xl">
+                {['Exp ID', 'Type', 'GTE (°C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'FWHM (meV)', 'Status'].map(h => (
+                  <th key={h} className="py-2.5 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 first:rounded-tl-xl last:rounded-tr-xl">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {enrichedTimeline.map((row, i) => (
+                <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50/70 transition-colors ${row.status === 'best' ? 'bg-[#E8FFF3]/40' : ''}`}>
+                  <td className="py-2.5 px-3 text-[12px] font-bold text-slate-800">{row.experiment_id}</td>
+                  <td className="py-2.5 px-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      row.type === 'Initial' ? 'bg-slate-100 text-slate-500' : 'bg-[#F4F0FF] text-[#4C3BDE]'
+                    }`}>{row.type === 'Initial' ? 'Init' : 'BO'}</span>
+                  </td>
+                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.gte, 0)}</td>
+                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.gti, 1)}</td>
+                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.fra, 1)}</td>
+                  <td className="py-2.5 px-3 text-[12px] text-slate-600">{fmt(row.pressure, 2)}</td>
+                  <td className="py-2.5 px-3 text-[12px] font-bold text-[#4C3BDE]">{fmt(row.fwhm, 1)}</td>
+                  <td className="py-2.5 px-3">
+                    {row.status === 'best' ? (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-[#00B050]"><Star className="w-3 h-3 fill-[#00B050]" />Best</span>
+                    ) : row.status === 'initial' ? (
+                      <span className="text-[11px] font-bold text-slate-400">Init</span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500"><CheckCircle2 className="w-3 h-3 text-emerald-400" />Done</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {enrichedTimeline.length === 0 && (
+                <tr><td colSpan={8} className="py-10 text-center text-slate-400 text-[13px]">No experiments yet</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Row 2: Parity + Variable Impact ── */}
+        <div className="grid grid-cols-2 gap-6">
 
           {/* Panel 5 – Prediction Accuracy */}
-          <div className="col-span-1 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
             <SectionTitle icon={TrendingUp} title="Prediction Accuracy" color="#0EA5E9" />
-            <div className="h-[180px]">
+            <div className="h-[200px]">
               {parityData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
@@ -448,7 +457,7 @@ const FullReport = () => {
                 <div className="flex h-full items-center justify-center text-slate-400 text-sm">No data</div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="grid grid-cols-4 gap-2 mt-3">
               <MetricPill label="R² Score" value={r2 != null ? `${(r2 * 100).toFixed(2)}%` : '—'} color="#4C3BDE" />
               <MetricPill label="MAE (meV)" value={mae != null ? fmt(mae, 3) : '—'} color="#00B050" />
               <MetricPill label="RMSE (meV)" value={rmse != null ? fmt(rmse, 3) : '—'} color="#0EA5E9" />
@@ -457,18 +466,18 @@ const FullReport = () => {
           </div>
 
           {/* Panel 6 – Variable Impact */}
-          <div className="col-span-1 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
             <SectionTitle icon={BarChart2} title="Variable Impact Analysis" color="#10B981" />
             {varImportance && varImportance.length > 0 ? (
               <>
-                <div className="h-[160px]">
+                <div className="h-[180px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={varImportance} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                       <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]} />
-                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: '#1e1b4b', fontWeight: 600 }} axisLine={false} tickLine={false} width={95} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: '#1e1b4b', fontWeight: 600 }} axisLine={false} tickLine={false} width={105} />
                       <Tooltip contentStyle={{ borderRadius: 8, border: 'none', fontSize: 12 }} formatter={(v) => [v + '%', 'Importance']} />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={18}>
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                         {varImportance.map((_, i) => <Cell key={i} fill={COLORS_BAR[i % COLORS_BAR.length]} />)}
                       </Bar>
                     </BarChart>
@@ -479,7 +488,7 @@ const FullReport = () => {
                     <div key={i} className="flex items-center justify-between text-[11px]">
                       <span className="font-semibold text-slate-600">{v.name}</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${v.value}%`, background: COLORS_BAR[i % COLORS_BAR.length] }} />
                         </div>
                         <span className="font-black text-slate-800 w-8 text-right">{v.value}%</span>
