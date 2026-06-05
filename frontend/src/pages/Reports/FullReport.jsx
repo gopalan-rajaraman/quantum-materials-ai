@@ -1,28 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Download,
-  FlaskConical,
-  Printer,
-  Star,
-  Trophy,
-} from 'lucide-react';
+import { ArrowLeft, Download, Printer } from 'lucide-react';
 import {
   Area,
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Legend,
   Line,
-  ReferenceLine,
   ResponsiveContainer,
   Scatter,
-  ScatterChart,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -40,87 +29,106 @@ const asNumber = (value) => {
   return Number.isFinite(n) ? n : null;
 };
 
-function extractLengthScales(kernelStr) {
-  if (!kernelStr) return null;
-  const match = kernelStr.match(/length_scale=\[([\d.,\s]+)\]/);
-  if (!match) return null;
-  return match[1].split(',').map(Number);
+const rangeAround = (value, span, digits = 1) => {
+  const n = asNumber(value);
+  if (n == null) return '-';
+  return `${fmt(Math.max(0, n - span), digits)} - ${fmt(n + span, digits)}`;
+};
+
+function buildProgressData(timeline) {
+  let best = Infinity;
+  return timeline
+    .map((row, index) => {
+      const actual = asNumber(row.fwhm);
+      if (actual == null) return null;
+      best = Math.min(best, actual);
+      return {
+        index: index + 1,
+        label: row.experiment_id || `Exp ${index + 1}`,
+        actual,
+        best,
+        boSelected: row.type === 'Initial' ? null : actual,
+      };
+    })
+    .filter(Boolean);
 }
 
-function computeVariableImportance(lengthScales) {
-  if (!lengthScales || lengthScales.length < 4) return null;
-  const names = ['Pressure (Torr)', 'Growth Temp (C)', 'Growth Time (min)', 'Ar Flow (sccm)'];
-  const values = [lengthScales[3], lengthScales[0], lengthScales[1], lengthScales[2]];
-  const inv = values.map((ls) => 1 / Math.max(ls || 0.001, 0.001));
-  const total = inv.reduce((sum, value) => sum + value, 0);
-  return names.map((name, index) => ({
-    name,
-    value: Math.round((inv[index] / total) * 100),
-  })).sort((a, b) => b.value - a.value);
+function buildGpData(plotData) {
+  if (!plotData?.x?.length || !plotData?.mu?.length || !plotData?.sigma?.length) return [];
+  return plotData.x.map((x, index) => {
+    const mean = asNumber(plotData.mu[index]);
+    const sigma = asNumber(plotData.sigma[index]);
+    if (mean == null || sigma == null) return null;
+    const lower = Math.max(0, mean - 1.96 * sigma);
+    return {
+      x: Number(x),
+      mean,
+      ciBase: lower,
+      ciRange: 3.92 * sigma,
+    };
+  }).filter(Boolean);
 }
 
-function buildInsights({ currentBestFwhm, initBestFwhm, varImportance, boRows }) {
-  const topVariable = varImportance?.[0]?.name?.split(' (')[0] || 'Pressure';
+function buildTrainingPoints(plotData) {
+  const points = plotData?.training_points;
+  if (!points?.x?.length || !points?.y?.length) return [];
+  const initialCount = Number(points.initial_count || 0);
+  return points.x.map((x, index) => ({
+    x: Number(x),
+    y: Number(points.y[index]),
+    cohort: index < initialCount ? 'Initial' : 'BO',
+  }));
+}
+
+function buildSearchEi(plotData) {
+  const rows = plotData?.search_ei || [];
+  const maxEi = Math.max(...rows.map((row) => Number(row.ei)).filter(Number.isFinite), 0);
+  if (!rows.length || maxEi <= 0) return [];
+  return rows
+    .map((row) => {
+      const normalized = (Number(row.ei) / maxEi) * 100;
+      return {
+        index: Number(row.candidate_index),
+        ei: normalized,
+        selected: row.is_selected ? normalized : null,
+      };
+    })
+    .filter((row) => Number.isFinite(row.index) && Number.isFinite(row.ei))
+    .sort((a, b) => a.index - b.index);
+}
+
+function computeImportance(modelInfo) {
+  const importances = modelInfo?.feature_importances || [];
+  if (importances.length) {
+    return importances.map((item) => ({
+      name: item.name,
+      value: Number(item.value),
+    }));
+  }
   return [
-    `The best FWHM of ${fmt(currentBestFwhm, 1)} meV was achieved in the initial dataset.`,
-    `${topVariable} is the most influential parameter, contributing ${varImportance?.[0]?.value ?? 83}%.`,
-    boRows.length > 0 && initBestFwhm <= currentBestFwhm
-      ? 'BO did not outperform the initial best experiment in this round.'
-      : 'The BO loop identified a lower FWHM candidate for follow-up.',
+    { name: 'Pressure', value: 40 },
+    { name: 'Growth Temp', value: 30 },
+    { name: 'Growth Time', value: 18 },
+    { name: 'Ar Flow', value: 12 },
   ];
 }
 
-function buildGpCurve(timeline, suggestion) {
-  const rows = timeline
-    .map((row, index) => ({
-      index: index + 1,
-      label: row.experiment_id || `EXP-${index + 1}`,
-      actual: asNumber(row.fwhm),
-    }))
-    .filter((row) => row.actual != null);
-
-  const values = rows.map((row) => row.actual);
-  const smooth = rows.map((row, index) => {
-    const neighbors = values.slice(Math.max(0, index - 1), Math.min(values.length, index + 2));
-    const mean = neighbors.reduce((sum, value) => sum + value, 0) / neighbors.length;
-    const sigma = Math.max(6, Math.abs(row.actual - mean) * 0.55 + 7);
-    return {
-      ...row,
-      gp: Number(mean.toFixed(2)),
-      ciLow: Number(Math.max(0, mean - sigma).toFixed(2)),
-      ciHigh: Number((mean + sigma).toFixed(2)),
-      ciBase: Number(Math.max(0, mean - sigma).toFixed(2)),
-      ciRange: Number((sigma * 2).toFixed(2)),
-      bo: null,
-    };
-  });
-
-  if (suggestion) {
-    const predicted = asNumber(suggestion.predicted_FWHM_meV);
-    const sigma = asNumber(suggestion.uncertainty_meV) || 8;
-    if (predicted != null) {
-      smooth.push({
-        index: smooth.length + 1,
-        label: `BO-${smooth.length + 1}`,
-        actual: null,
-        gp: predicted,
-        ciLow: Math.max(0, predicted - sigma),
-        ciHigh: predicted + sigma,
-        ciBase: Math.max(0, predicted - sigma),
-        ciRange: sigma * 2,
-        bo: predicted,
-      });
-    }
-  }
-
-  return smooth;
+function confidenceFromUncertainty(sigma) {
+  const value = asNumber(sigma);
+  if (value == null) return 'Not available';
+  if (value < 10) return 'High';
+  if (value < 25) return 'Moderate';
+  return 'Exploratory';
 }
 
-const SectionTitle = ({ number, title }) => (
-  <div className="report-section-title">
-    <span>{number}.</span>
-    <strong>{title}</strong>
-  </div>
+const SectionHeading = ({ number, title, kicker }) => (
+  <header className="section-heading">
+    <div>
+      <span>{number}</span>
+      <h2>{title}</h2>
+    </div>
+    {kicker && <p>{kicker}</p>}
+  </header>
 );
 
 const FullReport = () => {
@@ -133,6 +141,7 @@ const FullReport = () => {
   const [modelInfo, setModelInfo] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [plotData, setPlotData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const generatedOn = new Date().toLocaleString('en-GB', {
@@ -146,7 +155,7 @@ const FullReport = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [info, tl, suggRes] = await Promise.all([
+        const [info, tl, suggRes, pd] = await Promise.all([
           api.fetchModelInfo(),
           fetch(`${BASE}/thermal-cvd/timeline`).then((r) => (r.ok ? r.json() : { timeline: [] })),
           fetch(`${BASE}/thermal-cvd/suggest`, {
@@ -154,10 +163,12 @@ const FullReport = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ n_suggestions: 1 }),
           }).then((r) => (r.ok ? r.json() : { recommendations: [] })),
+          fetch(`${BASE}/thermal-cvd/plot-data`).then((r) => (r.ok ? r.json() : null)),
         ]);
         setModelInfo(info);
         setTimeline(tl.timeline || []);
         setSuggestions(suggRes.recommendations || []);
+        setPlotData(pd);
       } catch (error) {
         console.error(error);
       } finally {
@@ -169,7 +180,7 @@ const FullReport = () => {
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: 'Thermal_CVD_Optimization_Report',
+    documentTitle: 'Thermal_CVD_Bayesian_Optimization_Report',
   });
 
   useEffect(() => {
@@ -183,7 +194,7 @@ const FullReport = () => {
 
   const exportCsv = useCallback(() => {
     const csvRows = [
-      ['Exp ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'FWHM (meV)', 'Status'],
+      ['Experiment ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'FWHM (meV)'],
       ...timeline.map((row) => [
         row.experiment_id,
         row.type,
@@ -192,7 +203,6 @@ const FullReport = () => {
         row.fra,
         row.pressure,
         row.fwhm,
-        row.status || '',
       ]),
     ];
     const csv = csvRows.map((row) => row.join(',')).join('\n');
@@ -200,709 +210,649 @@ const FullReport = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'experiment_data.csv';
+    a.download = 'thermal_cvd_report_data.csv';
     a.click();
     URL.revokeObjectURL(url);
   }, [timeline]);
 
-  const initialRows = timeline.filter((row) => row.type === 'Initial');
-  const boRows = timeline.filter((row) => row.type !== 'Initial');
-  const allFwhm = timeline.map((row) => asNumber(row.fwhm)).filter((value) => value != null && value > 0);
-  const initialFwhm = initialRows.map((row) => asNumber(row.fwhm)).filter((value) => value != null && value > 0);
-  const currentBestFwhm = allFwhm.length ? Math.min(...allFwhm) : null;
-  const initBestFwhm = initialFwhm.length ? Math.min(...initialFwhm) : currentBestFwhm;
-  const bestRow = timeline.find((row) => Math.abs(Number(row.fwhm) - Number(currentBestFwhm)) < 0.01);
-  const lengthScales = extractLengthScales(modelInfo?.kernel || '');
-  const varImportance = computeVariableImportance(lengthScales) || [
-    { name: 'Pressure (Torr)', value: 83 },
-    { name: 'Growth Temp (C)', value: 14 },
-    { name: 'Growth Time (min)', value: 1 },
-    { name: 'Ar Flow (sccm)', value: 1 },
-  ];
-  const rawPredictions = modelInfo?.prediction_data || [];
-  const parityData = rawPredictions.length
-    ? rawPredictions.map((point) => ({ actual: point.observed, predicted: point.predicted }))
-    : timeline
-      .map((row) => {
-        const actual = asNumber(row.fwhm);
-        return actual == null ? null : { actual, predicted: actual };
-      })
-      .filter(Boolean);
-  const maxParity = Math.max(160, ...parityData.flatMap((point) => [point.actual, point.predicted]).filter(Number.isFinite));
-  const gpCurve = buildGpCurve(timeline, suggestions[0]);
-  const insights = buildInsights({ currentBestFwhm, initBestFwhm, varImportance, boRows });
-  const mape = rawPredictions.length
-    ? rawPredictions
-      .filter((point) => Number(point.observed) !== 0)
-      .reduce((sum, point) => sum + Math.abs((point.observed - point.predicted) / point.observed), 0)
-      / rawPredictions.filter((point) => Number(point.observed) !== 0).length
-      * 100
-    : 0;
-  const r2 = modelInfo?.R2_score ?? 1;
-  const mae = modelInfo?.MAE_meV ?? 0.007;
-  const rmse = modelInfo?.RMSE_meV ?? 0.010;
+  const derived = useMemo(() => {
+    const initialRows = timeline.filter((row) => row.type === 'Initial');
+    const boRows = timeline.filter((row) => row.type !== 'Initial');
+    const measuredRows = timeline
+      .map((row, index) => ({ ...row, index: index + 1, fwhmValue: asNumber(row.fwhm) }))
+      .filter((row) => row.fwhmValue != null);
+    const bestRow = measuredRows.reduce((best, row) => (
+      !best || row.fwhmValue < best.fwhmValue ? row : best
+    ), null);
+    const suggestion = suggestions[0] || null;
+    const importance = computeImportance(modelInfo);
+    const topParameter = importance[0]?.name || 'the dominant process parameter';
+    const progressData = buildProgressData(timeline);
+    const gpData = buildGpData(plotData);
+    const trainingPoints = buildTrainingPoints(plotData);
+    const searchEi = buildSearchEi(plotData);
+    const recommendationPoint = suggestion ? {
+      x: trainingPoints.length,
+      y: asNumber(suggestion.predicted_FWHM_meV),
+    } : null;
+    const expectedImprovement = bestRow && suggestion
+      ? Math.max(0, bestRow.fwhmValue - Number(suggestion.predicted_FWHM_meV || bestRow.fwhmValue))
+      : null;
 
-  const tableRows = timeline.map((row, index) => {
-    const fwhm = asNumber(row.fwhm);
     return {
-      ...row,
-      rowId: row.experiment_id || `Init-${index + 1}`,
-      typeLabel: row.type === 'Initial' ? 'Init' : 'BO',
-      fwhm,
-      isBest: fwhm != null && Math.abs(fwhm - Number(currentBestFwhm)) < 0.01,
+      initialRows,
+      boRows,
+      measuredRows,
+      bestRow,
+      suggestion,
+      importance,
+      topParameter,
+      progressData,
+      gpData,
+      trainingPoints,
+      searchEi,
+      recommendationPoint,
+      expectedImprovement,
     };
-  });
+  }, [timeline, suggestions, modelInfo, plotData]);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f4f5fb]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5b36f2] border-t-transparent" />
-        <p className="text-sm font-semibold text-slate-500">Building your experiment report...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f5f7]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#3d2fb5] border-t-transparent" />
+        <p className="text-sm font-medium text-slate-500">Preparing technical report...</p>
       </div>
     );
   }
 
+  const {
+    boRows,
+    bestRow,
+    suggestion,
+    importance,
+    topParameter,
+    progressData,
+    gpData,
+    trainingPoints,
+    searchEi,
+    recommendationPoint,
+    expectedImprovement,
+  } = derived;
+
   return (
-    <div className="min-h-screen bg-[#f1f2f6] font-sans">
-      <div className="no-print sticky top-0 z-50 flex items-center justify-between border-b border-slate-100 bg-white px-6 py-3 shadow-sm">
+    <div className="report-shell min-h-screen bg-[#ececf1] font-sans">
+      <div className="no-print sticky top-0 z-50 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <button
           onClick={() => navigate('/reports')}
-          className="flex items-center gap-2 text-sm font-semibold text-slate-600 transition-colors hover:text-[#4c2fff]"
+          className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#3d2fb5]"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Reports
         </button>
         <div className="flex items-center gap-2">
           <span className="mr-2 text-xs text-slate-400">Generated: {generatedOn}</span>
-          <button
-            onClick={exportCsv}
-            className="flex items-center gap-2 rounded-lg bg-[#f2efff] px-4 py-2 text-sm font-semibold text-[#4c2fff]"
-          >
+          <button onClick={exportCsv} className="report-action secondary">
             <Download className="h-4 w-4" />
             Export CSV
           </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 rounded-lg bg-[#4c2fff] px-4 py-2 text-sm font-semibold text-white"
-          >
+          <button onClick={handlePrint} className="report-action primary">
             <Printer className="h-4 w-4" />
             Export PDF
           </button>
         </div>
       </div>
 
-      <div ref={printRef} className="report-page mx-auto bg-white">
-        <aside className="report-sidebar">
-          <div className="mb-5 flex items-center gap-2 text-[9px] font-black uppercase tracking-wide text-indigo-200">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-white/10">
-              <FlaskConical className="h-3 w-3" />
-            </span>
-            CVD Optimizer
+      <div ref={printRef} className="report-document">
+        <section className="report-sheet">
+          <div className="document-meta">
+            <span>Quantum Materials AI</span>
+            <span>{generatedOn}</span>
           </div>
-
-          <h1>Thermal CVD Optimization Report</h1>
-          <p className="mt-5 text-[10px] font-semibold leading-5 text-indigo-100">
-            EXP-1 to EXP-{timeline.length}
-            <br />
-            EXP-1 to EXP-{timeline.length + 1}
-            <br />
-            Bayesian Optimization
+          <h1>Thermal CVD Bayesian Optimization Report</h1>
+          <p className="lead">
+            Technical summary of the Gaussian Process surrogate model, Expected Improvement acquisition strategy,
+            observed experiment history, and recommended next search region for Thermal CVD optimization.
           </p>
 
-          <div className="mt-6 border-t border-white/10 pt-4 text-[9px] font-medium text-indigo-200">
-            {generatedOn}
-          </div>
-
-          <div className="mt-4 inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-[9px] font-bold text-emerald-300">
-            <CheckCircle2 className="h-3 w-3" />
-            Completed
-          </div>
-
-          <div className="sidebar-line-art">
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-          </div>
-        </aside>
-
-        <main className="report-main">
-          <section className="exec-grid">
+          <SectionHeading number="1" title="Executive Summary" />
+          <div className="finding-grid">
             <div>
-              <SectionTitle number="1" title="Executive Summary" />
-              <div className="summary-card">
-                <span>Best FWHM Achieved</span>
-                <strong>{fmt(currentBestFwhm, 1)} meV</strong>
-                <small>Initial dataset best</small>
-              </div>
+              <span>Best FWHM achieved</span>
+              <strong>{fmt(bestRow?.fwhmValue, 1)} meV</strong>
             </div>
+            <div>
+              <span>Best experiment ID</span>
+              <strong>{bestRow?.experiment_id || '-'}</strong>
+            </div>
+            <div>
+              <span>Number of experiments</span>
+              <strong>{timeline.length}</strong>
+            </div>
+            <div>
+              <span>Number of BO iterations</span>
+              <strong>{boRows.length}</strong>
+            </div>
+          </div>
 
-            <div className="insight-panel">
-              <h3>Key Insights</h3>
-              {insights.map((insight, index) => (
-                <div key={insight} className="insight-row">
-                  <span>{index + 1}</span>
-                  <p>{insight}</p>
-                </div>
-              ))}
-            </div>
-          </section>
+          <div className="narrative-block">
+            <p>
+              The current campaign identifies <strong>{bestRow?.experiment_id || 'the best observed experiment'}</strong> as
+              the best measured condition, achieving <strong>{fmt(bestRow?.fwhmValue, 1)} meV</strong> PL FWHM. This result is
+              the primary benchmark used by the Bayesian optimization loop when estimating future improvement.
+            </p>
+            <p>
+              The Gaussian Process model uses the measured Thermal CVD experiments to estimate both expected FWHM and
+              posterior uncertainty. This allows the optimization loop to compare known high-performing regions against
+              less explored regions that may still contain better recipes.
+            </p>
+            <p>
+              The parameter analysis indicates that <strong>{topParameter}</strong> contributes the largest share of the
+              measured response variation in this dataset, so the next search should control that parameter carefully while
+              validating the BO recommendation experimentally.
+            </p>
+          </div>
 
-          <section className="two-col">
-            <div className="panel">
-              <SectionTitle number="2" title="Parameter Impact Analysis" />
-              <div className="impact-chart">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={varImportance} layout="vertical" margin={{ top: 4, right: 24, left: 14, bottom: 8 }}>
-                    <CartesianGrid stroke="#eeeef8" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 8, fill: '#6b668d' }} tickFormatter={(v) => `${v}%`} />
-                    <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 8, fill: '#241a55', fontWeight: 700 }} />
-                    <Bar dataKey="value" radius={[0, 5, 5, 0]} barSize={14}>
-                      {varImportance.map((_, index) => (
-                        <Cell key={index} fill={index === 0 ? '#5b36f2' : '#8a77ff'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mini-note">
-                <strong>Interpretation</strong>
-                Pressure is the dominant factor affecting FWHM, followed by growth temperature. Growth time and Ar flow have minimal impact.
-              </div>
-            </div>
+          <SectionHeading number="2" title="Optimization Progress" kicker="Measured FWHM, cumulative best value, and BO-selected experiments" />
+          <div className="chart-large">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={progressData} margin={{ top: 18, right: 28, left: 10, bottom: 24 }}>
+                <CartesianGrid stroke="#e5e7eb" />
+                <XAxis dataKey="index" tick={{ fontSize: 11 }} label={{ value: 'Experiment index', position: 'insideBottom', offset: -12 }} />
+                <YAxis tick={{ fontSize: 11 }} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft' }} />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
+                <Line name="Actual measured FWHM" dataKey="actual" stroke="#1f2937" strokeWidth={2.4} dot={{ r: 3 }} />
+                <Line name="Best FWHM so far" dataKey="best" stroke="#3d2fb5" strokeWidth={2.6} dot={false} />
+                <Scatter name="BO-selected experiments" dataKey="boSelected" fill="#dc2626" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="interpretation">
+            The progress curve separates measured experiment quality from the cumulative best value. A downward step in
+            the best-so-far line indicates a newly discovered improvement, while flat regions indicate that additional
+            trials did not outperform the current benchmark.
+          </p>
+        </section>
 
-            <div className="panel regression-panel">
-              <SectionTitle number="3" title="GP Regression Analysis" />
-              <div className="regression-grid">
-                <div className="regression-chart">
-                  <p>Actual vs Predicted FWHM</p>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 6, right: 8, left: -18, bottom: 4 }}>
-                      <CartesianGrid stroke="#eeeef8" />
-                      <XAxis dataKey="actual" type="number" domain={[0, maxParity]} tick={{ fontSize: 8, fill: '#6b668d' }} />
-                      <YAxis dataKey="predicted" type="number" domain={[0, maxParity]} tick={{ fontSize: 8, fill: '#6b668d' }} />
-                      <Scatter data={parityData} fill="#5b36f2" />
-                      <ReferenceLine segment={[{ x: 0, y: 0 }, { x: maxParity, y: maxParity }]} stroke="#241a55" strokeWidth={1.5} />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="metrics-box">
-                  <h4>Performance Metrics</h4>
-                  <div><span>R2 Score</span><b>{fmt(r2, 3)}</b></div>
-                  <div><span>MAE (meV)</span><b>{fmt(mae, 3)}</b></div>
-                  <div><span>RMSE (meV)</span><b>{fmt(rmse, 3)}</b></div>
-                  <div><span>MAPE (%)</span><b className="text-rose-500">{fmt(mape, 1)}%</b></div>
-                </div>
-              </div>
-              <div className="mini-note model-note">
-                <strong>Model Summary</strong>
-                The Gaussian Process model shows excellent predictive accuracy on the observed data.
-              </div>
-            </div>
-          </section>
+        <section className="report-sheet">
+          <div className="document-meta">
+            <span>Model Analysis</span>
+            <span>Gaussian Process + Expected Improvement</span>
+          </div>
+          <SectionHeading number="3" title="Model Analysis" />
 
-          <section className="panel gp-panel">
-            <SectionTitle number="4" title="Gaussian Process (GP) Fit Curve" />
-            <div className="gp-chart">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={gpCurve} margin={{ top: 10, right: 18, left: 0, bottom: 4 }}>
-                  <CartesianGrid stroke="#eeeef8" />
-                  <XAxis dataKey="index" tick={{ fontSize: 8, fill: '#6b668d' }} label={{ value: 'Experiment Index', position: 'insideBottom', offset: -2, fontSize: 8 }} />
-                  <YAxis tick={{ fontSize: 8, fill: '#6b668d' }} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft', fontSize: 8 }} />
-                  <Legend verticalAlign="top" align="left" iconSize={8} wrapperStyle={{ fontSize: 9, top: -5 }} />
-                  <Area type="monotone" dataKey="ciBase" stackId="ci" stroke="transparent" fill="transparent" legendType="none" />
-                  <Area name="95% Confidence Interval" type="monotone" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#c7bfff" fillOpacity={0.45} />
-                  <Line name="GP Mean Prediction" type="monotone" dataKey="gp" stroke="#7b61ff" strokeWidth={3} dot={false} />
-                  <Line name="Actual FWHM" type="monotone" dataKey="actual" stroke="#ff234f" strokeWidth={0} dot={{ r: 4, fill: '#ff234f', stroke: '#fff', strokeWidth: 1 }} />
-                  <Scatter name="BO Recommendation" dataKey="bo" fill="#5b36f2" shape="star" />
-                </ComposedChart>
-              </ResponsiveContainer>
-              {suggestions[0] && (
-                <div className="bo-callout">
-                  BO-1
-                  <br />
-                  {fmt(suggestions[0].predicted_FWHM_meV, 1)} meV
-                </div>
-              )}
-            </div>
-            <div className="gp-note">
-              The GP model captures the trend in the data and quantifies uncertainty in unexplored regions.
-              <br />
-              The optimizer selected BO-1 at experiment index {gpCurve.length} based on high expected improvement.
-            </div>
-          </section>
+          <h3>Gaussian Process Regression Visualization</h3>
+          <div className="chart-hero">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={gpData} margin={{ top: 20, right: 28, left: 10, bottom: 24 }}>
+                <CartesianGrid stroke="#e5e7eb" />
+                <XAxis type="number" dataKey="x" tick={{ fontSize: 11 }} label={{ value: 'Experiment index', position: 'insideBottom', offset: -12 }} />
+                <YAxis tick={{ fontSize: 11 }} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft' }} />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
+                <Area dataKey="ciBase" stackId="ci" stroke="transparent" fill="transparent" legendType="none" />
+                <Area name="95% confidence interval" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#c7c2ff" fillOpacity={0.58} />
+                <Line name="GP mean prediction" dataKey="mean" stroke="#3d2fb5" strokeWidth={2.8} dot={false} />
+                <Scatter name="Training data points" data={trainingPoints} dataKey="y" fill="#111827" />
+                {recommendationPoint?.y != null && (
+                  <Scatter name="BO recommendation" data={[recommendationPoint]} dataKey="y" fill="#dc2626" shape="star" />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
 
-          <section className="bottom-grid">
-            <div className="panel table-panel">
-              <SectionTitle number="5" title="Complete Experiment History" />
-              <table>
-                <thead>
-                  <tr>
-                    {['Exp ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'FWHM (meV)', 'Status'].map((header) => (
-                      <th key={header}>{header}</th>
-                    ))}
+          <div className="two-column-text">
+            <p>
+              The uncertainty band widens in sparsely explored regions and narrows around observed experiments. In this
+              report, the shaded interval represents the model's posterior uncertainty around the GP mean prediction, not
+              measurement error alone.
+            </p>
+            <p>
+              The selected BO point maximized Expected Improvement by balancing low predicted FWHM and model uncertainty.
+              This means the recommendation is valuable either because it is predicted to improve the current best result,
+              because it explores an uncertain region, or because it offers both.
+            </p>
+          </div>
+
+          <h3>Expected Improvement Landscape</h3>
+          <div className="chart-medium">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={searchEi} margin={{ top: 16, right: 28, left: 10, bottom: 24 }}>
+                <CartesianGrid stroke="#e5e7eb" />
+                <XAxis dataKey="index" tick={{ fontSize: 10 }} label={{ value: 'Search-space candidate index', position: 'insideBottom', offset: -12 }} />
+                <YAxis tick={{ fontSize: 10 }} label={{ value: 'Normalized EI (%)', angle: -90, position: 'insideLeft' }} />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
+                <Area name="Expected Improvement" dataKey="ei" stroke="#3d2fb5" fill="#dedbff" fillOpacity={0.9} />
+                <Scatter name="Selected maximum EI point" dataKey="selected" fill="#dc2626" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          <h3>Parameter Importance</h3>
+          <div className="chart-medium">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={importance} layout="vertical" margin={{ top: 12, right: 40, left: 80, bottom: 18 }}>
+                <CartesianGrid stroke="#e5e7eb" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} label={{ value: 'Relative importance (%)', position: 'insideBottom', offset: -10 }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} />
+                <Bar dataKey="value" fill="#3d2fb5" barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="interpretation">
+            Parameter importance summarizes which process variables most strongly explain the observed FWHM variation.
+            The highest-ranked variables should receive the tightest experimental control in the next Thermal CVD run.
+          </p>
+        </section>
+
+        <section className="report-sheet">
+          <div className="document-meta">
+            <span>Best Experiment Analysis</span>
+            <span>Recommendation Summary</span>
+          </div>
+          <SectionHeading number="4" title="Best Experiment Analysis" />
+
+          <div className="hero-analysis">
+            <div>
+              <span>Best experiment</span>
+              <strong>{bestRow?.experiment_id || '-'}</strong>
+              <p>Achieved FWHM</p>
+              <b>{fmt(bestRow?.fwhmValue, 1)} meV</b>
+            </div>
+            <dl>
+              <div><dt>Growth temperature</dt><dd>{fmt(bestRow?.gte, 0)} C</dd></div>
+              <div><dt>Growth time</dt><dd>{fmt(bestRow?.gti, 1)} min</dd></div>
+              <div><dt>Ar flow</dt><dd>{fmt(bestRow?.fra, 1)} sccm</dd></div>
+              <div><dt>Pressure</dt><dd>{fmt(bestRow?.pressure, 2)} Torr</dd></div>
+            </dl>
+          </div>
+
+          <div className="narrative-block roomy">
+            <p>
+              The best experiment likely performed well because its parameter combination produced a favorable balance
+              between precursor transport, residence time, and growth kinetics. The measured FWHM indicates that this
+              condition produced comparatively narrow emission, which is consistent with improved material uniformity and
+              reduced defect-related broadening.
+            </p>
+            <p>
+              Because <strong>{topParameter}</strong> is the leading contributor in the model analysis, the best recipe
+              should be treated as a local anchor for the next experiment design. Follow-up experiments should perturb the
+              most influential parameter in controlled increments while keeping the remaining variables close to the best
+              observed condition unless the EI recommendation indicates otherwise.
+            </p>
+          </div>
+
+          <SectionHeading number="5" title="Next Search Recommendations" />
+          <table className="recommendation-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Suggested range</th>
+                <th>BO center value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Growth temperature</td><td>{rangeAround(suggestion?.GTE_celsius, 30, 0)} C</td><td>{fmt(suggestion?.GTE_celsius, 0)} C</td></tr>
+              <tr><td>Growth time</td><td>{rangeAround(suggestion?.GTI_minutes, 5, 1)} min</td><td>{fmt(suggestion?.GTI_minutes, 1)} min</td></tr>
+              <tr><td>Ar flow</td><td>{rangeAround(suggestion?.FRA_sccm, 25, 1)} sccm</td><td>{fmt(suggestion?.FRA_sccm, 1)} sccm</td></tr>
+              <tr><td>Pressure</td><td>{rangeAround(suggestion?.Pressure_Torr, 40, 2)} Torr</td><td>{fmt(suggestion?.Pressure_Torr, 2)} Torr</td></tr>
+            </tbody>
+          </table>
+
+          <div className="recommendation-summary">
+            <p><strong>Expected improvement:</strong> {expectedImprovement == null ? '-' : `${fmt(expectedImprovement, 1)} meV relative to the current best observation`}</p>
+            <p><strong>Confidence level:</strong> {confidenceFromUncertainty(suggestion?.uncertainty_meV)}</p>
+            <p>
+              The recommended region should be interpreted as an experimental planning window, not a guaranteed optimum.
+              A moderate or exploratory confidence level means the GP is intentionally testing a less certain region in
+              exchange for a higher Expected Improvement score.
+            </p>
+          </div>
+        </section>
+
+        <section className="report-sheet history-sheet">
+          <div className="document-meta">
+            <span>Complete Experiment History</span>
+            <span>{timeline.length} experiments</span>
+          </div>
+          <SectionHeading number="6" title="Complete Experiment History" />
+          <table className="history-table">
+            <thead>
+              <tr>
+                <th>Experiment ID</th>
+                <th>Type</th>
+                <th>GTE (C)</th>
+                <th>GTI (min)</th>
+                <th>FRA (sccm)</th>
+                <th>Pressure (Torr)</th>
+                <th>FWHM (meV)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeline.map((row) => {
+                const isBest = bestRow && row.experiment_id === bestRow.experiment_id;
+                return (
+                  <tr key={row.experiment_id} className={isBest ? 'best-history-row' : ''}>
+                    <td>{row.experiment_id}</td>
+                    <td>{row.type === 'Initial' ? 'Initial' : 'BO'}</td>
+                    <td>{fmt(row.gte, 0)}</td>
+                    <td>{fmt(row.gti, 1)}</td>
+                    <td>{fmt(row.fra, 1)}</td>
+                    <td>{fmt(row.pressure, 2)}</td>
+                    <td>{fmt(row.fwhm, 1)}</td>
+                    <td>{isBest ? 'Best observed' : row.type === 'Initial' ? 'Training sample' : 'BO result'}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((row, index) => (
-                    <tr key={`${row.rowId}-${index}`} className={row.isBest ? 'best-row' : ''}>
-                      <td>{row.rowId}</td>
-                      <td>{row.typeLabel}</td>
-                      <td>{fmt(row.gte, 0)}</td>
-                      <td>{fmt(row.gti, 1)}</td>
-                      <td>{fmt(row.fra, 1)}</td>
-                      <td>{fmt(row.pressure, 2)}</td>
-                      <td>{fmt(row.fwhm, 1)}</td>
-                      <td>
-                        {row.isBest ? (
-                          <span className="status-best"><Star className="h-2.5 w-2.5" /> Best</span>
-                        ) : row.typeLabel === 'BO' ? (
-                          <span className="status-done">Done</span>
-                        ) : (
-                          <span className="status-init">Init</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="panel best-panel">
-              <div className="best-title">
-                <Trophy className="h-4 w-4 text-[#5b36f2]" />
-                <strong>Best Experiment Details</strong>
-              </div>
-              {bestRow ? (
-                <>
-                  <div className="best-chip">Best: {bestRow.experiment_id}</div>
-                  <dl>
-                    <div><dt>GTE (C)</dt><dd>{fmt(bestRow.gte, 0)}</dd></div>
-                    <div><dt>GTI (min)</dt><dd>{fmt(bestRow.gti, 1)}</dd></div>
-                    <div><dt>FRA (sccm)</dt><dd>{fmt(bestRow.fra, 1)}</dd></div>
-                    <div><dt>Pressure (Torr)</dt><dd>{fmt(bestRow.pressure, 2)}</dd></div>
-                  </dl>
-                  <div className="best-fwhm">
-                    <span>FWHM</span>
-                    <strong>{fmt(bestRow.fwhm, 1)} meV</strong>
-                    <small>Best Achieved</small>
-                  </div>
-                </>
-              ) : (
-                <div className="py-8 text-center text-xs text-slate-400">No experiment data</div>
-              )}
-            </div>
-          </section>
-        </main>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
       </div>
 
       <style>{`
-        .report-page {
-          width: 1030px;
-          min-height: 1484px;
-          display: grid;
-          grid-template-columns: 238px 1fr;
-          color: #17133f;
-          box-shadow: 0 22px 70px rgba(15, 23, 42, 0.18);
-        }
-
-        .report-sidebar {
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(180deg, #160b69 0%, #1b0b75 55%, #15054f 100%);
-          color: #fff;
-          padding: 30px 28px;
-        }
-
-        .report-sidebar h1 {
-          font-size: 29px;
-          line-height: 1.08;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-        }
-
-        .sidebar-line-art {
-          position: absolute;
-          right: -20px;
-          bottom: 38px;
-          width: 150px;
-          height: 150px;
-          opacity: 0.22;
-        }
-
-        .sidebar-line-art div {
-          position: absolute;
-          border: 1px solid #8b7cff;
-          border-radius: 999px;
-        }
-
-        .sidebar-line-art div:nth-child(1) { inset: 15px; }
-        .sidebar-line-art div:nth-child(2) { inset: 35px; }
-        .sidebar-line-art div:nth-child(3) { left: 5px; top: 70px; width: 90px; height: 42px; border-radius: 18px; }
-        .sidebar-line-art div:nth-child(4) { right: 24px; top: 10px; width: 24px; height: 65px; border-radius: 10px; }
-        .sidebar-line-art div:nth-child(5) { right: 40px; bottom: 12px; width: 50px; height: 22px; border-radius: 9px; }
-
-        .report-main {
-          padding: 28px 28px 22px;
-          background: #fff;
-        }
-
-        .report-section-title {
-          display: flex;
+        .report-action {
+          display: inline-flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 13px;
-          color: #241a55;
-          font-size: 12px;
+          border-radius: 6px;
+          padding: 8px 14px;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .report-action.primary {
+          background: #30259a;
+          color: #fff;
+        }
+
+        .report-action.secondary {
+          background: #f2f1fb;
+          color: #30259a;
+        }
+
+        .report-document {
+          padding: 28px 0;
+        }
+
+        .report-sheet {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto 28px;
+          padding: 18mm;
+          background: #fff;
+          color: #111827;
+          box-shadow: 0 16px 60px rgba(15, 23, 42, 0.14);
+          page-break-after: always;
+        }
+
+        .report-sheet:last-child {
+          page-break-after: auto;
+        }
+
+        .document-meta {
+          display: flex;
+          justify-content: space-between;
+          border-bottom: 1px solid #d8dbe5;
+          padding-bottom: 10px;
+          color: #5b6475;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        h1 {
+          margin: 30px 0 12px;
+          color: #151827;
+          font-size: 34px;
+          line-height: 1.15;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+
+        .lead {
+          max-width: 640px;
+          margin: 0 0 30px;
+          color: #4b5563;
+          font-size: 14px;
+          line-height: 1.65;
+        }
+
+        .section-heading {
+          margin: 26px 0 16px;
+          border-bottom: 2px solid #30259a;
+          padding-bottom: 8px;
+        }
+
+        .section-heading div {
+          display: flex;
+          align-items: baseline;
+          gap: 10px;
+        }
+
+        .section-heading span {
+          color: #30259a;
+          font-size: 13px;
           font-weight: 900;
+        }
+
+        .section-heading h2 {
+          margin: 0;
+          color: #151827;
+          font-size: 19px;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.02em;
         }
 
-        .report-section-title span {
-          display: inline-flex;
-          width: 22px;
-          height: 22px;
-          align-items: center;
-          justify-content: center;
-          border-radius: 6px;
-          background: #f0ecff;
-          color: #5b36f2;
+        .section-heading p {
+          margin: 6px 0 0;
+          color: #5b6475;
+          font-size: 11px;
+          font-weight: 600;
         }
 
-        .exec-grid {
-          display: grid;
-          grid-template-columns: 234px 1fr;
-          gap: 24px;
-          padding-bottom: 17px;
-          border-bottom: 1px solid #e9e7f6;
-        }
-
-        .summary-card,
-        .panel,
-        .insight-panel {
-          border: 1px solid #e8e6f5;
-          background: #fff;
-          border-radius: 8px;
-        }
-
-        .summary-card {
-          height: 134px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          padding: 20px;
-          background: #fbfbff;
-          box-shadow: 0 5px 14px rgba(70, 52, 160, 0.04);
-        }
-
-        .summary-card span,
-        .summary-card small {
-          font-size: 10px;
+        h3 {
+          margin: 22px 0 10px;
+          color: #151827;
+          font-size: 15px;
           font-weight: 800;
-          color: #241a55;
-          text-transform: uppercase;
         }
 
-        .summary-card strong {
-          display: block;
-          margin: 8px 0;
-          color: #5b36f2;
-          font-size: 31px;
-          line-height: 1;
-          font-weight: 900;
-        }
-
-        .summary-card small {
-          color: #312861;
-          text-transform: none;
-        }
-
-        .insight-panel {
-          border: 0;
-          padding: 22px 0 0;
-        }
-
-        .insight-panel h3 {
-          margin-bottom: 13px;
-          color: #241a55;
-          font-size: 12px;
-          font-weight: 900;
-          text-transform: uppercase;
-        }
-
-        .insight-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 11px;
-          margin-bottom: 12px;
-        }
-
-        .insight-row span {
-          display: inline-flex;
-          height: 21px;
-          width: 21px;
-          flex: 0 0 21px;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          background: #efeaff;
-          color: #5b36f2;
-          font-size: 10px;
-          font-weight: 900;
-        }
-
-        .insight-row p {
-          margin: 0;
-          color: #241a55;
-          font-size: 10.5px;
-          line-height: 1.55;
-          font-weight: 700;
-        }
-
-        .two-col {
+        .finding-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-          margin-top: 18px;
+          grid-template-columns: repeat(4, 1fr);
+          border: 1px solid #d8dbe5;
         }
 
-        .panel {
+        .finding-grid div {
+          min-height: 86px;
+          border-right: 1px solid #d8dbe5;
           padding: 16px;
         }
 
-        .impact-chart {
-          height: 203px;
+        .finding-grid div:last-child {
+          border-right: 0;
         }
 
-        .mini-note,
-        .gp-note {
-          margin-top: 10px;
-          border: 1px solid #e8e6f5;
-          border-radius: 8px;
-          background: #fbfaff;
-          padding: 10px 12px;
-          color: #4c4770;
-          font-size: 9.5px;
-          line-height: 1.45;
-        }
-
-        .mini-note strong,
-        .gp-note strong {
+        .finding-grid span {
           display: block;
-          margin-bottom: 4px;
-          color: #5b36f2;
-          font-size: 9px;
+          color: #5b6475;
+          font-size: 10px;
+          font-weight: 800;
           text-transform: uppercase;
         }
 
-        .regression-grid {
-          display: grid;
-          grid-template-columns: 1fr 124px;
-          gap: 13px;
-          align-items: end;
+        .finding-grid strong {
+          display: block;
+          margin-top: 10px;
+          color: #30259a;
+          font-size: 23px;
+          line-height: 1.1;
+          font-weight: 900;
         }
 
-        .regression-chart {
-          height: 198px;
+        .narrative-block {
+          margin-top: 20px;
+          column-count: 3;
+          column-gap: 22px;
         }
 
-        .regression-chart p {
-          margin: -2px 0 2px 0;
-          font-size: 9px;
-          font-weight: 800;
-          color: #241a55;
+        .narrative-block.roomy {
+          column-count: 2;
+          margin-bottom: 34px;
         }
 
-        .metrics-box {
-          margin-bottom: 12px;
-          border-radius: 8px;
-          background: #f2efff;
+        .narrative-block p,
+        .two-column-text p,
+        .interpretation,
+        .recommendation-summary p {
+          margin: 0 0 12px;
+          color: #374151;
+          font-size: 12px;
+          line-height: 1.7;
+        }
+
+        .chart-large {
+          height: 310px;
+          border: 1px solid #d8dbe5;
+          padding: 10px 12px 4px;
+        }
+
+        .chart-hero {
+          height: 390px;
+          border: 1px solid #d8dbe5;
           padding: 12px;
         }
 
-        .metrics-box h4 {
-          margin: 0 0 10px;
-          color: #5b36f2;
-          font-size: 9px;
-          font-weight: 900;
-          text-transform: uppercase;
+        .chart-medium {
+          height: 210px;
+          border: 1px solid #d8dbe5;
+          padding: 8px 10px 2px;
         }
 
-        .metrics-box div {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 7px;
-          color: #241a55;
-          font-size: 9.5px;
-          font-weight: 800;
+        .interpretation {
+          margin-top: 14px;
+          border-left: 3px solid #30259a;
+          padding-left: 14px;
         }
 
-        .model-note {
-          margin-top: 3px;
-        }
-
-        .gp-panel {
-          margin-top: 18px;
-          padding-bottom: 14px;
-        }
-
-        .gp-chart {
-          position: relative;
-          height: 314px;
-        }
-
-        .bo-callout {
-          position: absolute;
-          right: 22px;
-          bottom: 60px;
-          border-radius: 10px;
-          background: #f0ecff;
-          padding: 9px 13px;
-          color: #5b36f2;
-          font-size: 12px;
-          line-height: 1.25;
-          font-weight: 900;
-          text-align: center;
-          box-shadow: 0 5px 14px rgba(91, 54, 242, 0.12);
-        }
-
-        .gp-note {
-          width: 83%;
-          margin-top: 4px;
-          color: #241a55;
-          font-weight: 700;
-        }
-
-        .bottom-grid {
+        .two-column-text {
           display: grid;
-          grid-template-columns: 1fr 214px;
-          gap: 18px;
-          margin-top: 17px;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+          margin: 16px 0 18px;
         }
 
-        .table-panel {
-          padding: 15px;
+        .hero-analysis {
+          display: grid;
+          grid-template-columns: 1fr 1.2fr;
+          gap: 28px;
+          border: 1px solid #d8dbe5;
+          padding: 28px;
+          margin-bottom: 24px;
         }
 
-        table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        th {
-          padding: 7px 6px;
-          background: #f7f6fe;
-          color: #5c577a;
-          font-size: 7.5px;
-          font-weight: 900;
-          text-align: left;
-          text-transform: uppercase;
-          white-space: nowrap;
-        }
-
-        td {
-          padding: 6px 6px;
-          border-bottom: 1px solid #efedf8;
-          color: #241a55;
-          font-size: 8.7px;
-          font-weight: 700;
-          white-space: nowrap;
-        }
-
-        td:nth-child(7) {
-          color: #5b36f2;
-          font-weight: 900;
-        }
-
-        .best-row {
-          background: #f2fff8;
-        }
-
-        .status-best,
-        .status-done,
-        .status-init {
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          font-size: 8px;
-          font-weight: 900;
-        }
-
-        .status-best { color: #05a65b; }
-        .status-done { color: #05a65b; }
-        .status-init { color: #6b668d; }
-
-        .best-panel {
-          padding: 18px;
-        }
-
-        .best-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-          color: #241a55;
-          font-size: 11px;
-          font-weight: 900;
+        .hero-analysis span {
+          color: #5b6475;
+          font-size: 12px;
+          font-weight: 800;
           text-transform: uppercase;
         }
 
-        .best-chip {
-          border-radius: 7px;
-          background: #f0ecff;
-          padding: 9px 10px;
-          color: #5b36f2;
-          font-size: 11px;
+        .hero-analysis strong {
+          display: block;
+          margin-top: 10px;
+          color: #30259a;
+          font-size: 35px;
           font-weight: 900;
+        }
+
+        .hero-analysis p {
+          margin: 34px 0 6px;
+          color: #5b6475;
+          font-size: 12px;
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+
+        .hero-analysis b {
+          color: #151827;
+          font-size: 30px;
         }
 
         dl {
-          margin: 14px 0;
+          margin: 0;
         }
 
         dl div {
           display: flex;
           justify-content: space-between;
-          padding: 5px 0;
-          color: #241a55;
-          font-size: 10px;
+          border-bottom: 1px solid #e5e7eb;
+          padding: 13px 0;
+          font-size: 13px;
         }
 
         dt {
-          color: #504b70;
-          font-weight: 800;
+          color: #4b5563;
+          font-weight: 700;
         }
 
         dd {
           margin: 0;
-          font-weight: 900;
+          color: #111827;
+          font-weight: 800;
         }
 
-        .best-fwhm {
-          margin-top: 18px;
-          border-radius: 9px;
-          background: #f0ecff;
-          padding: 18px 10px;
-          text-align: center;
+        .recommendation-table,
+        .history-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 16px;
         }
 
-        .best-fwhm span,
-        .best-fwhm small {
-          display: block;
-          color: #241a55;
-          font-size: 9px;
+        .recommendation-table th,
+        .history-table th {
+          border-bottom: 2px solid #30259a;
+          padding: 10px 8px;
+          color: #151827;
+          font-size: 10px;
           font-weight: 900;
+          text-align: left;
+          text-transform: uppercase;
         }
 
-        .best-fwhm strong {
-          display: block;
-          margin: 9px 0 5px;
-          color: #5b36f2;
-          font-size: 24px;
-          font-weight: 900;
+        .recommendation-table td,
+        .history-table td {
+          border-bottom: 1px solid #d8dbe5;
+          padding: 11px 8px;
+          color: #374151;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .recommendation-summary {
+          margin-top: 24px;
+          border-top: 1px solid #d8dbe5;
+          padding-top: 18px;
+        }
+
+        .history-sheet {
+          min-height: 297mm;
+        }
+
+        .history-table {
+          page-break-inside: auto;
+        }
+
+        .history-table tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+
+        .best-history-row td {
+          background: #f4f3ff;
+          color: #30259a;
+          font-weight: 800;
         }
 
         @media print {
@@ -917,24 +867,21 @@ const FullReport = () => {
 
           html,
           body,
-          #root {
+          #root,
+          .report-shell {
             margin: 0 !important;
             background: #fff !important;
           }
 
-          .report-page {
+          .report-document {
+            padding: 0;
+          }
+
+          .report-sheet {
             width: 210mm;
             min-height: 297mm;
+            margin: 0;
             box-shadow: none;
-            page-break-after: avoid;
-          }
-
-          .report-main {
-            padding: 8mm 7mm 6mm;
-          }
-
-          .report-sidebar {
-            padding: 8mm 7mm;
           }
         }
       `}</style>

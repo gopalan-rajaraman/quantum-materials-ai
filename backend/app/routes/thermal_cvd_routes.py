@@ -496,12 +496,55 @@ def get_plot_data(slice_mode: str = "suggestion"):
         fra_train = unscaled_X[:, var_map['FRA']].tolist()
         pressure_train = unscaled_X[:, var_map['Pressure']].tolist()
 
+        search_ei = []
+        if (
+            optimizer_instance.X_search is not None
+            and optimizer_instance.gp_model is not None
+            and optimizer_instance.gp_model.gp is not None
+            and optimizer_instance.y_train_scaled is not None
+        ):
+            y_best_scaled = optimizer_instance.y_train_scaled.min()
+            ei_search = optimizer_instance.bo_engine.expected_improvement(
+                optimizer_instance.X_search,
+                optimizer_instance.gp_model.gp,
+                y_best_scaled,
+                xi=optimizer_instance.bo_engine.xi,
+            )
+            mu_search_scaled, sigma_search_scaled = optimizer_instance.gp_model.predict(
+                optimizer_instance.X_search,
+                return_std=True,
+            )
+            mu_search = optimizer_instance.scaler_y.inverse_transform(
+                mu_search_scaled.reshape(-1, 1)
+            ).ravel()
+            sigma_search = sigma_search_scaled * optimizer_instance.scaler_y.scale_[0]
+
+            selected_idx = int(np.argmax(ei_search))
+            sample_indices = np.linspace(
+                0,
+                len(ei_search) - 1,
+                min(500, len(ei_search)),
+                dtype=int,
+            )
+            sample_indices = np.unique(np.append(sample_indices, selected_idx))
+            search_ei = [
+                {
+                    'candidate_index': int(idx),
+                    'ei': float(ei_search[idx]),
+                    'predicted_FWHM_meV': float(max(mu_search[idx], 0.0)),
+                    'uncertainty_meV': float(sigma_search[idx]),
+                    'is_selected': bool(idx == selected_idx),
+                }
+                for idx in sample_indices
+            ]
+
         return {
             'x': x_dense.flatten().tolist(),
             'mu': mu_pred.flatten().tolist(),
             'sigma': sigma_pred.flatten().tolist(),
             'ei': ei_vals.flatten().tolist(),
             'ei_history': [ei_vals.flatten().tolist()],
+            'search_ei': search_ei,
             'is_unstable_regime': False,
             'fixed_params': {
                 'GTI': 0, 'FRA': 0, 'Pressure': 0
