@@ -243,9 +243,62 @@ const FullReport = () => {
     load();
   }, []);
 
+  // Fix: before printing, force all ResponsiveContainer SVGs to explicit pixel
+  // dimensions so Recharts renders them in the PDF (not invisible 0×0).
+  const forcePrintDimensions = useCallback(() => {
+    if (!printRef.current) return;
+    const containers = printRef.current.querySelectorAll('.recharts-responsive-container');
+    containers.forEach((container) => {
+      const rect = container.getBoundingClientRect();
+      const w = rect.width || container.offsetWidth || 700;
+      const h = rect.height || container.offsetHeight || 400;
+      container.setAttribute('data-print-w', container.style.width);
+      container.setAttribute('data-print-h', container.style.height);
+      container.style.width = `${w}px`;
+      container.style.height = `${h}px`;
+      const svg = container.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('data-print-w', svg.getAttribute('width') || '');
+        svg.setAttribute('data-print-h', svg.getAttribute('height') || '');
+        svg.setAttribute('width', w);
+        svg.setAttribute('height', h);
+        svg.style.width = `${w}px`;
+        svg.style.height = `${h}px`;
+      }
+    });
+  }, []);
+
+  const restorePrintDimensions = useCallback(() => {
+    if (!printRef.current) return;
+    const containers = printRef.current.querySelectorAll('.recharts-responsive-container');
+    containers.forEach((container) => {
+      const origW = container.getAttribute('data-print-w');
+      const origH = container.getAttribute('data-print-h');
+      container.style.width = origW || '';
+      container.style.height = origH || '';
+      const svg = container.querySelector('svg');
+      if (svg) {
+        const origSvgW = svg.getAttribute('data-print-w');
+        const origSvgH = svg.getAttribute('data-print-h');
+        svg.setAttribute('width', origSvgW || '100%');
+        svg.setAttribute('height', origSvgH || '100%');
+        svg.style.width = '';
+        svg.style.height = '';
+      }
+    });
+  }, []);
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: 'Thermal_CVD_Bayesian_Optimization_Report',
+    onBeforePrint: async () => {
+      forcePrintDimensions();
+      // Small delay so layout reflows before print dialog
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    },
+    onAfterPrint: () => {
+      restorePrintDimensions();
+    },
   });
 
   useEffect(() => {
@@ -1759,6 +1812,63 @@ const FullReport = () => {
             min-height: 297mm;
             margin: 0;
             box-shadow: none;
+          }
+
+          /* Force chart containers to explicit sizes so SVG renders in PDF */
+          .chart-hero {
+            height: 380px !important;
+            min-height: 380px !important;
+            overflow: visible !important;
+          }
+
+          .chart-medium {
+            height: 240px !important;
+            min-height: 240px !important;
+            overflow: visible !important;
+          }
+
+          .chart-large {
+            height: 300px !important;
+            min-height: 300px !important;
+            overflow: visible !important;
+          }
+
+          /* Ensure Recharts SVG elements are fully visible */
+          .recharts-responsive-container {
+            overflow: visible !important;
+          }
+
+          .recharts-wrapper,
+          .recharts-wrapper svg {
+            overflow: visible !important;
+          }
+
+          /* Force SVG paths (curves, lines) to be visible */
+          .recharts-curve,
+          .recharts-line-curve,
+          .recharts-area-curve {
+            visibility: visible !important;
+            opacity: 1 !important;
+            stroke-opacity: 1 !important;
+            fill-opacity: 1 !important;
+          }
+
+          /* Force all SVG children visible */
+          .recharts-layer,
+          .recharts-layer * {
+            visibility: visible !important;
+          }
+
+          /* Ensure dashed surrogate line is printed */
+          .recharts-line path {
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+
+          /* Ensure confidence interval area fills */
+          .recharts-area path {
+            visibility: visible !important;
+            opacity: 1 !important;
           }
         }
       `}</style>
