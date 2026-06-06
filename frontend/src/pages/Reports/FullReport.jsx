@@ -166,7 +166,7 @@ const SectionHeading = ({ number, title, kicker }) => (
   </header>
 );
 
-const DiamondPoint = ({ cx, cy, fill = '#ef4444', stroke = '#991b1b', size = 7 }) => {
+const DiamondPoint = ({ cx, cy, fill = '#ef4444', stroke = '#991b1b', size = 5 }) => {
   if (cx == null || cy == null) return null;
   const points = `${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`;
   return <polygon points={points} fill={fill} stroke={stroke} strokeWidth={1.4} />;
@@ -1148,7 +1148,6 @@ const FullReport = () => {
                   />
                   <Area dataKey="ciBase" stackId="ci" stroke="transparent" fill="transparent" legendType="none" />
                   <Area name="95% confidence interval" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#F1C40F" fillOpacity={0.28} isAnimationActive={false} />
-                  <Line name="Surrogate model" dataKey="mean" stroke="#2C3E50" strokeWidth={2.2} strokeDasharray="8 8" dot={false} isAnimationActive={false} />
                   {nextSuggestionPoint?.x != null && (
                     <ReferenceLine x={nextSuggestionPoint.x} stroke="#7C4DFF" strokeDasharray="8 8" strokeOpacity={0.35} />
                   )}
@@ -1177,6 +1176,17 @@ const FullReport = () => {
                       isAnimationActive={false}
                     />
                   )}
+                  {/* Line MUST come last so SVG paints it on top of all scatter diamonds */}
+                  <Line
+                    name="Surrogate model"
+                    dataKey="mean"
+                    stroke="#1e1b4b"
+                    strokeWidth={3.5}
+                    strokeDasharray="10 5"
+                    dot={false}
+                    isAnimationActive={false}
+                    style={{ filter: 'drop-shadow(0 0 2px rgba(30,27,75,0.6))' }}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
