@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
-import { FlaskConical, Target, Save, Activity, Info, Star, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download, ChevronDown, Bell, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { FlaskConical, Target, Save, Info, Star, TrendingDown, Trophy, AlertTriangle, RefreshCw, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Optimization = () => {
@@ -13,8 +13,7 @@ const Optimization = () => {
   const [sliceMode, setSliceMode] = useState('suggestion'); // 'suggestion' or 'latest'
   const [boStarted, setBoStarted] = useState(false);
   const [error, setError] = useState(null);
-  const [showReportDropdown, setShowReportDropdown] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  
   
   const [fwhmResult, setFwhmResult] = useState('');
   const predictedFwhm = suggestions.length > 0 ? Number(suggestions[0].predicted_FWHM_meV) : NaN;
@@ -28,24 +27,7 @@ const Optimization = () => {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  // ── Download PDF without leaving the page ──────────────────────────────
-  const downloadReportAsPdf = () => {
-    if (pdfLoading) return;
-    setPdfLoading(true);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1200px;height:800px;border:none;';
-    iframe.src = '/reports/full?autoprint=true';
-    iframe.onload = () => {
-      // The iframe page will auto-trigger window.print() via its ?autoprint=true param
-      // Give charts time to render before print fires
-      setTimeout(() => {
-        setPdfLoading(false);
-        // Remove iframe after a delay (after print dialog closes)
-        setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 30000);
-      }, 2000);
-    };
-    document.body.appendChild(iframe);
-  };
+  // Download removed — direct report download moved to Report page
 
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
@@ -198,7 +180,7 @@ const Optimization = () => {
       {
         x: plotData.x.concat(plotData.x.slice().reverse()),
         y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()),
-        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.28)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
+        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.85)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
       },
       {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: '#2C3E50', width: 2, dash: 'dash'}, hoverinfo: 'skip'
@@ -237,27 +219,52 @@ const Optimization = () => {
 
     const startIndex = 0; // Show all steps
     
-    const eiColors = ['#00BCD4', '#0097A7', '#00ACC1', '#4DD0E1', '#80DEEA', '#B2EBF2', '#E0F7FA'];
+    const eiColors = ['#3d2fb5', '#00BCD4', '#0097A7', '#00ACC1', '#4DD0E1', '#80DEEA', '#B2EBF2'];
+    let normalizedLastCurve = null;
     eiTraces = visibleHistory.map((ei_curve, relativeIdx) => {
-      const actualStep = startIndex + relativeIdx + 1;
+      const numeric = (ei_curve || []).map(v => Number(v));
+      const valid = numeric.filter(Number.isFinite);
+      const maxVal = valid.length ? Math.max(...valid) : 0;
+      const yvals = maxVal > 0 ? numeric.map(v => Number.isFinite(v) ? (v / maxVal) * 100 : 0) : numeric.map(() => 0);
       const isCurrent = relativeIdx === visibleHistory.length - 1;
+      if (isCurrent) normalizedLastCurve = yvals;
       return {
-        x: plotData.x, y: ei_curve, type: 'scatter', mode: 'lines', name: 'Acquisition Function',
-        line: { color: isCurrent ? '#00BCD4' : eiColors[relativeIdx % eiColors.length], width: isCurrent ? 2 : 1, dash: 'solid' },
+        x: plotData.x,
+        y: yvals,
+        type: 'scatter',
+        mode: 'lines',
+        name: isCurrent ? 'Expected Improvement' : `Expected Improvement (${relativeIdx + 1})`,
+        line: { color: isCurrent ? eiColors[0] : eiColors[(relativeIdx + 1) % eiColors.length], width: isCurrent ? 2 : 1 },
+        fill: 'tozeroy',
+        fillcolor: isCurrent ? 'rgba(61,47,181,0.12)' : 'rgba(61,47,181,0.06)',
         showlegend: isCurrent
       };
     });
 
     if (visibleHistory.length > 0) {
+      const maxX = plotData.maxEITemp;
+      const maxIndex = plotData.x ? plotData.x.indexOf(maxX) : -1;
+      const markerY = (normalizedLastCurve && maxIndex >= 0) ? (normalizedLastCurve[maxIndex] || 100) : 100;
       eiTraces.push({
-        x: [plotData.maxEITemp],
-        y: [plotData.maxEIVal],
+        x: [maxX],
+        y: [markerY],
         type: 'scatter',
         mode: 'markers',
-        marker: { color: 'yellow', size: 12, symbol: 'diamond', line: {color: 'black', width: 1} },
-        name: 'Next Best Guess',
+        marker: { color: '#ef4444', size: 12, symbol: 'diamond', line: { color: '#7C4DFF', width: 1 } },
+        name: 'Selected maximum EI point',
         hoverinfo: 'skip'
       });
+    } else if (plotData && Array.isArray(plotData.search_ei) && plotData.search_ei.length) {
+      // Fallback: construct EI trace from search_ei if ei_history isn't provided
+      try {
+        const s = plotData.search_ei.map((r) => ({ idx: Number(r.candidate_index ?? r.index ?? 0), ei: Number(r.ei ?? 0) }));
+        const maxS = Math.max(...s.map(o => o.ei).filter(Number.isFinite));
+        const xs = s.map(o => o.idx);
+        const ys = s.map(o => Number.isFinite(o.ei) && maxS > 0 ? (o.ei / maxS) * 100 : 0);
+        eiTraces.push({ x: xs, y: ys, type: 'scatter', mode: 'lines', name: 'Expected Improvement', line: { color: eiColors[0], width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(61,47,181,0.12)' });
+      } catch (e) {
+        // ignore fallback errors
+      }
     }
   }
 
@@ -384,72 +391,6 @@ const Optimization = () => {
             <FileText className="w-4 h-4" /> View Report
           </button>
 
-          {/* Download Report — PDF via hidden iframe, stays on this page */}
-          <div className="relative">
-            <div className="flex items-center bg-[#7C4DFF] hover:bg-[#6C63FF] rounded-lg shadow-sm shadow-purple-200 transition-colors">
-              <button
-                onClick={downloadReportAsPdf}
-                disabled={pdfLoading}
-                className="flex items-center gap-2 px-4 py-2 text-white font-semibold text-sm rounded-l-lg disabled:opacity-70"
-              >
-                {pdfLoading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparing PDF…</>
-                  : <><Download className="w-4 h-4" /> Download Report</>}
-              </button>
-              <div className="w-px h-5 bg-white/20"></div>
-              <button
-                onClick={() => setShowReportDropdown(!showReportDropdown)}
-                className="px-2 py-2 text-white hover:bg-white/10 rounded-r-lg transition-colors"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </div>
-
-            {showReportDropdown && (
-              <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-100 p-2 z-50">
-                <button
-                  onClick={() => { setShowReportDropdown(false); downloadReportAsPdf(); }}
-                  className="w-full flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg transition-colors text-left group"
-                >
-                  <div className="bg-purple-50 p-2 rounded-lg group-hover:bg-purple-100 transition-colors">
-                    <FileText className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-800 text-sm">PDF Report</div>
-                    <div className="text-xs text-slate-500">Complete report with graphs & tables</div>
-                  </div>
-                </button>
-                <button
-                  onClick={async () => {
-                    setShowReportDropdown(false);
-                    try {
-                      const res = await fetch('http://localhost:8000/thermal-cvd/timeline');
-                      const data = await res.json();
-                      const rows = [['Exp ID','Type','GTE (°C)','GTI (min)','FRA (sccm)','Pressure (Torr)','FWHM (meV)'], ...data.timeline.map(r => [r.experiment_id, r.type, r.gte, r.gti, r.fra, r.pressure, r.fwhm])];
-                      const csv = rows.map(r => r.join(',')).join('\n');
-                      const blob = new Blob([csv], { type: 'text/csv' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a'); a.href = url; a.download = 'experiment_data.csv'; a.click();
-                    } catch(e) { alert('Failed to export CSV'); }
-                  }}
-                  className="w-full flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg transition-colors text-left group"
-                >
-                  <div className="bg-emerald-50 p-2 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                    <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-800 text-sm">CSV Data</div>
-                    <div className="text-xs text-slate-500">Raw experiment data</div>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button className="relative p-2.5 bg-white rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-slate-500 ml-1">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white -mt-1 -mr-1">3</span>
-          </button>
         </div>
       </div>
       
@@ -509,7 +450,7 @@ const Optimization = () => {
                <Plot
                  data={gpTraces}
                  layout={{
-                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
+                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                    xaxis: { 
                      title: 'Design Space Index (Sequential)', 
@@ -521,7 +462,7 @@ const Optimization = () => {
                      range: sharedXRange
                    },
                    yaxis: { title: 'Predicted FWHM (meV)', gridcolor: '#f1f5f9', color: '#64748b' },
-                   legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 },
+                   legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.08, yanchor: 'bottom', bgcolor: 'rgba(255, 255, 255, 0.9)', font: {color: '#334155'}, bordercolor: '#e2e8f0', borderwidth: 1 },
                    shapes: boStarted && plotData && plotData.maxEITemp ? [{
                     type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper',
                     line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' }
@@ -539,7 +480,7 @@ const Optimization = () => {
           
           <div className="space-y-5 flex-1 opacity-90">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-sm" style={{backgroundColor: 'rgba(241, 196, 15, 0.28)'}}></div>
+              <div className="w-4 h-4 rounded-sm" style={{backgroundColor: 'rgba(241, 196, 15, 0.85)'}}></div>
               <div className="text-sm"><span className="text-amber-600 font-bold">Soft Gold:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
             </div>
             <div className="flex items-center gap-3">
@@ -601,7 +542,7 @@ const Optimization = () => {
                <Plot
                  data={eiTraces}
                  layout={{
-                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 80},
+                   autosize: true, margin: {l: 50, r: 20, b: 40, t: 110},
                    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                    xaxis: { 
                      title: 'Design Space Index (Sequential)', 
@@ -613,10 +554,7 @@ const Optimization = () => {
                      range: sharedXRange
                    },
                    yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
-                   legend: { 
-                     orientation: 'h', 
-                     yanchor: 'bottom', y: 1.02, xanchor: 'right', x: 1
-                   },
+                   legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.08, yanchor: 'bottom' },
                    shapes: boStarted && plotData && plotData.maxEITemp ? [{
                     type: 'line',
                     x0: plotData.maxEITemp,
@@ -774,39 +712,7 @@ const Optimization = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Convergence Plot */}
-            <div>
-              <h4 className="font-bold text-slate-800 mb-2">Convergence Plot</h4>
-              <div className="h-[300px] w-full border border-slate-100 rounded-xl bg-slate-50/50 flex flex-col overflow-hidden">
-                {boData.length > 0 ? (
-                  <Plot
-                    data={[{
-                      x: convergenceSeries.map(d => d.iteration),
-                      y: convergenceSeries.map(d => d.bestFWHM),
-                      type: 'scatter',
-                      mode: 'lines+markers',
-                      line: { shape: 'hv', color: '#7C4DFF', width: 3 }, // Monotonic Step function
-                      marker: { size: 8, color: '#7C4DFF' },
-                      name: 'Best FWHM'
-                    }]}
-                    layout={{
-                      autosize: true, margin: {l: 50, r: 20, b: 40, t: 20},
-                      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                      xaxis: { title: 'BO Iteration (0 = Initial Dataset)', gridcolor: '#f1f5f9', tickmode: 'linear', dtick: 1 },
-                      yaxis: { title: 'Best FWHM (meV)', gridcolor: '#f1f5f9' },
-                      hovermode: 'x unified'
-                    }}
-                    useResizeHandler style={{width: '100%', height: '100%'}}
-                  />
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-75">
-                    <TrendingDown className="w-10 h-10 text-slate-300 mb-3" />
-                    <p className="text-slate-500 font-medium">No BO iterations completed yet.</p>
-                    <p className="text-sm text-slate-400 mt-1 max-w-xs">Convergence tracking will appear after the first suggested experiment is experimentally validated.</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Convergence Plot removed per user request */}
 
             {/* Data Tables */}
             <div className="flex flex-col h-[300px]">
@@ -826,7 +732,7 @@ const Optimization = () => {
                   </thead>
                   <tbody>
                     {boData.map((row) => (
-                      <tr key={row.experiment_id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                      <tr key={`experiment-${row.step}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-900">{row.step}</td>
                         <td className="px-4 py-3 text-slate-500">{row.gte}</td>
                         <td className="px-4 py-3 text-slate-500">{row.gti}</td>
@@ -864,9 +770,9 @@ const Optimization = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {initialData.map((row) => (
-                        <tr key={row.experiment_id} className="border-b border-slate-100">
-                          <td className="px-4 py-2 font-medium text-slate-700">{row.experiment_id}</td>
+                      {initialData.map((row, idx) => (
+                        <tr key={`experiment-${idx + 1}`} className="border-b border-slate-100">
+                          <td className="px-4 py-2 font-medium text-slate-700">{`Experiment-${idx + 1}`}</td>
                           <td className="px-4 py-2 text-slate-500">{row.gte}</td>
                           <td className="px-4 py-2 text-slate-500">{row.gti}</td>
                           <td className="px-4 py-2 text-slate-500">{row.fra}</td>

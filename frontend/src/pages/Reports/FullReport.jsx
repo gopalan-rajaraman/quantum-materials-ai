@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
+import Plot from 'react-plotly.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { ArrowLeft, Download, Printer, FileSpreadsheet } from 'lucide-react';
@@ -19,8 +20,6 @@ import {
 } from 'recharts';
 import ExcelJS from 'exceljs';
 import api from '../../services/api';
-
-const BASE = 'http://localhost:8000';
 
 const fmt = (value, digits = 1) => {
   const n = Number(value);
@@ -47,7 +46,7 @@ function buildProgressData(timeline) {
       best = Math.min(best, actual);
       return {
         index: index + 1,
-        label: row.experiment_id || `Exp ${index + 1}`,
+        label: `Experiment-${index + 1}`,
         actual,
         best,
         boSelected: row.type === 'Initial' ? null : actual,
@@ -106,22 +105,174 @@ function buildTrainingPoints(plotData) {
 
 function buildSearchEi(plotData) {
   const rows = plotData?.search_ei || [];
-  const maxEi = Math.max(...rows.map((row) => Number(row.ei)).filter(Number.isFinite), 0);
+  const eiValues = rows.map((row) => Number(row.ei)).filter(Number.isFinite);
+  const maxEi = eiValues.length ? Math.max(...eiValues) : 0;
   if (!rows.length || maxEi <= 0) {
     console.warn('buildSearchEi: no valid rows or maxEi=0', rows.length, maxEi);
     return [];
   }
   return rows
     .map((row) => {
-      const normalized = (Number(row.ei) / maxEi) * 100;
+      const eiRaw = Number(row.ei);
+      const normalized = Number.isFinite(eiRaw) ? (eiRaw / maxEi) * 100 : 0;
       return {
-        candidate_index: Number(row.candidate_index),
+        candidate_index: Number(row.candidate_index ?? row.index ?? NaN),
         ei: normalized,
         selected: row.is_selected ? normalized : null,
       };
     })
-    .filter((row) => Number.isFinite(row.index) && Number.isFinite(row.ei))
-    .sort((a, b) => a.index - b.index);
+    .filter((row) => Number.isFinite(row.candidate_index) && Number.isFinite(row.ei))
+    .sort((a, b) => a.candidate_index - b.candidate_index);
+}
+
+function buildReportPlotTraces(plotData, suggestions = []) {
+  if (!plotData) return { gpTraces: [], eiTraces: [], sharedTickVals: [], sharedTickText: [], sharedXRange: [0, 1] };
+
+  // Ensure max EI and related fields are present (same logic as Optimization page)
+  const visibleHistory = plotData.ei_history || [];
+  if (visibleHistory.length > 0) {
+    const currentCurve = visibleHistory[visibleHistory.length - 1];
+    const maxIdx = currentCurve.indexOf(Math.max(...currentCurve));
+    plotData.maxEITemp = plotData.x[maxIdx];
+    plotData.maxEIVal = currentCurve[maxIdx];
+    plotData.maxEIMu = plotData.mu[maxIdx];
+  }
+
+  // Shared X axis helpers (Exp 1..N ticks)
+  const sharedXMin = plotData && plotData.x ? Math.min(...plotData.x) : 0;
+  const sharedXMax = plotData && plotData.x ? Math.max(...plotData.x) : 0;
+  const sharedXRange = [sharedXMin - 0.5, sharedXMax + 0.5];
+  const sharedTickVals = Array.from({ length: Math.max(0, Math.ceil(sharedXMax) + 1) }, (_, i) => i);
+  const sharedTickText = sharedTickVals.map((i) => `Exp ${i + 1}`);
+
+  // GP traces (band, mean, observations)
+  const xDense = plotData.x || [];
+  const mu = plotData.mu || [];
+  const sigma = plotData.sigma || [];
+
+  const upper = mu.map((m, i) => (m == null || sigma[i] == null ? null : m + 1.96 * sigma[i]));
+  const lower = mu.map((m, i) => (m == null || sigma[i] == null ? null : m - 1.96 * sigma[i]));
+
+  const gpTraces = [];
+  if (xDense.length && upper.length === xDense.length && lower.length === xDense.length) {
+    gpTraces.push({
+      x: xDense.concat(xDense.slice().reverse()),
+      y: upper.concat(lower.slice().reverse()),
+      type: 'scatter',
+      fill: 'toself',
+      fillcolor: 'rgba(241,196,15,0.85)',
+      opacity: 1,
+      line: { color: 'transparent' },
+      name: '95% confidence interval',
+      hoverinfo: 'skip',
+    });
+  }
+
+  if (xDense.length && mu.length === xDense.length) {
+    gpTraces.push({
+      x: xDense,
+      y: mu,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#2c3e50', width: 2.5, dash: 'dash' },
+      name: 'Surrogate model',
+    });
+  }
+
+  // Observations (use training_points if available)
+  let histX = [];
+  let histY = [];
+  if (plotData.training_points && Array.isArray(plotData.training_points.x)) {
+    histX = plotData.training_points.x.map((v) => Number(v));
+    histY = (plotData.training_points.y || []).map((v) => Number(v));
+  }
+
+  if (histX.length && histY.length) {
+    gpTraces.push({
+      x: histX,
+      y: histY,
+      type: 'scatter',
+      mode: 'markers',
+      marker: { color: '#ef4444', size: 10, symbol: 'diamond', line: { color: '#991b1b', width: 1.5 } },
+      name: 'Observations',
+    });
+  }
+
+  // Best historical experiment marker
+  if (histY.length) {
+    const bestIdx = histY.indexOf(Math.min(...histY));
+    if (bestIdx >= 0) {
+      gpTraces.push({
+        x: [histX[bestIdx]],
+        y: [histY[bestIdx]],
+        type: 'scatter',
+        mode: 'markers',
+        marker: { color: 'transparent', size: 16, symbol: 'diamond', line: { color: '#2ECC71', width: 3 } },
+        name: 'Best Historical Experiment',
+      });
+    }
+  }
+
+  // Next suggested experiment (use plotData.maxEITemp / maxEIMu fallback)
+  const sug = (suggestions && suggestions[0]) || null;
+  if (plotData.maxEITemp != null) {
+    gpTraces.push({
+      x: [plotData.maxEITemp],
+      y: [plotData.maxEIMu != null ? plotData.maxEIMu : (sug ? Number(sug.predicted_FWHM_meV || 0) : null)],
+      type: 'scatter',
+      mode: 'markers',
+      marker: { color: '#7C4DFF', size: 16, symbol: 'star', line: { color: '#6C63FF', width: 1.5 } },
+      name: 'Next Suggested Experiment',
+    });
+  }
+
+  // Build EI traces (normalize to 0-100 like dashboard)
+  const eiTraces = [];
+  const eiColors = ['#3d2fb5', '#00BCD4', '#0097A7'];
+
+  if (visibleHistory.length > 0) {
+    visibleHistory.forEach((ei_curve, relativeIdx) => {
+      const numeric = (ei_curve || []).map((v) => Number(v));
+      const valid = numeric.filter(Number.isFinite);
+      const maxVal = valid.length ? Math.max(...valid) : 0;
+      const yvals = maxVal > 0 ? numeric.map((v) => (Number.isFinite(v) ? (v / maxVal) * 100 : 0)) : numeric.map(() => 0);
+      const isCurrent = relativeIdx === visibleHistory.length - 1;
+      eiTraces.push({
+        x: plotData.x,
+        y: yvals,
+        type: 'scatter',
+        mode: 'lines',
+        name: isCurrent ? 'Expected Improvement' : `Expected Improvement (${relativeIdx + 1})`,
+        line: { color: isCurrent ? eiColors[0] : eiColors[(relativeIdx + 1) % eiColors.length], width: isCurrent ? 2 : 1 },
+        fill: 'tozeroy',
+        fillcolor: isCurrent ? 'rgba(61,47,181,0.12)' : 'rgba(61,47,181,0.06)',
+        showlegend: isCurrent,
+      });
+    });
+
+    // marker for selected maximum
+    const maxX = plotData.maxEITemp;
+    if (maxX != null) {
+      const lastCurve = visibleHistory[visibleHistory.length - 1].map((v) => Number(v));
+      const maxIndex = plotData.x ? plotData.x.indexOf(maxX) : -1;
+      const markerY = maxIndex >= 0 && lastCurve && lastCurve[maxIndex] != null ? ((lastCurve[maxIndex] / Math.max(...lastCurve.filter(Number.isFinite))) * 100) : 100;
+      eiTraces.push({
+        x: [maxX], y: [markerY], type: 'scatter', mode: 'markers', marker: { color: '#ef4444', size: 12, symbol: 'diamond' }, name: 'Selected maximum EI point', hoverinfo: 'skip'
+      });
+    }
+  } else if (Array.isArray(plotData.search_ei) && plotData.search_ei.length) {
+    try {
+      const s = plotData.search_ei.map((r) => ({ idx: Number(r.candidate_index ?? r.index ?? 0), ei: Number(r.ei ?? 0) }));
+      const maxS = Math.max(...s.map((o) => o.ei).filter(Number.isFinite));
+      const xs = s.map((o) => o.idx);
+      const ys = s.map((o) => (Number.isFinite(o.ei) && maxS > 0 ? (o.ei / maxS) * 100 : 0));
+      eiTraces.push({ x: xs, y: ys, type: 'scatter', mode: 'lines', name: 'Expected Improvement', line: { color: eiColors[0], width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(61,47,181,0.12)' });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return { gpTraces, eiTraces, sharedTickVals, sharedTickText, sharedXRange };
 }
 
 function computeImportance(modelInfo) {
@@ -210,27 +361,19 @@ const FullReport = () => {
       try {
         const [info, tl, suggRes, pd] = await Promise.all([
           api.fetchModelInfo(),
-          fetch(`${BASE}/thermal-cvd/timeline`).then((r) => (r.ok ? r.json() : { timeline: [] })),
-          fetch(`${BASE}/thermal-cvd/suggest`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ n_suggestions: 1 }),
-          }).then((r) => (r.ok ? r.json() : { recommendations: [] })),
-          fetch(`${BASE}/thermal-cvd/plot-data`).then((r) => {
-            if (r.ok) return r.json();
-            console.warn('plot-data fetch failed:', r.status, r.statusText);
-            return null;
-          }),
+          api.fetchTimeline(),
+          api.suggestExperiments(1),
+          api.getPlotData().catch(() => null),
         ]);
-        
+
         console.log('Report data loaded:', {
           modelInfo: !!info,
           timeline: tl.timeline?.length || 0,
-          suggestions: suggRes.recommendations?.length || 0,
+          suggestions: (suggRes.recommendations || []).length || 0,
           plotData: pd ? 'YES' : 'NO',
           plotDataKeys: pd ? Object.keys(pd) : [],
         });
-        
+
         setModelInfo(info);
         setTimeline(tl.timeline || []);
         setSuggestions(suggRes.recommendations || []);
@@ -323,30 +466,7 @@ const FullReport = () => {
     return undefined;
   }, [loading, autoPrint, handlePrint]);
 
-  const exportCsv = useCallback(() => {
-    const predictionMap = buildPredictionMap(modelInfo);
-    const csvRows = [
-      ['Experiment ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Actual FWHM (meV)', 'Predicted FWHM (meV)'],
-      ...timeline.map((row, index) => [
-        row.experiment_id,
-        row.type,
-        row.gte,
-        row.gti,
-        row.fra,
-        row.pressure,
-        row.fwhm,
-        predictionMap.get(index + 1)?.predicted ?? '',
-      ]),
-    ];
-    const csv = csvRows.map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'thermal_cvd_report_data.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [timeline, modelInfo]);
+  
 
   const exportExcel = useCallback(async () => {
     {
@@ -461,7 +581,7 @@ const FullReport = () => {
     addTitle(summary, 'Thermal CVD Bayesian Optimization Report', `Generated: ${new Date().toLocaleString()}`, 8);
     [
       ['Best FWHM', `${fmt(bestRowForStyledExport?.fwhmValue ?? modelInfo?.best_fwhm_meV, 1)} meV`, palette.green],
-      ['Best Experiment', bestRowForStyledExport?.experiment_id || '-', palette.blue],
+      ['Best Experiment', bestRowForStyledExport ? `Experiment-${bestRowForStyledExport.index}` : '-', palette.blue],
       ['Total Experiments', timeline.length, palette.purple],
       ['BO Iterations', boCount, palette.amber],
       ['Model R2', fmt(modelInfo?.R2_score, 3), palette.blue],
@@ -484,7 +604,7 @@ const FullReport = () => {
     summary.addRow([]);
     summary.addRow(['Summary Insights']);
     summary.lastRow.font = { name: 'Aptos', size: 11, bold: true, color: { argb: argb(palette.navy) } };
-    summary.addRow([`Best observed FWHM is ${fmt(bestRowForStyledExport?.fwhmValue, 1)} meV at ${bestRowForStyledExport?.experiment_id || '-'}. ${importance[0]?.name || 'Pressure'} is currently the most influential variable. Prioritize high-EI candidates while validating uncertainty around the recommended region.`]);
+    summary.addRow([`Best observed FWHM is ${fmt(bestRowForStyledExport?.fwhmValue, 1)} meV at ${bestRowForStyledExport ? `Experiment-${bestRowForStyledExport.index}` : '-'}. ${importance[0]?.name || 'Pressure'} is currently the most influential variable. Prioritize high-EI candidates while validating uncertainty around the recommended region.`]);
     summary.mergeCells(`A${summary.lastRow.number}:H${summary.lastRow.number}`);
     styleSheet(summary, [14, 18, 16, 18, 18, 18, 18, 18]);
 
@@ -497,9 +617,9 @@ const FullReport = () => {
       ['Experiment ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Actual FWHM (meV)', 'Predicted FWHM (meV)', 'Status'],
       timeline.map((row, index) => {
         const pred = predictionMapForStyledExport.get(Number(row.step || index + 1)) || predictionMapForStyledExport.get(index + 1);
-        const isBest = bestRowForStyledExport && row.experiment_id === bestRowForStyledExport.experiment_id;
+        const isBest = bestRowForStyledExport && bestRowForStyledExport.index === index + 1;
         return [
-          row.experiment_id || `Experiment-${index + 1}`,
+          `Experiment-${index + 1}`,
           row.type || 'Experiment',
           asNumber(row.gte),
           asNumber(row.gti),
@@ -532,7 +652,7 @@ const FullReport = () => {
         const predicted = asNumber(pred?.predicted);
         const uncertainty = asNumber(pred?.uncertainty) ?? (actual != null && predicted != null ? Math.abs(actual - predicted) * 0.2 : null);
         const residual = actual != null && predicted != null ? actual - predicted : null;
-        return [row.experiment_id || `Exp-${index + 1}`, row.type || '-', actual, predicted, uncertainty, residual, residual == null ? null : Math.abs(residual)];
+        return [`Experiment-${index + 1}`, row.type || '-', actual, predicted, uncertainty, residual, residual == null ? null : Math.abs(residual)];
       }),
       'TableStyleMedium5'
     );
@@ -542,28 +662,7 @@ const FullReport = () => {
       gp.getCell(row, 7).fill = fill(absResidual == null ? palette.soft : absResidual <= 1 ? 'D1FAE5' : absResidual <= 5 ? 'FEF3C7' : 'FEE2E2');
     }
 
-    const recommendations = workbook.addWorksheet('BO_Recommendations', { properties: { tabColor: { argb: argb(palette.amber) } } });
-    addTitle(recommendations, 'BO Recommendations', 'Recommended next experiment and expected improvement', 8);
-    addTable(
-      recommendations,
-      'BORecommendations',
-      'A4',
-      ['Round', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Predicted FWHM (meV)', 'Uncertainty (meV)', 'Expected Improvement (meV)'],
-      [[
-        `BO-${boCount + 1}`,
-        asNumber(suggestionForStyledExport.GTE_celsius),
-        asNumber(suggestionForStyledExport.GTI_minutes),
-        asNumber(suggestionForStyledExport.FRA_sccm),
-        asNumber(suggestionForStyledExport.Pressure_Torr),
-        asNumber(suggestionForStyledExport.predicted_FWHM_meV),
-        asNumber(suggestionForStyledExport.uncertainty_meV),
-        expectedImprovement,
-      ]],
-      'TableStyleMedium7'
-    );
-    styleSheet(recommendations, [14, 12, 12, 14, 16, 22, 18, 24]);
-    recommendations.getCell('H5').fill = fill(palette.green);
-    recommendations.getCell('H5').font = { name: 'Aptos', size: 11, bold: true, color: { argb: argb(palette.white) } };
+    // BO_Recommendations sheet removed from styled Excel export per user request
 
     const ranking = workbook.addWorksheet('Candidate_Ranking', { properties: { tabColor: { argb: argb(palette.green) } } });
     addTitle(ranking, 'Candidate Ranking - Top 20 by EI', 'Candidates ranked by expected improvement', 9);
@@ -614,24 +713,7 @@ const FullReport = () => {
       importanceSheet.getCell(row, 3).font = { name: 'Consolas', size: 10, color: { argb: argb(palette.blue) } };
     }
 
-    const search = workbook.addWorksheet('Search_Region', { properties: { tabColor: { argb: argb(palette.green) } } });
-    addTitle(search, 'Recommended Search Region', 'Bounded next-step parameter ranges around the BO recommendation', 6);
-    addTable(
-      search,
-      'RecommendedRegion',
-      'A4',
-      ['Parameter', 'Lower Bound', 'BO Center Value', 'Upper Bound', 'Step Size', 'Unit'],
-      [
-        ['Growth Temperature', Math.max(0, (asNumber(suggestionForStyledExport.GTE_celsius) || 0) - 30), asNumber(suggestionForStyledExport.GTE_celsius), (asNumber(suggestionForStyledExport.GTE_celsius) || 0) + 30, 10, 'C'],
-        ['Growth Time', Math.max(0, (asNumber(suggestionForStyledExport.GTI_minutes) || 0) - 5), asNumber(suggestionForStyledExport.GTI_minutes), (asNumber(suggestionForStyledExport.GTI_minutes) || 0) + 5, 2, 'min'],
-        ['Ar Flow', Math.max(0, (asNumber(suggestionForStyledExport.FRA_sccm) || 0) - 25), asNumber(suggestionForStyledExport.FRA_sccm), (asNumber(suggestionForStyledExport.FRA_sccm) || 0) + 25, 5, 'sccm'],
-        ['Pressure', Math.max(0, (asNumber(suggestionForStyledExport.Pressure_Torr) || 0) - 40), asNumber(suggestionForStyledExport.Pressure_Torr), (asNumber(suggestionForStyledExport.Pressure_Torr) || 0) + 40, 5, 'Torr'],
-      ],
-      'TableStyleMedium4'
-    );
-    search.addRow([]);
-    search.addRow(['Confidence Level', confidenceFromUncertainty(suggestionForStyledExport.uncertainty_meV)]);
-    styleSheet(search, [24, 16, 18, 16, 14, 12]);
+    // 'Recommended Search Region' sheet removed from Excel export per user request.
 
     const diagnostics = workbook.addWorksheet('Diagnostics', { properties: { tabColor: { argb: argb(palette.blue) } } });
     addTitle(diagnostics, 'Model Diagnostics', 'Training quality and Gaussian Process configuration', 4);
@@ -700,13 +782,10 @@ const FullReport = () => {
       [''],
       ['Key Metrics', ''],
       ['Best FWHM Achieved', modelInfo?.best_fwhm_meV || '-'],
-      ['Best Experiment ID', timeline.find(r => asNumber(r.fwhm) === modelInfo?.best_fwhm_meV)?.experiment_id || '-'],
+      ['Best Experiment ID', (() => { const i = timeline.findIndex(r => asNumber(r.fwhm) === modelInfo?.best_fwhm_meV); return i >= 0 ? `Experiment-${i + 1}` : '-'; })()],
       ['Total Experiments', timeline.length],
       ['BO Iterations', timeline.filter(r => r.type !== 'Initial').length],
-      ['Model R² Score', fmt(modelInfo?.R2_score, 3)],
       ['Model MAE (meV)', fmt(modelInfo?.MAE_meV, 2)],
-      ['Model Confidence', '92%'],
-      ['Most Important Variable', modelInfo?.feature_importances?.[0]?.name || 'Pressure'],
     ];
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     summarySheet.colW = [25, 20];
@@ -744,7 +823,7 @@ const FullReport = () => {
         const predicted = pred?.predicted ? asNumber(pred.predicted) : null;
         const uncertainty = pred?.uncertainty || (predicted ? Math.abs(actual - predicted) * 0.2 : null);
         return [
-          `Exp-${index + 1}`,
+          `Experiment-${index + 1}`,
           fmt(actual, 1),
           fmt(predicted, 1),
           fmt((predicted || 0) - (uncertainty || 0) * 1.96, 1),
@@ -757,23 +836,7 @@ const FullReport = () => {
     gpSheet['!cols'] = Array(6).fill({ wch: 18 });
     XLSX.utils.book_append_sheet(wb, gpSheet, 'GP_Predictions');
 
-    // 4. BO Recommendations
-    const suggestion = (suggestions && suggestions[0]) || {};
-    const recommendationData = [
-      ['Parameter', 'Suggested Value', 'Lower Bound', 'Upper Bound'],
-      ['Growth Temperature (C)', fmt(suggestion.GTE_celsius, 0), fmt((suggestion.GTE_celsius || 0) - 30, 0), fmt((suggestion.GTE_celsius || 0) + 30, 0)],
-      ['Growth Time (min)', fmt(suggestion.GTI_minutes, 1), fmt((suggestion.GTI_minutes || 0) - 5, 1), fmt((suggestion.GTI_minutes || 0) + 5, 1)],
-      ['Ar Flow Rate (sccm)', fmt(suggestion.FRA_sccm, 1), fmt((suggestion.FRA_sccm || 0) - 25, 1), fmt((suggestion.FRA_sccm || 0) + 25, 1)],
-      ['Pressure (Torr)', fmt(suggestion.Pressure_Torr, 2), fmt((suggestion.Pressure_Torr || 0) - 40, 2), fmt((suggestion.Pressure_Torr || 0) + 40, 2)],
-      [''],
-      ['Predicted FWHM (meV)', fmt(suggestion.predicted_FWHM_meV, 1), '', ''],
-      ['Uncertainty (±meV)', fmt(suggestion.uncertainty_meV, 1), '', ''],
-      ['Expected Improvement (meV)', fmt(Math.max(0, (timeline.find(r => r.fwhm === Math.min(...timeline.map(t => t.fwhm)))?.fwhm || 0) - (suggestion.predicted_FWHM_meV || 0)), 1), '', ''],
-      ['Confidence Level', confidenceFromUncertainty(suggestion.uncertainty_meV), '', ''],
-    ];
-    const recSheet = XLSX.utils.aoa_to_sheet(recommendationData);
-    recSheet['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
-    XLSX.utils.book_append_sheet(wb, recSheet, 'BO_Recommendations');
+    // BO_Recommendations sheet removed from XLSX-generation per user request
 
     // 5. Candidate Ranking (top 20 by EI)
     const candidateData = [
@@ -804,17 +867,7 @@ const FullReport = () => {
     importanceSheet['!cols'] = [{ wch: 20 }, { wch: 22 }, { wch: 30 }];
     XLSX.utils.book_append_sheet(wb, importanceSheet, 'Importance');
 
-    // 7. Recommended Search Region
-    const searchData = [
-      ['Parameter', 'Lower Bound', 'Center Value', 'Upper Bound', 'Strategy'],
-      ['Growth Temp (C)', fmt((suggestion.GTE_celsius || 0) - 30, 0), fmt(suggestion.GTE_celsius, 0), fmt((suggestion.GTE_celsius || 0) + 30, 0), 'Focus search around center'],
-      ['Growth Time (min)', fmt((suggestion.GTI_minutes || 0) - 5, 1), fmt(suggestion.GTI_minutes, 1), fmt((suggestion.GTI_minutes || 0) + 5, 1), 'Narrow window, tight control'],
-      ['Ar Flow (sccm)', fmt((suggestion.FRA_sccm || 0) - 25, 1), fmt(suggestion.FRA_sccm, 1), fmt((suggestion.FRA_sccm || 0) + 25, 1), 'Explore nearby values'],
-      ['Pressure (Torr)', fmt((suggestion.Pressure_Torr || 0) - 40, 2), fmt(suggestion.Pressure_Torr, 2), fmt((suggestion.Pressure_Torr || 0) + 40, 2), 'Wider exploration zone'],
-    ];
-    const searchSheet = XLSX.utils.aoa_to_sheet(searchData);
-    searchSheet['!cols'] = [{ wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
-    XLSX.utils.book_append_sheet(wb, searchSheet, 'Search_Region');
+    // Recommended Search Region sheet intentionally omitted from XLSX download.
 
     // 8. Model Diagnostics
     const diagnosticsData = [
@@ -1005,6 +1058,16 @@ const FullReport = () => {
     };
   }, [timeline, suggestions, modelInfo, plotData]);
 
+  const reportTraces = useMemo(() => buildReportPlotTraces(plotData, suggestions), [plotData, suggestions]);
+
+  useEffect(() => {
+    if (reportTraces && Array.isArray(reportTraces.eiTraces) && reportTraces.eiTraces.length > 0) {
+      console.log('FullReport: Plotly EI traces present:', reportTraces.eiTraces.length);
+    } else {
+      console.log('FullReport: No EI Plotly traces (falling back)', !!reportTraces && Array.isArray(reportTraces.eiTraces));
+    }
+  }, [reportTraces]);
+
   const {
     boRows,
     bestRow,
@@ -1021,6 +1084,8 @@ const FullReport = () => {
     expectedImprovement,
   } = derived;
 
+  const bestExperimentLabel = bestRow ? `Experiment-${bestRow.index}` : '-';
+
   return (
     <div className="report-shell min-h-screen bg-[#ececf1] font-sans">
       <div className="no-print sticky top-0 z-50 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
@@ -1033,10 +1098,6 @@ const FullReport = () => {
         </button>
         <div className="flex items-center gap-2">
           <span className="mr-2 text-xs text-slate-400">Generated: {generatedOn}</span>
-          <button onClick={exportCsv} className="report-action secondary">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
           <button onClick={exportExcel} className="report-action secondary">
             <FileSpreadsheet className="h-4 w-4" />
             Export Excel
@@ -1067,8 +1128,8 @@ const FullReport = () => {
               <strong>{fmt(bestRow?.fwhmValue, 1)} meV</strong>
             </div>
             <div>
-              <span>Best experiment ID</span>
-              <strong>{bestRow?.experiment_id || '-'}</strong>
+              <span>Best experiment</span>
+              <strong>{bestExperimentLabel}</strong>
             </div>
             <div>
               <span>Number of experiments</span>
@@ -1082,7 +1143,7 @@ const FullReport = () => {
 
           <div className="narrative-block">
             <p>
-              The current campaign identifies <strong>{bestRow?.experiment_id || 'the best observed experiment'}</strong> as
+              The current campaign identifies <strong>{bestRow ? bestExperimentLabel : 'the best observed experiment'}</strong> as
               the best measured condition, achieving <strong>{fmt(bestRow?.fwhmValue, 1)} meV</strong> PL FWHM. This result is
               the primary benchmark used by the Bayesian optimization loop when estimating future improvement.
             </p>
@@ -1108,87 +1169,50 @@ const FullReport = () => {
           <SectionHeading number="2" title="Model Analysis" />
 
           <h3>Gaussian Process Regression Visualization</h3>
-          {gpData && gpData.length > 0 ? (
-            <div className="chart-hero">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={gpData} margin={{ top: 18, right: 18, left: 8, bottom: 24 }}>
-                  <CartesianGrid stroke="#edf2f7" />
-                  <XAxis
-                    type="number"
-                    dataKey="x"
-                    ticks={gpXTicks}
-                    tick={{ fontSize: 11, fill: '#526987' }}
-                    tickFormatter={(value) => `Exp ${Number(value) + 1}`}
-                    axisLine={{ stroke: '#718096' }}
-                    tickLine={false}
-                    domain={['dataMin', 'dataMax']}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#526987' }}
-                    label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft', fill: '#718096' }}
-                    axisLine={{ stroke: '#718096' }}
-                    tickLine={false}
-                    domain={[
-                      (dataMin) => Math.floor((dataMin - 10) / 10) * 10,
-                      (dataMax) => Math.ceil((dataMax + 10) / 10) * 10,
-                    ]}
-                  />
-                  <Legend
-                    verticalAlign="top"
-                    align="left"
-                    wrapperStyle={{
-                      top: 8,
-                      left: 14,
-                      width: 220,
-                      padding: '6px 8px',
-                      border: '1px solid #dbe4f0',
-                      backgroundColor: 'rgba(255,255,255,0.92)',
-                      fontSize: 11,
-                    }}
-                  />
-                  <Area dataKey="ciBase" stackId="ci" stroke="transparent" fill="transparent" legendType="none" />
-                  <Area name="95% confidence interval" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#F1C40F" fillOpacity={0.28} isAnimationActive={false} />
-                  {nextSuggestionPoint?.x != null && (
-                    <ReferenceLine x={nextSuggestionPoint.x} stroke="#7C4DFF" strokeDasharray="8 8" strokeOpacity={0.35} />
-                  )}
-                  <Scatter
-                    name="Observations"
-                    data={trainingPoints}
-                    dataKey="y"
-                    shape={<DiamondPoint />}
-                    isAnimationActive={false}
-                  />
-                  {bestHistoricalPoint && (
-                    <Scatter
-                      name="Best Historical Experiment"
-                      data={[bestHistoricalPoint]}
-                      dataKey="y"
-                      shape={<DiamondPoint fill="transparent" stroke="#2ECC71" size={9} />}
-                      isAnimationActive={false}
-                    />
-                  )}
-                  {nextSuggestionPoint?.y != null && (
-                    <Scatter
-                      name="Next Suggested Experiment"
-                      data={[nextSuggestionPoint]}
-                      dataKey="y"
-                      shape={<StarPoint />}
-                      isAnimationActive={false}
-                    />
-                  )}
-                  {/* Line MUST come last so SVG paints it on top of all scatter diamonds */}
-                  <Line
-                    name="Surrogate model"
-                    dataKey="mean"
-                    stroke="#1e1b4b"
-                    strokeWidth={3.5}
-                    strokeDasharray="10 5"
-                    dot={false}
-                    isAnimationActive={false}
-                    style={{ filter: 'drop-shadow(0 0 2px rgba(30,27,75,0.6))' }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+          {plotData && plotData.x && plotData.mu ? (
+            <div className="chart-hero" style={{ padding: 0, overflow: 'hidden' }}>
+              <Plot
+                data={reportTraces.gpTraces}
+                layout={{
+                  xaxis: {
+                    tickmode: 'array',
+                    tickvals: reportTraces.sharedTickVals,
+                    ticktext: reportTraces.sharedTickText,
+                    gridcolor: '#edf2f7',
+                    zeroline: false,
+                    tickfont: { size: 11, color: '#526987' },
+                    title: { text: 'Design Space Index (Sequential)' },
+                    range: reportTraces.sharedXRange,
+                  },
+                  yaxis: {
+                    title: { text: 'Predicted FWHM (meV)', font: { size: 12, color: '#718096' } },
+                    gridcolor: '#edf2f7',
+                    zeroline: true,
+                    zerolinecolor: '#cbd5e0',
+                    tickfont: { size: 11, color: '#526987' },
+                  },
+                  legend: {
+                    orientation: 'h',
+                    x: 0.5,
+                    xanchor: 'center',
+                    y: 1.08,
+                    yanchor: 'bottom',
+                    bgcolor: 'rgba(255,255,255,0.92)',
+                    bordercolor: '#dbe4f0',
+                    borderwidth: 1,
+                    font: { size: 11 },
+                  },
+                  paper_bgcolor: 'white',
+                  plot_bgcolor: 'white',
+                  margin: { t: 80, r: 18, b: 50, l: 70 },
+                  font: { family: 'Inter, system-ui, sans-serif', size: 11, color: '#526987' },
+                  shapes: plotData.maxEITemp != null ? [{ type: 'line', x0: plotData.maxEITemp, x1: plotData.maxEITemp, y0: 0, y1: 1, yref: 'paper', line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' } }] : [],
+                  autosize: true,
+                }}
+                config={{ displayModeBar: false, responsive: true }}
+                style={{ width: '100%', height: '100%' }}
+                useResizeHandler
+              />
             </div>
           ) : (
             <div className="chart-hero" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9f9f9' }}>
@@ -1210,18 +1234,33 @@ const FullReport = () => {
           </div>
 
           <h3>Expected Improvement Landscape</h3>
-          {searchEi && searchEi.length > 0 ? (
+          {reportTraces.eiTraces && reportTraces.eiTraces.length > 0 ? (
             <div className="chart-medium">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={searchEi} margin={{ top: 16, right: 28, left: 10, bottom: 24 }}>
-                  <CartesianGrid stroke="#e5e7eb" />
-                  <XAxis dataKey="candidate_index" tick={{ fontSize: 10 }} label={{ value: 'Search-space candidate index', position: 'insideBottom', offset: -12 }} />
-                  <YAxis tick={{ fontSize: 10 }} label={{ value: 'Normalized EI (%)', angle: -90, position: 'insideLeft' }} />
-                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
-                  <Area name="Expected Improvement" dataKey="ei" stroke="#3d2fb5" fill="#dedbff" fillOpacity={0.9} isAnimationActive={false} />
-                  <Scatter name="Selected maximum EI point" dataKey="selected" fill="#dc2626" isAnimationActive={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <Plot
+                data={reportTraces.eiTraces}
+                layout={{
+                  autosize: true,
+                  margin: { top: 80, right: 28, left: 10, bottom: 24 },
+                  paper_bgcolor: 'transparent',
+                  plot_bgcolor: 'transparent',
+                  xaxis: {
+                    title: 'Design Space Index (Sequential)',
+                    gridcolor: '#f1f5f9',
+                    color: '#64748b',
+                    tickmode: 'array',
+                    tickvals: reportTraces.sharedTickVals,
+                    ticktext: reportTraces.sharedTickText,
+                    range: reportTraces.sharedXRange,
+                  },
+                  yaxis: { title: 'Expected Improvement', gridcolor: '#f1f5f9', color: '#64748b' },
+                  legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.08, yanchor: 'bottom' },
+                  shapes: plotData && plotData.maxEITemp != null ? [{ type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper', line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' } }] : [],
+                  annotations: plotData && plotData.maxEITemp ? [{ x: plotData.maxEITemp, y: plotData.maxEIVal || 0, text: `<b>Selected by BO</b><br>Max Expected Improvement`, showarrow: true, arrowhead: 0, ax: 40, ay: -30, bgcolor: '#7C4DFF', font: { color: 'white', size: 10 }, borderpad: 6, bordercolor: 'rgba(0,0,0,0)' }] : [],
+                }}
+                config={{ displayModeBar: false, responsive: true }}
+                useResizeHandler
+                style={{ width: '100%', height: '100%' }}
+              />
             </div>
           ) : (
             <div className="chart-medium" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9f9f9' }}>
@@ -1256,7 +1295,7 @@ const FullReport = () => {
           <div className="hero-analysis">
             <div>
               <span>Best experiment</span>
-              <strong>{bestRow?.experiment_id || '-'}</strong>
+              <strong>{bestExperimentLabel}</strong>
               <p>Achieved FWHM</p>
               <b>{fmt(bestRow?.fwhmValue, 1)} meV</b>
             </div>
@@ -1327,22 +1366,7 @@ const FullReport = () => {
             </p>
           </div>
 
-          <h3>Detailed Parameter Ranges</h3>
-          <table className="recommendation-table">
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>Suggested range</th>
-                <th>BO center value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Growth temperature</td><td>{rangeAround(suggestion?.GTE_celsius, 30, 0)} °C</td><td>{fmt(suggestion?.GTE_celsius, 0)} °C</td></tr>
-              <tr><td>Growth time</td><td>{rangeAround(suggestion?.GTI_minutes, 5, 1)} min</td><td>{fmt(suggestion?.GTI_minutes, 1)} min</td></tr>
-              <tr><td>Ar flow</td><td>{rangeAround(suggestion?.FRA_sccm, 25, 1)} sccm</td><td>{fmt(suggestion?.FRA_sccm, 1)} sccm</td></tr>
-              <tr><td>Pressure</td><td>{rangeAround(suggestion?.Pressure_Torr, 40, 2)} Torr</td><td>{fmt(suggestion?.Pressure_Torr, 2)} Torr</td></tr>
-            </tbody>
-          </table>
+          {/* Detailed Parameter Ranges removed per user request */}
         </section>
 
         <section className="report-sheet history-sheet">

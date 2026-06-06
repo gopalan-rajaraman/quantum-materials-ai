@@ -75,6 +75,7 @@ export const api = {
 
   // Thermal CVD Model
   fetchModelInfo: () => request('/thermal-cvd/info'),
+  fetchTimeline: () => request('/thermal-cvd/timeline'),
   fetchConstants: () => request('/thermal-cvd/constants'),
   updateConstantsBatch: (constants) =>
     request('/thermal-cvd/constants/batch', {
