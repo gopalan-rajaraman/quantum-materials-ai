@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { ArrowLeft, Download, Printer, FileSpreadsheet } from 'lucide-react';
@@ -243,61 +244,73 @@ const FullReport = () => {
     load();
   }, []);
 
-  // Fix: before printing, force all ResponsiveContainer SVGs to explicit pixel
-  // dimensions so Recharts renders them in the PDF (not invisible 0×0).
-  const forcePrintDimensions = useCallback(() => {
+  // Snapshot all chart wrapper divs (.chart-hero, .chart-medium, .chart-large)
+  // using html2canvas, replace them with <img> elements for PDF printing,
+  // then restore the live Recharts components after the print dialog closes.
+  const chartSnapshotsRef = useRef([]);
+
+  const snapshotChartsForPrint = useCallback(async () => {
     if (!printRef.current) return;
-    const containers = printRef.current.querySelectorAll('.recharts-responsive-container');
-    containers.forEach((container) => {
-      const rect = container.getBoundingClientRect();
-      const w = rect.width || container.offsetWidth || 700;
-      const h = rect.height || container.offsetHeight || 400;
-      container.setAttribute('data-print-w', container.style.width);
-      container.setAttribute('data-print-h', container.style.height);
-      container.style.width = `${w}px`;
-      container.style.height = `${h}px`;
-      const svg = container.querySelector('svg');
-      if (svg) {
-        svg.setAttribute('data-print-w', svg.getAttribute('width') || '');
-        svg.setAttribute('data-print-h', svg.getAttribute('height') || '');
-        svg.setAttribute('width', w);
-        svg.setAttribute('height', h);
-        svg.style.width = `${w}px`;
-        svg.style.height = `${h}px`;
+    chartSnapshotsRef.current = [];
+
+    const chartWrappers = printRef.current.querySelectorAll(
+      '.chart-hero, .chart-medium, .chart-large'
+    );
+
+    for (const wrapper of chartWrappers) {
+      const rect = wrapper.getBoundingClientRect();
+      const w = Math.round(rect.width) || 700;
+      const h = Math.round(rect.height) || 400;
+
+      try {
+        const canvas = await html2canvas(wrapper, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: w,
+          height: h,
+          logging: false,
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const originalHTML = wrapper.innerHTML;
+        const originalStyle = wrapper.getAttribute('style') || '';
+
+        // Store snapshot info for restoration
+        chartSnapshotsRef.current.push({ wrapper, originalHTML, originalStyle });
+
+        // Replace chart content with a crisp snapshot image
+        wrapper.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.display = 'block';
+        img.style.objectFit = 'contain';
+        wrapper.appendChild(img);
+      } catch (err) {
+        console.warn('html2canvas failed for chart wrapper:', err);
       }
-    });
+    }
   }, []);
 
-  const restorePrintDimensions = useCallback(() => {
-    if (!printRef.current) return;
-    const containers = printRef.current.querySelectorAll('.recharts-responsive-container');
-    containers.forEach((container) => {
-      const origW = container.getAttribute('data-print-w');
-      const origH = container.getAttribute('data-print-h');
-      container.style.width = origW || '';
-      container.style.height = origH || '';
-      const svg = container.querySelector('svg');
-      if (svg) {
-        const origSvgW = svg.getAttribute('data-print-w');
-        const origSvgH = svg.getAttribute('data-print-h');
-        svg.setAttribute('width', origSvgW || '100%');
-        svg.setAttribute('height', origSvgH || '100%');
-        svg.style.width = '';
-        svg.style.height = '';
-      }
-    });
+  const restoreChartsAfterPrint = useCallback(() => {
+    for (const { wrapper, originalHTML, originalStyle } of chartSnapshotsRef.current) {
+      wrapper.innerHTML = originalHTML;
+      wrapper.setAttribute('style', originalStyle);
+    }
+    chartSnapshotsRef.current = [];
   }, []);
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: 'Thermal_CVD_Bayesian_Optimization_Report',
     onBeforePrint: async () => {
-      forcePrintDimensions();
-      // Small delay so layout reflows before print dialog
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await snapshotChartsForPrint();
     },
     onAfterPrint: () => {
-      restorePrintDimensions();
+      restoreChartsAfterPrint();
     },
   });
 
