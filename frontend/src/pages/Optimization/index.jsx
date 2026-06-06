@@ -130,7 +130,7 @@ const Optimization = () => {
     const n_init = plotData.training_points.initial_count;
     
     const sliceData = (arr, start, end) => arr ? arr.slice(start, end) : [];
-    const createPoints = (start, end, prefix, indexOffset = 0) => {
+    const createPoints = (start, end) => {
       const sliceDists = sliceData(plotData.training_points.slice_distances || [], start, end);
       // Map distance (0 to ~1.73 in normalized 3D) to opacity
       // Falloff is strong enough to show 4D distance, but minimum is 0.25 so points are never completely invisible
@@ -148,7 +148,7 @@ const Optimization = () => {
           if (dist > 0.4) distText = 'High Mismatch';
           
           return [
-            `${prefix}-${i + 1 + indexOffset}`,
+            start + i + 1,
             sliceData(plotData.training_points.gti, start, end)[i],
             sliceData(plotData.training_points.fra, start, end)[i],
             sliceData(plotData.training_points.pressure, start, end)[i],
@@ -160,9 +160,9 @@ const Optimization = () => {
     };
 
     const n_total = plotData.training_points.x.length;
-    const initPts = createPoints(0, n_init, 'Init', 0);
-    const oldBoPts = n_total > n_init ? createPoints(n_init, n_total - 1, 'BO', 0) : {x:[], y:[], customdata:[], opacities:[]};
-    const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total, 'BO', n_total - 1 - n_init) : {x:[], y:[], customdata:[], opacities:[]};
+    const initPts = createPoints(0, n_init);
+    const oldBoPts = n_total > n_init ? createPoints(n_init, n_total - 1) : {x:[], y:[], customdata:[], opacities:[]};
+    const latestPt = n_total > n_init ? createPoints(n_total - 1, n_total) : {x:[], y:[], customdata:[], opacities:[]};
 
     // Combine Init, Old BO, and Latest experiments as Historical Points
     let histX = [...initPts.x, ...oldBoPts.x, ...latestPt.x];

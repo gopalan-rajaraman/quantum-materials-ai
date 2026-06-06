@@ -10,12 +10,13 @@ import {
   ComposedChart,
   Legend,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   XAxis,
   YAxis,
 } from 'recharts';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import api from '../../services/api';
 
 const BASE = 'http://localhost:8000';
@@ -78,7 +79,7 @@ function buildGpData(plotData) {
     const mean = asNumber(plotData.mu[index]);
     const sigma = asNumber(plotData.sigma[index]);
     if (mean == null || sigma == null) return null;
-    const lower = Math.max(0, mean - 1.96 * sigma);
+    const lower = mean - 1.96 * sigma;
     return {
       x: Number(x),
       mean,
@@ -163,6 +164,24 @@ const SectionHeading = ({ number, title, kicker }) => (
     {kicker && <p>{kicker}</p>}
   </header>
 );
+
+const DiamondPoint = ({ cx, cy, fill = '#ef4444', stroke = '#991b1b', size = 7 }) => {
+  if (cx == null || cy == null) return null;
+  const points = `${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`;
+  return <polygon points={points} fill={fill} stroke={stroke} strokeWidth={1.4} />;
+};
+
+const StarPoint = ({ cx, cy, fill = '#7C4DFF', stroke = '#6C63FF' }) => {
+  if (cx == null || cy == null) return null;
+  const outer = 11;
+  const inner = 5;
+  const points = Array.from({ length: 10 }, (_, index) => {
+    const radius = index % 2 === 0 ? outer : inner;
+    const angle = -Math.PI / 2 + (index * Math.PI) / 5;
+    return `${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`;
+  }).join(' ');
+  return <polygon points={points} fill={fill} stroke={stroke} strokeWidth={1.6} />;
+};
 
 const FullReport = () => {
   const navigate = useNavigate();
@@ -263,7 +282,348 @@ const FullReport = () => {
     URL.revokeObjectURL(url);
   }, [timeline, modelInfo]);
 
-  const exportExcel = useCallback(() => {
+  const exportExcel = useCallback(async () => {
+    {
+    const palette = {
+      navy: '0F172A',
+      blue: '2563EB',
+      green: '10B981',
+      amber: 'F59E0B',
+      red: 'EF4444',
+      purple: '7C3AED',
+      slate: '64748B',
+      border: 'E5E7EB',
+      soft: 'F8FAFC',
+      white: 'FFFFFF',
+    };
+    const argb = (hex) => `FF${hex}`;
+    const fill = (hex) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: argb(hex) } });
+    const thinBorder = { style: 'thin', color: { argb: argb(palette.border) } };
+    const workbook = new ExcelJS.Workbook();
+    const predictionMapForStyledExport = buildPredictionMap(modelInfo);
+    const importance = computeImportance(modelInfo).sort((a, b) => b.value - a.value);
+    const suggestionForStyledExport = (suggestions && suggestions[0]) || {};
+    const measuredRows = timeline
+      .map((row, index) => ({ ...row, index: index + 1, fwhmValue: asNumber(row.fwhm) }))
+      .filter((row) => row.fwhmValue != null);
+    const bestRowForStyledExport = measuredRows.reduce((best, row) => (
+      !best || row.fwhmValue < best.fwhmValue ? row : best
+    ), null);
+    const boCount = timeline.filter((row) => row.type !== 'Initial').length;
+    const r2 = asNumber(modelInfo?.R2_score);
+    const modelConfidence = r2 == null ? 'Not available' : `${Math.max(0, Math.min(99, Math.round(r2 * 100)))}%`;
+    const expectedImprovement = Math.max(
+      0,
+      (bestRowForStyledExport?.fwhmValue || 0) - (asNumber(suggestionForStyledExport.predicted_FWHM_meV) || 0)
+    );
+    const candidates = (plotData?.search_ei || [])
+      .map((row, index) => ({
+        rank: index + 1,
+        index: row.candidate_index ?? index + 1,
+        gte: row.GTE_celsius ?? row.gte ?? row.GTE ?? '',
+        gti: row.GTI_minutes ?? row.gti ?? row.GTI ?? '',
+        fra: row.FRA_sccm ?? row.fra ?? row.FRA ?? '',
+        pressure: row.Pressure_Torr ?? row.pressure ?? row.Pressure ?? '',
+        predicted: row.predicted_FWHM_meV ?? row.predicted ?? row.mu,
+        uncertainty: row.uncertainty_meV ?? row.uncertainty ?? row.sigma,
+        ei: row.ei ?? row.expected_improvement,
+        selected: Boolean(row.is_selected),
+      }))
+      .sort((a, b) => (asNumber(b.ei) || 0) - (asNumber(a.ei) || 0));
+
+    workbook.creator = 'Quantum Materials AI';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    workbook.title = 'Thermal CVD Bayesian Optimization Report';
+    workbook.subject = 'Thermal CVD Bayesian Optimization';
+
+    const styleSheet = (ws, widths = []) => {
+      ws.properties.defaultRowHeight = 22;
+      ws.views = [{ state: 'frozen', ySplit: 4 }];
+      widths.forEach((width, index) => {
+        ws.getColumn(index + 1).width = width;
+      });
+      ws.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.font = cell.font || { name: 'Aptos', size: 10, color: { argb: argb(palette.navy) } };
+          cell.alignment = cell.alignment || { vertical: 'middle', wrapText: true };
+          cell.border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+        });
+      });
+    };
+
+    const addTitle = (ws, title, subtitle, columns) => {
+      ws.mergeCells(1, 1, 1, columns);
+      ws.getCell(1, 1).value = title;
+      ws.getCell(1, 1).font = { name: 'Aptos Display', size: 20, bold: true, color: { argb: argb(palette.white) } };
+      ws.getCell(1, 1).fill = fill(palette.navy);
+      ws.getCell(1, 1).alignment = { vertical: 'middle' };
+      ws.getRow(1).height = 34;
+      ws.mergeCells(2, 1, 2, columns);
+      ws.getCell(2, 1).value = subtitle;
+      ws.getCell(2, 1).font = { name: 'Aptos', size: 10, color: { argb: argb(palette.slate) } };
+      ws.getCell(2, 1).fill = fill(palette.soft);
+      ws.getRow(2).height = 24;
+    };
+
+    const addTable = (ws, name, ref, columns, rows, style = 'TableStyleMedium2') => {
+      ws.addTable({
+        name,
+        ref,
+        headerRow: true,
+        totalsRow: false,
+        style: { theme: style, showRowStripes: true },
+        columns: columns.map((header) => ({ name: header, filterButton: true })),
+        rows,
+      });
+    };
+
+    const setMetric = (ws, row, col, label, value, color) => {
+      ws.mergeCells(row, col, row, col + 1);
+      ws.getCell(row, col).value = label;
+      ws.getCell(row, col).font = { name: 'Aptos', size: 9, bold: true, color: { argb: argb(palette.slate) } };
+      ws.getCell(row, col).alignment = { horizontal: 'center' };
+      ws.mergeCells(row + 1, col, row + 1, col + 1);
+      ws.getCell(row + 1, col).value = value;
+      ws.getCell(row + 1, col).fill = fill(color);
+      ws.getCell(row + 1, col).font = { name: 'Aptos Display', size: 18, bold: true, color: { argb: argb(palette.white) } };
+      ws.getCell(row + 1, col).alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(row + 1).height = 34;
+    };
+
+    const summary = workbook.addWorksheet('Executive_Summary', { properties: { tabColor: { argb: argb(palette.green) } } });
+    addTitle(summary, 'Thermal CVD Bayesian Optimization Report', `Generated: ${new Date().toLocaleString()}`, 8);
+    [
+      ['Best FWHM', `${fmt(bestRowForStyledExport?.fwhmValue ?? modelInfo?.best_fwhm_meV, 1)} meV`, palette.green],
+      ['Best Experiment', bestRowForStyledExport?.experiment_id || '-', palette.blue],
+      ['Total Experiments', timeline.length, palette.purple],
+      ['BO Iterations', boCount, palette.amber],
+      ['Model R2', fmt(modelInfo?.R2_score, 3), palette.blue],
+      ['Model Confidence', modelConfidence, palette.green],
+      ['Most Important Variable', importance[0]?.name || 'Pressure', palette.purple],
+      ['Expected Improvement', `${fmt(expectedImprovement, 1)} meV`, palette.amber],
+    ].forEach(([label, value, color], index) => {
+      setMetric(summary, index < 4 ? 4 : 7, (index % 4) * 2 + 1, label, value, color);
+    });
+    summary.getCell('A11').value = 'FWHM Progress Overview';
+    summary.getCell('A11').font = { name: 'Aptos Display', size: 14, bold: true, color: { argb: argb(palette.navy) } };
+    addTable(
+      summary,
+      'ProgressOverview',
+      'A12',
+      ['Step', 'Experiment ID', 'Type', 'Actual FWHM (meV)', 'Best So Far (meV)'],
+      buildProgressData(timeline).map((row) => [row.index, row.label, row.boSelected == null ? 'Initial' : 'BO', row.actual, row.best]),
+      'TableStyleMedium4'
+    );
+    summary.addRow([]);
+    summary.addRow(['Summary Insights']);
+    summary.lastRow.font = { name: 'Aptos', size: 11, bold: true, color: { argb: argb(palette.navy) } };
+    summary.addRow([`Best observed FWHM is ${fmt(bestRowForStyledExport?.fwhmValue, 1)} meV at ${bestRowForStyledExport?.experiment_id || '-'}. ${importance[0]?.name || 'Pressure'} is currently the most influential variable. Prioritize high-EI candidates while validating uncertainty around the recommended region.`]);
+    summary.mergeCells(`A${summary.lastRow.number}:H${summary.lastRow.number}`);
+    styleSheet(summary, [14, 18, 16, 18, 18, 18, 18, 18]);
+
+    const history = workbook.addWorksheet('Experiment_History', { properties: { tabColor: { argb: argb(palette.blue) } } });
+    addTitle(history, 'Complete Experiment History', `${timeline.length} experiments with filters and highlighted best row`, 9);
+    addTable(
+      history,
+      'ExperimentHistory',
+      'A4',
+      ['Experiment ID', 'Type', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Actual FWHM (meV)', 'Predicted FWHM (meV)', 'Status'],
+      timeline.map((row, index) => {
+        const pred = predictionMapForStyledExport.get(Number(row.step || index + 1)) || predictionMapForStyledExport.get(index + 1);
+        const isBest = bestRowForStyledExport && row.experiment_id === bestRowForStyledExport.experiment_id;
+        return [
+          row.experiment_id || `Experiment-${index + 1}`,
+          row.type || 'Experiment',
+          asNumber(row.gte),
+          asNumber(row.gti),
+          asNumber(row.fra),
+          asNumber(row.pressure),
+          asNumber(row.fwhm),
+          asNumber(pred?.predicted),
+          isBest ? 'Best observed' : row.type === 'Initial' ? 'Initial' : 'BO',
+        ];
+      }),
+      'TableStyleMedium9'
+    );
+    styleSheet(history, [18, 14, 12, 12, 14, 16, 18, 20, 16]);
+    for (let row = 5; row <= history.rowCount; row += 1) {
+      const status = history.getCell(row, 9).value;
+      const rowFill = status === 'Best observed' ? 'D1FAE5' : status === 'BO' ? 'DBEAFE' : 'F1F5F9';
+      history.getRow(row).eachCell((cell) => { cell.fill = fill(rowFill); });
+    }
+
+    const gp = workbook.addWorksheet('GP_Predictions', { properties: { tabColor: { argb: argb(palette.purple) } } });
+    addTitle(gp, 'GP Predictions vs Actual', 'Residuals and uncertainty for model validation', 7);
+    addTable(
+      gp,
+      'GPPredictions',
+      'A4',
+      ['Experiment ID', 'Type', 'Actual FWHM (meV)', 'Predicted FWHM (meV)', 'Uncertainty (meV)', 'Residual (Actual - Pred)', 'Abs Residual'],
+      timeline.map((row, index) => {
+        const pred = predictionMapForStyledExport.get(Number(row.step || index + 1)) || predictionMapForStyledExport.get(index + 1);
+        const actual = asNumber(row.fwhm);
+        const predicted = asNumber(pred?.predicted);
+        const uncertainty = asNumber(pred?.uncertainty) ?? (actual != null && predicted != null ? Math.abs(actual - predicted) * 0.2 : null);
+        const residual = actual != null && predicted != null ? actual - predicted : null;
+        return [row.experiment_id || `Exp-${index + 1}`, row.type || '-', actual, predicted, uncertainty, residual, residual == null ? null : Math.abs(residual)];
+      }),
+      'TableStyleMedium5'
+    );
+    styleSheet(gp, [18, 12, 20, 22, 18, 24, 16]);
+    for (let row = 5; row <= gp.rowCount; row += 1) {
+      const absResidual = asNumber(gp.getCell(row, 7).value);
+      gp.getCell(row, 7).fill = fill(absResidual == null ? palette.soft : absResidual <= 1 ? 'D1FAE5' : absResidual <= 5 ? 'FEF3C7' : 'FEE2E2');
+    }
+
+    const recommendations = workbook.addWorksheet('BO_Recommendations', { properties: { tabColor: { argb: argb(palette.amber) } } });
+    addTitle(recommendations, 'BO Recommendations', 'Recommended next experiment and expected improvement', 8);
+    addTable(
+      recommendations,
+      'BORecommendations',
+      'A4',
+      ['Round', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Predicted FWHM (meV)', 'Uncertainty (meV)', 'Expected Improvement (meV)'],
+      [[
+        `BO-${boCount + 1}`,
+        asNumber(suggestionForStyledExport.GTE_celsius),
+        asNumber(suggestionForStyledExport.GTI_minutes),
+        asNumber(suggestionForStyledExport.FRA_sccm),
+        asNumber(suggestionForStyledExport.Pressure_Torr),
+        asNumber(suggestionForStyledExport.predicted_FWHM_meV),
+        asNumber(suggestionForStyledExport.uncertainty_meV),
+        expectedImprovement,
+      ]],
+      'TableStyleMedium7'
+    );
+    styleSheet(recommendations, [14, 12, 12, 14, 16, 22, 18, 24]);
+    recommendations.getCell('H5').fill = fill(palette.green);
+    recommendations.getCell('H5').font = { name: 'Aptos', size: 11, bold: true, color: { argb: argb(palette.white) } };
+
+    const ranking = workbook.addWorksheet('Candidate_Ranking', { properties: { tabColor: { argb: argb(palette.green) } } });
+    addTitle(ranking, 'Candidate Ranking - Top 20 by EI', 'Candidates ranked by expected improvement', 9);
+    addTable(
+      ranking,
+      'CandidateRanking',
+      'A4',
+      ['Rank', 'Candidate Index', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Predicted FWHM (meV)', 'Uncertainty (meV)', 'Expected Improvement'],
+      candidates.slice(0, 20).map((row, index) => [
+        index + 1,
+        row.index,
+        asNumber(row.gte),
+        asNumber(row.gti),
+        asNumber(row.fra),
+        asNumber(row.pressure),
+        asNumber(row.predicted),
+        asNumber(row.uncertainty),
+        asNumber(row.ei),
+      ]),
+      'TableStyleMedium4'
+    );
+    styleSheet(ranking, [10, 16, 12, 12, 14, 16, 22, 18, 20]);
+    for (let row = 5; row <= Math.min(ranking.rowCount, 9); row += 1) {
+      ranking.getCell(row, 9).fill = fill('D1FAE5');
+      ranking.getCell(row, 9).font = { name: 'Aptos', size: 10, bold: true, color: { argb: argb(palette.navy) } };
+    }
+
+    const importanceSheet = workbook.addWorksheet('Importance', { properties: { tabColor: { argb: argb(palette.purple) } } });
+    addTitle(importanceSheet, 'Parameter Importance', 'Relative contribution to observed FWHM variation', 5);
+    addTable(
+      importanceSheet,
+      'ParameterImportance',
+      'A4',
+      ['Parameter', 'Relative Importance (%)', 'Visual Bar', 'Interpretation', 'Action'],
+      importance.map((item) => [
+        item.name,
+        asNumber(item.value),
+        `${'#'.repeat(Math.max(1, Math.round((asNumber(item.value) || 0) / 5)))} ${fmt(item.value, 0)}%`,
+        item.value >= 30 ? 'Most influential' : item.value >= 15 ? 'Significant' : 'Secondary',
+        item.value >= 30 ? 'Prioritize tight control' : 'Validate nearby interactions',
+      ]),
+      'TableStyleMedium5'
+    );
+    importanceSheet.addRow([]);
+    importanceSheet.addRow(['Interpretation', `${importance[0]?.name || 'Pressure'} is the dominant parameter influencing FWHM in this dataset.`]);
+    styleSheet(importanceSheet, [22, 24, 34, 20, 28]);
+    for (let row = 5; row <= 4 + importance.length; row += 1) {
+      importanceSheet.getCell(row, 3).font = { name: 'Consolas', size: 10, color: { argb: argb(palette.blue) } };
+    }
+
+    const search = workbook.addWorksheet('Search_Region', { properties: { tabColor: { argb: argb(palette.green) } } });
+    addTitle(search, 'Recommended Search Region', 'Bounded next-step parameter ranges around the BO recommendation', 6);
+    addTable(
+      search,
+      'RecommendedRegion',
+      'A4',
+      ['Parameter', 'Lower Bound', 'BO Center Value', 'Upper Bound', 'Step Size', 'Unit'],
+      [
+        ['Growth Temperature', Math.max(0, (asNumber(suggestionForStyledExport.GTE_celsius) || 0) - 30), asNumber(suggestionForStyledExport.GTE_celsius), (asNumber(suggestionForStyledExport.GTE_celsius) || 0) + 30, 10, 'C'],
+        ['Growth Time', Math.max(0, (asNumber(suggestionForStyledExport.GTI_minutes) || 0) - 5), asNumber(suggestionForStyledExport.GTI_minutes), (asNumber(suggestionForStyledExport.GTI_minutes) || 0) + 5, 2, 'min'],
+        ['Ar Flow', Math.max(0, (asNumber(suggestionForStyledExport.FRA_sccm) || 0) - 25), asNumber(suggestionForStyledExport.FRA_sccm), (asNumber(suggestionForStyledExport.FRA_sccm) || 0) + 25, 5, 'sccm'],
+        ['Pressure', Math.max(0, (asNumber(suggestionForStyledExport.Pressure_Torr) || 0) - 40), asNumber(suggestionForStyledExport.Pressure_Torr), (asNumber(suggestionForStyledExport.Pressure_Torr) || 0) + 40, 5, 'Torr'],
+      ],
+      'TableStyleMedium4'
+    );
+    search.addRow([]);
+    search.addRow(['Confidence Level', confidenceFromUncertainty(suggestionForStyledExport.uncertainty_meV)]);
+    styleSheet(search, [24, 16, 18, 16, 14, 12]);
+
+    const diagnostics = workbook.addWorksheet('Diagnostics', { properties: { tabColor: { argb: argb(palette.blue) } } });
+    addTitle(diagnostics, 'Model Diagnostics', 'Training quality and Gaussian Process configuration', 4);
+    addTable(
+      diagnostics,
+      'ModelDiagnostics',
+      'A4',
+      ['Metric', 'Value', 'Status', 'Notes'],
+      [
+        ['Model Type', 'Gaussian Process Regression', 'Active', 'Thermal CVD optimizer'],
+        ['Kernel', modelInfo?.kernel || 'Matern / RBF', 'Configured', 'From trained model info'],
+        ['R2 Score', r2, r2 != null && r2 >= 0.8 ? 'Strong' : 'Review', 'Higher is better'],
+        ['RMSE (meV)', asNumber(modelInfo?.RMSE_meV), 'Tracked', 'Prediction error scale'],
+        ['MAE (meV)', asNumber(modelInfo?.MAE_meV), 'Tracked', 'Mean absolute error'],
+        ['MAPE (%)', asNumber(modelInfo?.MAPE_percent), 'Tracked', 'Relative error'],
+        ['Alpha', modelInfo?.alpha || '1.0e-6', 'Configured', 'Noise regularization'],
+        ['Optimizer', modelInfo?.optimizer || 'Expected Improvement', 'Active', 'BO acquisition strategy'],
+        ['Training Samples', modelInfo?.n_train_samples || timeline.length, 'Loaded', 'Observed experiments'],
+      ],
+      'TableStyleMedium2'
+    );
+    styleSheet(diagnostics, [28, 28, 16, 34]);
+
+    const raw = workbook.addWorksheet('Raw_Candidates', { properties: { tabColor: { argb: argb(palette.slate) } } });
+    addTitle(raw, 'Raw Candidate Space', `${candidates.length || 0} generated candidate points available`, 9);
+    addTable(
+      raw,
+      'RawCandidateSpace',
+      'A4',
+      ['Candidate Index', 'GTE (C)', 'GTI (min)', 'FRA (sccm)', 'Pressure (Torr)', 'Predicted FWHM (meV)', 'Uncertainty (meV)', 'Expected Improvement', 'Selected'],
+      candidates.map((row) => [
+        row.index,
+        asNumber(row.gte),
+        asNumber(row.gti),
+        asNumber(row.fra),
+        asNumber(row.pressure),
+        asNumber(row.predicted),
+        asNumber(row.uncertainty),
+        asNumber(row.ei),
+        row.selected ? 'YES' : '',
+      ]),
+      'TableStyleMedium2'
+    );
+    styleSheet(raw, [18, 12, 12, 14, 16, 22, 18, 20, 12]);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Thermal_CVD_Optimization_Report.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+    }
+
     const predictionMap = buildPredictionMap(modelInfo);
     const wb = XLSX.utils.book_new();
 
@@ -450,8 +810,6 @@ const FullReport = () => {
     const importance = computeImportance(modelInfo);
     const predictionMap = buildPredictionMap(modelInfo);
     const topParameter = importance[0]?.name || 'the dominant process parameter';
-    const progressData = buildProgressData(timeline);
-    
     // Build GP data with training points and recommendation merged in
     let baseGpData = buildGpData(plotData);
     const trainingPts = buildTrainingPoints(plotData);
@@ -462,10 +820,27 @@ const FullReport = () => {
       plotDataAvailable: !!plotData,
     });
     
-    const recPoint = suggestion ? {
-      x: (trainingPts.length || 0) + 0.5,
-      y: asNumber(suggestion.predicted_FWHM_meV),
-    } : null;
+    const bestHistoricalPoint = trainingPts.reduce((best, point) => (
+      !best || point.y < best.y ? point : best
+    ), null);
+
+    const latestEiCurve = plotData?.ei_history?.length
+      ? plotData.ei_history[plotData.ei_history.length - 1]
+      : null;
+    let nextSuggestionPoint = null;
+    if (latestEiCurve?.length && plotData?.x?.length && plotData?.mu?.length) {
+      const maxEi = Math.max(...latestEiCurve);
+      const maxIdx = latestEiCurve.indexOf(maxEi);
+      nextSuggestionPoint = {
+        x: Number(plotData.x[maxIdx]),
+        y: asNumber(plotData.mu[maxIdx]),
+      };
+    } else if (suggestion) {
+      nextSuggestionPoint = {
+        x: trainingPts.length || 0,
+        y: asNumber(suggestion.predicted_FWHM_meV),
+      };
+    }
     
     // If no GP data but we have training points, generate synthetic smooth curve
     if (baseGpData.length === 0 && trainingPts.length > 0) {
@@ -517,23 +892,29 @@ const FullReport = () => {
       return {
         ...pt,
         trainY: closestTraining?.y || null,
-        recY: recPoint && Math.abs(pt.x - recPoint.x) < 0.7 ? recPoint.y : null,
+        recY: nextSuggestionPoint && Math.abs(pt.x - nextSuggestionPoint.x) < 0.7 ? nextSuggestionPoint.y : null,
       };
     });
     
     // Add recommendation point if exists
-    if (recPoint) {
+    if (nextSuggestionPoint) {
       gpData.push({
-        x: recPoint.x,
-        mean: recPoint.y,
-        ciBase: recPoint.y,
+        x: nextSuggestionPoint.x,
+        mean: nextSuggestionPoint.y,
+        ciBase: nextSuggestionPoint.y,
         ciRange: 0,
         trainY: null,
-        recY: recPoint.y,
+        recY: nextSuggestionPoint.y,
       });
     }
     
     const searchEi = buildSearchEi(plotData);
+    const maxTick = Math.ceil(Math.max(
+      trainingPts.length,
+      nextSuggestionPoint?.x ?? 0,
+      plotData?.x?.length ? Math.max(...plotData.x.map(Number).filter(Number.isFinite)) : 0
+    ));
+    const gpXTicks = Array.from({ length: Math.max(1, maxTick + 1) }, (_, index) => index);
     
     const expectedImprovement = bestRow && suggestion
       ? Math.max(0, bestRow.fwhmValue - Number(suggestion.predicted_FWHM_meV || bestRow.fwhmValue))
@@ -547,9 +928,11 @@ const FullReport = () => {
       suggestion,
       importance,
       topParameter,
-      progressData,
       gpData,
       trainingPoints: trainingPts,
+      bestHistoricalPoint,
+      nextSuggestionPoint,
+      gpXTicks,
       searchEi,
       predictionMap,
       expectedImprovement,
@@ -562,9 +945,11 @@ const FullReport = () => {
     suggestion,
     importance,
     topParameter,
-    progressData,
     gpData,
     trainingPoints,
+    bestHistoricalPoint,
+    nextSuggestionPoint,
+    gpXTicks,
     searchEi,
     predictionMap,
     expectedImprovement,
@@ -647,25 +1032,6 @@ const FullReport = () => {
             </p>
           </div>
 
-          <SectionHeading number="2" title="Optimization Progress" kicker="Measured FWHM, cumulative best value, and BO-selected experiments" />
-          <div className="chart-large">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={progressData} margin={{ top: 18, right: 28, left: 10, bottom: 24 }}>
-                <CartesianGrid stroke="#e5e7eb" />
-                <XAxis dataKey="index" tick={{ fontSize: 11 }} label={{ value: 'Experiment index', position: 'insideBottom', offset: -12 }} />
-                <YAxis tick={{ fontSize: 11 }} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft' }} />
-                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
-                <Line name="Actual measured FWHM" dataKey="actual" stroke="#1f2937" strokeWidth={2.4} dot={{ r: 3 }} />
-                <Line name="Best FWHM so far" dataKey="best" stroke="#3d2fb5" strokeWidth={2.6} dot={false} />
-                <Scatter name="BO-selected experiments" dataKey="boSelected" fill="#dc2626" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="interpretation">
-            The progress curve separates measured experiment quality from the cumulative best value. A downward step in
-            the best-so-far line indicates a newly discovered improvement, while flat regions indicate that additional
-            trials did not outperform the current benchmark.
-          </p>
         </section>
 
         <section className="report-sheet">
@@ -673,22 +1039,78 @@ const FullReport = () => {
             <span>Model Analysis</span>
             <span>Gaussian Process + Expected Improvement</span>
           </div>
-          <SectionHeading number="3" title="Model Analysis" />
+          <SectionHeading number="2" title="Model Analysis" />
 
           <h3>Gaussian Process Regression Visualization</h3>
           {gpData && gpData.length > 0 ? (
             <div className="chart-hero">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={gpData} margin={{ top: 20, right: 28, left: 10, bottom: 24 }}>
-                  <CartesianGrid stroke="#e5e7eb" />
-                  <XAxis type="number" dataKey="x" tick={{ fontSize: 11 }} label={{ value: 'Experiment index', position: 'insideBottom', offset: -12 }} />
-                  <YAxis tick={{ fontSize: 11 }} label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft' }} />
-                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
+                <ComposedChart data={gpData} margin={{ top: 18, right: 18, left: 8, bottom: 24 }}>
+                  <CartesianGrid stroke="#edf2f7" />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    ticks={gpXTicks}
+                    tick={{ fontSize: 11, fill: '#526987' }}
+                    tickFormatter={(value) => `Exp ${Number(value) + 1}`}
+                    axisLine={{ stroke: '#718096' }}
+                    tickLine={false}
+                    domain={['dataMin', 'dataMax']}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#526987' }}
+                    label={{ value: 'FWHM (meV)', angle: -90, position: 'insideLeft', fill: '#718096' }}
+                    axisLine={{ stroke: '#718096' }}
+                    tickLine={false}
+                    domain={[
+                      (dataMin) => Math.floor((dataMin - 10) / 10) * 10,
+                      (dataMax) => Math.ceil((dataMax + 10) / 10) * 10,
+                    ]}
+                  />
+                  <Legend
+                    verticalAlign="top"
+                    align="left"
+                    wrapperStyle={{
+                      top: 8,
+                      left: 14,
+                      width: 220,
+                      padding: '6px 8px',
+                      border: '1px solid #dbe4f0',
+                      backgroundColor: 'rgba(255,255,255,0.92)',
+                      fontSize: 11,
+                    }}
+                  />
                   <Area dataKey="ciBase" stackId="ci" stroke="transparent" fill="transparent" legendType="none" />
-                  <Area name="95% confidence interval" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#c7c2ff" fillOpacity={0.58} />
-                  <Line name="GP mean prediction" dataKey="mean" stroke="#3d2fb5" strokeWidth={2.8} dot={false} isAnimationActive={false} />
-                  <Scatter name="Training data points" dataKey="trainY" fill="#111827" isAnimationActive={false} />
-                  <Scatter name="BO recommendation" dataKey="recY" fill="#dc2626" shape="star" isAnimationActive={false} />
+                  <Area name="95% confidence interval" dataKey="ciRange" stackId="ci" stroke="transparent" fill="#F1C40F" fillOpacity={0.28} isAnimationActive={false} />
+                  <Line name="Surrogate model" dataKey="mean" stroke="#2C3E50" strokeWidth={2.2} strokeDasharray="8 8" dot={false} isAnimationActive={false} />
+                  {nextSuggestionPoint?.x != null && (
+                    <ReferenceLine x={nextSuggestionPoint.x} stroke="#7C4DFF" strokeDasharray="8 8" strokeOpacity={0.35} />
+                  )}
+                  <Scatter
+                    name="Observations"
+                    data={trainingPoints}
+                    dataKey="y"
+                    shape={<DiamondPoint />}
+                    isAnimationActive={false}
+                  />
+                  {bestHistoricalPoint && (
+                    <Scatter
+                      name="Best Historical Experiment"
+                      data={[bestHistoricalPoint]}
+                      dataKey="y"
+                      shape={<DiamondPoint fill="transparent" stroke="#2ECC71" size={9} />}
+                      isAnimationActive={false}
+                    />
+                  )}
+                  {nextSuggestionPoint?.y != null && (
+                    <Scatter
+                      name="Next Suggested Experiment"
+                      data={[nextSuggestionPoint]}
+                      dataKey="y"
+                      shape={<StarPoint />}
+                      isAnimationActive={false}
+                    />
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -753,7 +1175,7 @@ const FullReport = () => {
             <span>Best Experiment Analysis</span>
             <span>Recommendation Summary</span>
           </div>
-          <SectionHeading number="4" title="Best Experiment Analysis" />
+          <SectionHeading number="3" title="Best Experiment Analysis" />
 
           <div className="hero-analysis">
             <div>
@@ -779,7 +1201,7 @@ const FullReport = () => {
             </p>
           </div>
 
-          <SectionHeading number="5" title="Next Bayesian Optimization Recommendation" />
+          <SectionHeading number="4" title="Next Bayesian Optimization Recommendation" />
           
           <div className="bo-recommendation-card">
             <div className="bo-card-header">
@@ -852,7 +1274,7 @@ const FullReport = () => {
             <span>Complete Experiment History</span>
             <span>{timeline.length} experiments</span>
           </div>
-          <SectionHeading number="6" title="Complete Experiment History" />
+          <SectionHeading number="5" title="Complete Experiment History" />
           <table className="history-table">
             <thead>
               <tr>
