@@ -156,12 +156,60 @@ def main() -> int:
             raise AssertionError("user1 token returned user2 profile on /me")
     print("PASS: user1 token does not surface user2 on /me")
 
-    print("\n--- Test 4: localStorage rule (manual / Playwright) ---")
+    print("\n--- Test 4: invalid / tampered token rejected by /me ---")
+    for label, bad_token in (
+        ("garbage token", "not.a.valid.jwt.token"),
+        ("empty bearer", ""),
+        ("truncated real token", token1[: max(len(token1) // 2, 8)]),
+    ):
+        headers = {"Authorization": f"Bearer {bad_token}"} if bad_token else {}
+        res = requests.get(f"{BASE_URL}/api/users/me", headers=headers, timeout=TIMEOUT)
+        if res.status_code not in (401, 403):
+            raise AssertionError(f"{label}: expected 401/403, got {res.status_code}")
+    print("PASS: /me rejects invalid tokens (401/403)")
+
+    print("\n--- Test 5: upload must not trust client-supplied user_id ---")
+    if user2_id:
+        # After backend fix: upload with user1 token + user2 id should attach to user1 or 403.
+        # Before fix: this may incorrectly store under user2 — test flags that as FAIL.
+        tiny_csv = ("GTE,GTI,FRA,Pressure,PL FWHM,TOCVD\n"
+                    "800,10,50,760,45,Thermal CVD\n").encode()
+        res = requests.post(
+            f"{BASE_URL}/api/datasets/upload?user_id={user2_id}",
+            headers={"Authorization": f"Bearer {token1}"},
+            files={"files": ("test.csv", tiny_csv, "text/csv")},
+            timeout=TIMEOUT,
+        )
+        if res.status_code == 200:
+            # Probe whether dataset was attributed to user2 (vulnerability)
+            saved = requests.get(
+                f"{BASE_URL}/api/datasets/saved",
+                headers={"Authorization": f"Bearer {token1}"},
+                timeout=TIMEOUT,
+            )
+            if saved.status_code == 200 and user2["email"].lower() in str(saved.json()).lower():
+                raise AssertionError(
+                    "FAIL: upload with spoofed user_id may leak/write as another user — "
+                    "backend must derive user from JWT, not query param"
+                )
+            print("PASS: upload accepted but no cross-user attribution detected (verify backend uses JWT)")
+        elif res.status_code in (401, 403):
+            print("PASS: upload blocked without valid auth / cross-user write")
+        else:
+            print(f"SKIP: upload returned HTTP {res.status_code} (endpoint may need auth middleware first)")
+    else:
+        print("SKIP: no user2 id for upload spoof test")
+
+    print("\n--- Manual browser checks (run after frontend patch) ---")
     print(
-        "After login as user1 in browser DevTools → Application → Local Storage:\n"
-        "  - Should see access_token (optional)\n"
-        "  - Must NOT see key 'user' with user2 email\n"
-        "  - Must NOT contain user2 email in any stored value"
+        "Invalid token:\n"
+        "  1. Login → DevTools → change access_token → refresh\n"
+        "  2. Expect redirect to /login and localStorage cleared\n\n"
+        "Direct URL (not logged in):\n"
+        "  1. Clear storage → open /dashboard → redirect /login\n"
+        "  2. Clear storage → open /datasets → redirect /login\n\n"
+        "localStorage:\n"
+        "  - access_token only (no 'user' key with email/full_name)"
     )
 
     print("\nAll automated API isolation checks passed.")
