@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 pandas
 numpy
@@ -12,3 +12,6 @@ pymongo
 motor
 python-dotenv
 python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+email-validator
