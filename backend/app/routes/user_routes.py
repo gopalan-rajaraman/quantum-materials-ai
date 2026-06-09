@@ -2,7 +2,7 @@
 User authentication and management routes.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
@@ -10,6 +10,7 @@ from bson import ObjectId
 import hashlib
 
 from app.database.mongodb_config import get_users_collection, get_activity_log_collection
+from app.auth import create_access_token, get_current_user
 from app.database.mongodb_models import UserModel
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -125,10 +126,14 @@ async def login_user(login_data: UserLogin):
     # if not user.get("is_verified", False):
     #     raise HTTPException(status_code=403, detail="Please verify your email before logging in")
     
+    # Create a JWT access token for the user
+    token_info = create_access_token(str(user["_id"]))
+
+    # Prepare user object to return (don't expose password hash)
     user["_id"] = str(user["_id"])
     user.pop("password_hash", None)
     user.pop("verification_token", None)
-    
+
     # Log login activity
     activity_collection = get_activity_log_collection()
     await activity_collection.insert_one({
@@ -139,18 +144,29 @@ async def login_user(login_data: UserLogin):
         "timestamp": datetime.utcnow().isoformat(),
         "user_id": ObjectId(user["_id"])
     })
-    
+
     return {
-        "message": "Login successful",
-        "user": user
+        "access_token": token_info["access_token"],
+        "token_type": "bearer",
+        "expires_at": token_info["expires_at"],
+        "user_id": user["_id"]
     }
 
 
+@router.get("/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Return the currently authenticated user's profile."""
+    return current_user
+
+
 @router.get("/{user_id}")
-async def get_user(user_id: str):
-    """Get user by ID."""
+async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Get user by ID. Only the user themself or admin can access another user's data."""
+    # Only allow access to own profile unless admin
+    if current_user["_id"] != user_id and current_user.get("role", "user") != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
     collection = get_users_collection()
-    
     try:
         user = await collection.find_one({"_id": ObjectId(user_id)})
         if not user:
@@ -158,6 +174,7 @@ async def get_user(user_id: str):
         
         user["_id"] = str(user["_id"])
         user.pop("password_hash", None)
+        user.pop("verification_token", None)
         
         return user
     except Exception as e:
@@ -165,27 +182,34 @@ async def get_user(user_id: str):
 
 
 @router.put("/{user_id}")
-async def update_user(user_id: str, user_data: dict):
-    """Update user information."""
+async def update_user(user_id: str, user_data: dict, current_user: dict = Depends(get_current_user)):
+    """Update user information. Only the user themself or admin can update."""
+    # Only allow updating own profile unless admin
+    if current_user["_id"] != user_id and current_user.get("role", "user") != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
     collection = get_users_collection()
-    
     try:
         # Don't allow updating password through this endpoint
         if "password_hash" in user_data:
             del user_data["password_hash"]
         if "password" in user_data:
             del user_data["password"]
-        
+
+        # Only admin can change role
+        if "role" in user_data and current_user.get("role", "user") != "admin":
+            del user_data["role"]
+
         update_data = {k: v for k, v in user_data.items() if k != "_id"}
-        
+
         result = await collection.update_one(
             {"_id": ObjectId(user_id)},
             {"$set": update_data}
         )
-        
+
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         return {"message": "User updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

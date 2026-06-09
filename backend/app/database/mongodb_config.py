@@ -50,3 +50,8 @@ def get_users_collection():
 def get_activity_log_collection():
     """Get activity log collection."""
     return MongoDB.get_database().activity_log
+
+
+def get_sessions_collection():
+    """Get sessions collection for storing auth/session tokens."""
+    return MongoDB.get_database().sessions

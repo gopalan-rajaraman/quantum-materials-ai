@@ -11,3 +11,4 @@ seaborn
 pymongo
 motor
 python-dotenv
+python-jose[cryptography]
