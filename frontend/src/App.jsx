@@ -14,11 +14,13 @@ import Variables from './pages/Variables';
 import Models from './pages/Models';
 import Settings from './pages/Settings';
 import VerifyEmail from './pages/VerifyEmail';
+import ResetPassword from './pages/ResetPassword';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const user = localStorage.getItem('user');
-  if (!user) {
+  const token = localStorage.getItem('token');
+  if (!user || !token) {
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -26,7 +28,7 @@ const ProtectedRoute = ({ children }) => {
 
 const AppLayout = () => {
   const location = useLocation();
-  const isAuthPage = location.pathname === '/signup' || location.pathname === '/login' || location.pathname === '/verify-email';
+  const isAuthPage = location.pathname === '/signup' || location.pathname === '/login' || location.pathname === '/verify-email' || location.pathname === '/reset-password';
 
   if (isAuthPage) {
     return (
@@ -35,6 +37,7 @@ const AppLayout = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </div>
     );

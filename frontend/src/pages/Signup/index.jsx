@@ -75,8 +75,6 @@ const STYLES = `
     to   { opacity: 1; transform: translateX(0); }
   }
   .form-panel { animation: fadeSlideIn 0.3s ease forwards; }
-
-
 `;
 
 /* ─── Icons ─────────────────────────────────────────────────── */
@@ -113,8 +111,6 @@ const IconHexagon = () => (
     <path d="M16 9L22.93 13V19L16 23L9.07 19V13L16 9Z" fill="white"/>
   </svg>
 );
-
-
 
 const IconFlask = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -288,7 +284,7 @@ const SignUpForm = () => {
 
 /* ─── Forgot Password Modal ─────────────────────────────────── */
 const ForgotPasswordModal = ({ onClose }) => {
-  const [step, setStep]   = useState('request'); // 'request' | 'sent'
+  const [step, setStep]   = useState('request');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
@@ -336,7 +332,6 @@ const ForgotPasswordModal = ({ onClose }) => {
     </div>
   );
 
-  /* ── "Check your inbox" confirmation ── */
   if (step === 'sent') return (
     <Overlay>
       <div style={{ textAlign:'center', padding:'10px 0 4px' }}>
@@ -360,7 +355,6 @@ const ForgotPasswordModal = ({ onClose }) => {
     </Overlay>
   );
 
-  /* ── Email entry form ── */
   return (
     <Overlay>
       <div style={{ textAlign:'center', marginBottom:24 }}>
@@ -428,7 +422,11 @@ const SignInForm = () => {
         body: JSON.stringify({ email:formData.email, password:formData.password }),
       });
       const data = await res.json();
-      if (res.ok) { localStorage.setItem('user', JSON.stringify(data.user)); navigate('/dashboard'); }
+      if (res.ok) {
+        localStorage.setItem('user', JSON.stringify(data.user_id));
+        localStorage.setItem('token', data.access_token);
+        navigate('/dashboard');
+      }
       else setError(data.detail || 'Login failed');
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
@@ -491,7 +489,7 @@ const SignInForm = () => {
   );
 };
 
-/* ─── Left Panel (constant) ──────────────────────────────────── */
+/* ─── Left Panel ──────────────────────────────────────────────── */
 const LeftPanel = () => (
   <div style={{
     width: '50%', flexShrink: 0,
@@ -501,7 +499,6 @@ const LeftPanel = () => (
     position:'relative', overflow:'hidden',
     borderRight:'none',
   }}>
-    {/* Blobs */}
     <div style={{ position:'absolute', top:-60, right:-60, width:220, height:220, background:'radial-gradient(circle,rgba(99,102,241,0.18) 0%,transparent 70%)', borderRadius:'50%', pointerEvents:'none' }}/>
     <div style={{ position:'absolute', bottom:80, left:-40, width:160, height:160, background:'radial-gradient(circle,rgba(167,139,250,0.20) 0%,transparent 70%)', borderRadius:'50%', pointerEvents:'none' }}/>
     {[
@@ -513,20 +510,16 @@ const LeftPanel = () => (
       <div key={i} style={{ position:'absolute', top:d.top, left:d.left, width:d.size, height:d.size, borderRadius:'50%', background:d.color }}/>
     ))}
 
-    {/* Logo */}
     <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:40, position:'relative', zIndex:10 }}>
       <IconHexagon/>
       <span style={{ fontSize:18, fontWeight:800, color:'#1e1b4b' }}>ResearchHub</span>
     </div>
 
-    {/* Content Container */}
     <div style={{ position:'relative', zIndex:10, display:'flex', flexDirection:'column', flex: 1, paddingBottom: '40px' }}>
-      {/* Headline */}
       <h1 style={{ margin:'0 0 16px', fontSize:44, fontWeight:900, color:'#1e1b4b', lineHeight:1.15, letterSpacing:'-0.02em' }}>
         Built for<br/>Researchers.
       </h1>
 
-      {/* Illustration */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '20px' }}>
         <img
           src="/researcher.png"
@@ -538,10 +531,6 @@ const LeftPanel = () => (
     </div>
   </div>
 );
-
-
-
-
 
 /* ─── Main Component ─────────────────────────────────────────── */
 const AuthPage = () => {
@@ -557,10 +546,8 @@ const AuthPage = () => {
         fontFamily:"'Inter',system-ui,sans-serif",
         background:'#f5f3ff',
       }}>
-        {/* LEFT — constant */}
         <LeftPanel/>
 
-        {/* RIGHT — tab-switched */}
         <div style={{
           width: '50%', flexShrink: 0, display:'flex', flexDirection:'column',
           alignItems:'center', justifyContent:'center',
@@ -570,9 +557,6 @@ const AuthPage = () => {
         }}>
           <div style={{ width:'100%', maxWidth:480 }}>
 
-            {/* Tabs removed as per user request */}
-
-            {/* Heading (only for signup) */}
             {tab === 'signup' && (
               <div style={{ marginBottom:16 }}>
                 <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'#1e1b4b', letterSpacing:'-0.02em' }}>Create your account</h2>
@@ -580,10 +564,15 @@ const AuthPage = () => {
               </div>
             )}
 
-            {/* Form switch */}
             {tab === 'signup' ? <SignUpForm /> : <SignInForm />}
 
-            {/* Bottom switch link removed as per user request */}
+            {/* Switch link */}
+            <p style={{ textAlign:'center', marginTop:20, fontSize:13.5, color:'#94a3b8' }}>
+              {tab === 'signup'
+                ? <>Already have an account?{' '}<span onClick={() => navigate('/login')} style={{ color:'#6366f1', fontWeight:600, cursor:'pointer' }}>Sign in</span></>
+                : <>Don't have an account?{' '}<span onClick={() => navigate('/signup')} style={{ color:'#6366f1', fontWeight:600, cursor:'pointer' }}>Sign up</span></>
+              }
+            </p>
           </div>
         </div>
       </div>
