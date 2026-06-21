@@ -134,7 +134,7 @@ async def forgot_password(request: ForgotPasswordRequest):
         return {"message": "If that email is registered, a reset link has been sent."}
 
     reset_token = secrets.token_urlsafe(32)
-    reset_link = f"http://localhost:5173/login?reset_token={reset_token}"
+    reset_link = f"http://localhost:5173/reset-password?token={reset_token}"
 
     await collection.update_one(
         {"_id": user["_id"]},
