@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, X, Mail, KeyRound, ArrowLeft } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 
 /* ─── Styles ────────────────────────────────────────────────── */
@@ -286,12 +286,176 @@ const SignUpForm = () => {
   );
 };
 
+/* ─── Forgot Password Modal ─────────────────────────────────── */
+const ForgotPasswordModal = ({ onClose }) => {
+  const [step, setStep] = useState('request'); // 'request' | 'reset' | 'done'
+  const [email, setEmail]         = useState('');
+  const [token, setToken]         = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showPw, setShowPw]       = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+  const [info, setInfo]           = useState('');
+
+  // If the URL already has a reset_token, jump straight to reset step
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('reset_token');
+    if (t) { setToken(t); setStep('reset'); }
+  }, []);
+
+  const handleRequest = async e => {
+    e.preventDefault(); setError(''); setLoading(true);
+    try {
+      const res  = await fetch('http://localhost:8000/api/users/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setInfo(data.message);
+        setStep('reset');
+      } else {
+        setError(data.detail || 'Something went wrong.');
+      }
+    } catch { setError('Network error. Please try again.'); }
+    finally { setLoading(false); }
+  };
+
+  const handleReset = async e => {
+    e.preventDefault(); setError('');
+    if (newPassword !== confirmPw) { setError('Passwords do not match'); return; }
+    if (newPassword.length < 8)    { setError('Password must be at least 8 characters'); return; }
+    setLoading(true);
+    try {
+      const res  = await fetch('http://localhost:8000/api/users/reset-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password: newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) { setStep('done'); }
+      else        { setError(data.detail || 'Reset failed. Please try again.'); }
+    } catch { setError('Network error. Please try again.'); }
+    finally { setLoading(false); }
+  };
+
+  const Overlay = ({ children }) => (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position:'fixed', inset:0, zIndex:1000,
+        background:'rgba(15,10,40,0.55)', backdropFilter:'blur(4px)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding:20, animation:'fadeIn 0.18s ease',
+      }}
+    >
+      <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}} @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div style={{
+        background:'white', borderRadius:20, padding:'40px 36px', width:'100%', maxWidth:440,
+        boxShadow:'0 32px 80px rgba(0,0,0,0.22)', position:'relative',
+        animation:'slideUp 0.22s ease',
+      }}>
+        <button onClick={onClose} style={{
+          position:'absolute', top:16, right:16, background:'#f1f5f9', border:'none',
+          borderRadius:8, width:32, height:32, cursor:'pointer', display:'flex',
+          alignItems:'center', justifyContent:'center', color:'#64748b',
+        }}><X size={16}/></button>
+        {children}
+      </div>
+    </div>
+  );
+
+  const ErrorBox = () => error ? (
+    <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', padding:'10px 14px', borderRadius:8, fontSize:13.5, marginBottom:14, display:'flex', gap:8, alignItems:'center' }}>
+      <div style={{ width:6, height:6, borderRadius:'50%', background:'#dc2626', flexShrink:0 }}/>{error}
+    </div>
+  ) : null;
+
+  if (step === 'request') return (
+    <Overlay>
+      <div style={{ textAlign:'center', marginBottom:24 }}>
+        <div style={{ width:56, height:56, borderRadius:16, background:'#eef2ff', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+          <Mail size={26} color="#6366f1"/>
+        </div>
+        <h2 style={{ margin:'0 0 6px', fontSize:21, fontWeight:800, color:'#1e1b4b' }}>Forgot your password?</h2>
+        <p style={{ margin:0, fontSize:13.5, color:'#94a3b8', lineHeight:1.5 }}>Enter your email and we'll send you a reset link.</p>
+      </div>
+      <form onSubmit={handleRequest}>
+        <ErrorBox/>
+        <Field label="Email Address" icon={<IconMail/>}>
+          <input className="su-input" type="email" value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="Enter your email address" required/>
+        </Field>
+        <button type="submit" className="action-btn" disabled={loading} style={{ marginTop:8 }}>
+          {loading ? 'Sending…' : 'Send Reset Link'}
+        </button>
+        <p style={{ textAlign:'center', marginTop:14, fontSize:13, color:'#94a3b8' }}>
+          Already have a token?{' '}
+          <span onClick={() => setStep('reset')} style={{ color:'#6366f1', fontWeight:600, cursor:'pointer' }}>Enter it here</span>
+        </p>
+      </form>
+    </Overlay>
+  );
+
+  if (step === 'reset') return (
+    <Overlay>
+      <button onClick={() => setStep('request')} style={{ background:'none', border:'none', cursor:'pointer', color:'#64748b', display:'flex', alignItems:'center', gap:5, fontSize:13, fontWeight:600, marginBottom:20, padding:0 }}>
+        <ArrowLeft size={14}/> Back
+      </button>
+      <div style={{ textAlign:'center', marginBottom:24 }}>
+        <div style={{ width:56, height:56, borderRadius:16, background:'#eef2ff', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+          <KeyRound size={26} color="#6366f1"/>
+        </div>
+        <h2 style={{ margin:'0 0 6px', fontSize:21, fontWeight:800, color:'#1e1b4b' }}>Reset password</h2>
+        {info && <p style={{ margin:'0 0 4px', fontSize:13.5, color:'#22c55e', fontWeight:600 }}>{info}</p>}
+        <p style={{ margin:0, fontSize:13.5, color:'#94a3b8', lineHeight:1.5 }}>Paste the token from your email and choose a new password.</p>
+      </div>
+      <form onSubmit={handleReset}>
+        <ErrorBox/>
+        <Field label="Reset Token" icon={<KeyRound size={15} color="#94a3b8"/>}>
+          <input className="su-input" type="text" value={token} onChange={e => setToken(e.target.value)}
+            placeholder="Paste the token from your email" required/>
+        </Field>
+        <Field label="New Password" icon={<IconLock/>}>
+          <input className="su-input" type={showPw ? 'text' : 'password'} value={newPassword}
+            onChange={e => setNewPassword(e.target.value)} placeholder="At least 8 characters" required style={{ paddingRight:40 }}/>
+          <button type="button" onClick={() => setShowPw(!showPw)} style={{ position:'absolute', right:11, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:0, display:'flex' }}>
+            {showPw ? <IconEyeOff/> : <IconEye/>}
+          </button>
+        </Field>
+        <Field label="Confirm Password" icon={<IconLock/>} mb={8}>
+          <input className="su-input" type="password" value={confirmPw}
+            onChange={e => setConfirmPw(e.target.value)} placeholder="Confirm your new password" required/>
+        </Field>
+        <button type="submit" className="action-btn" disabled={loading} style={{ marginTop:8 }}>
+          {loading ? 'Resetting…' : 'Reset Password'}
+        </button>
+      </form>
+    </Overlay>
+  );
+
+  return (
+    <Overlay>
+      <div style={{ textAlign:'center', padding:'20px 0' }}>
+        <div style={{ width:70, height:70, borderRadius:'50%', background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <CheckCircle2 size={36} color="#22c55e"/>
+        </div>
+        <h3 style={{ margin:'0 0 8px', fontSize:20, fontWeight:800, color:'#1e1b4b' }}>Password Reset!</h3>
+        <p style={{ margin:'0 0 24px', fontSize:13.5, color:'#6b7280', lineHeight:1.6 }}>Your password has been updated. You can now sign in with your new password.</p>
+        <button className="action-btn" onClick={onClose}>Back to Sign In</button>
+      </div>
+    </Overlay>
+  );
+};
+
 /* ─── Sign In Form ───────────────────────────────────────────── */
 const SignInForm = () => {
-  const [showPw, setShowPw] = useState(false);
-  const [formData, setFormData] = useState({ email:'', password:'' });
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [showPw, setShowPw]           = useState(false);
+  const [formData, setFormData]       = useState({ email:'', password:'' });
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+  const [showForgot, setShowForgot]   = useState(false);
   const navigate = useNavigate();
 
   const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -373,13 +537,17 @@ const SignInForm = () => {
         <label style={{ display:'flex', alignItems:'center', gap:7, fontSize:13.5, color:'#64748b', cursor:'pointer' }}>
           <input type="checkbox" style={{ accentColor:'#6366f1' }}/> Remember me
         </label>
-        <span style={{ fontSize:13.5, color:'#6366f1', fontWeight:600, cursor:'pointer' }}>Forgot password?</span>
+        <span
+          style={{ fontSize:13.5, color:'#6366f1', fontWeight:600, cursor:'pointer' }}
+          onClick={() => setShowForgot(true)}
+        >Forgot password?</span>
       </div>
 
       <button type="submit" className="action-btn" disabled={loading}>
         {loading ? 'Signing In…' : 'Sign In'}
       </button>
 
+      {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
     </form>
   );
 };

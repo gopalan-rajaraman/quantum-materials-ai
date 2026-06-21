@@ -113,6 +113,69 @@ async def verify_email(request: VerifyEmailRequest):
     return {"message": "Email verified successfully"}
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """Generate a password-reset token and log the reset link (email sending can be wired later)."""
+    import secrets
+    collection = get_users_collection()
+
+    user = await collection.find_one({"email": request.email})
+    # Always return success to avoid email enumeration
+    if not user:
+        return {"message": "If that email is registered, a reset link has been sent."}
+
+    reset_token = secrets.token_urlsafe(32)
+    reset_link = f"http://localhost:5173/login?reset_token={reset_token}"
+
+    await collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"reset_password_token": reset_token, "reset_token_created_at": datetime.utcnow().isoformat()}}
+    )
+
+    # TODO: send email — for now log to console
+    print(f"[RESET LINK] {request.email}: {reset_link}")
+
+    return {"message": "If that email is registered, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Validate reset token and update the user's password."""
+    from datetime import timezone, timedelta
+    collection = get_users_collection()
+
+    user = await collection.find_one({"reset_password_token": request.token})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    # Check token age (expire after 1 hour)
+    created_at_str = user.get("reset_token_created_at")
+    if created_at_str:
+        created_at = datetime.fromisoformat(created_at_str)
+        if (datetime.utcnow() - created_at) > timedelta(hours=1):
+            raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new one.")
+
+    if len(request.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    await collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password_hash": hash_password(request.new_password)},
+         "$unset": {"reset_password_token": "", "reset_token_created_at": ""}}
+    )
+
+    return {"message": "Password reset successfully. You can now log in with your new password."}
+
+
 @router.post("/login")
 async def login_user(login_data: UserLogin):
     """Login user and return user data."""
@@ -170,7 +233,8 @@ async def google_login(request: GoogleLoginRequest):
             raise HTTPException(status_code=500, detail="Google Client ID not configured")
             
         idinfo = id_token.verify_oauth2_token(
-            request.credential, requests.Request(), client_id
+            request.credential, requests.Request(), client_id,
+            clock_skew_in_seconds=10
         )
 
         email = idinfo.get("email")
@@ -238,7 +302,8 @@ async def google_login(request: GoogleLoginRequest):
             "expires_at": token_info["expires_at"],
             "user_id": str(user["_id"])
         }
-    except ValueError:
+    except ValueError as e:
+        print(f"Google Token Verification Failed: {e}")
         raise HTTPException(status_code=401, detail="Invalid Google token")
 
 
