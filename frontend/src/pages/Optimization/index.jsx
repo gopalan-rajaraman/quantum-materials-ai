@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
-import { FlaskConical, Target, Save, Info, Star, TrendingDown, Trophy, AlertTriangle, RefreshCw, FileText } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
 
 const Optimization = () => {
   const [modelInfo, setModelInfo] = useState(null);
@@ -9,10 +8,8 @@ const Optimization = () => {
   const [plotData, setPlotData] = useState(null);
   const [timelineData, setTimelineData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [boProgress, setBoProgress] = useState(null);
   const [sliceMode, setSliceMode] = useState('suggestion'); // 'suggestion' or 'latest'
   const [boStarted, setBoStarted] = useState(false);
-  const [error, setError] = useState(null);
   
   
   const [fwhmResult, setFwhmResult] = useState('');
@@ -25,9 +22,6 @@ const Optimization = () => {
   const [forceContinue, setForceContinue] = useState(false);
   
   const [submitting, setSubmitting] = useState(false);
-  const navigate = useNavigate();
-
-  // Download removed — direct report download moved to Report page
 
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
@@ -47,7 +41,7 @@ const Optimization = () => {
         
         if (info.status === 'fitted') {
           const progressRes = await fetch('http://localhost:8000/thermal-cvd/bo-progress');
-          if (progressRes.ok) setBoProgress(await progressRes.json());
+          if (progressRes.ok) await progressRes.json();
           
           const suggRes = await fetch('http://localhost:8000/thermal-cvd/suggest', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -376,21 +370,10 @@ const Optimization = () => {
 
   return (
     <div className="p-6 bg-slate-50 min-h-full text-slate-800 animate-fade-in font-sans">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-1">Optimization Dashboard</h2>
           <p className="text-slate-500">Bayesian Optimization engine tracking FWHM minimization.</p>
-        </div>
-        <div className="flex items-center gap-3 relative z-50">
-
-          {/* View Full Report — opens in new tab, route unchanged */}
-          <button
-            onClick={() => window.open('/reports/full', '_blank')}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-[#7C4DFF] font-semibold rounded-lg border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-sm"
-          >
-            <FileText className="w-4 h-4" /> View Report
-          </button>
-
         </div>
       </div>
       

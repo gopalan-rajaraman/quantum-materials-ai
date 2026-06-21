@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Filter, List, Grid, Lock, Unlock, 
   MoreVertical, ChevronDown, ChevronLeft, ChevronRight, FileText,
-  Database, FlaskConical, PlayCircle, BarChart2, Upload, Calendar, HardDrive
+  Database, FlaskConical, PlayCircle
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip
@@ -49,15 +49,13 @@ const Datasets = () => {
 
   const csvSizeMB = datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0) / 1024;
   const metadataSizeMB = datasetsList.length * 0.05;
-  const reportsSizeMB = totalRuns * 0.12;
   const modelCacheSizeMB = datasetsList.length > 0 ? 0.8 : 0;
   const othersSizeMB = datasetsList.length > 0 ? 0.15 : 0;
-  const totalSizeMB = csvSizeMB + metadataSizeMB + reportsSizeMB + modelCacheSizeMB + othersSizeMB;
+  const totalSizeMB = csvSizeMB + metadataSizeMB + modelCacheSizeMB + othersSizeMB;
 
   const categoryData = [
     { name: 'CSV Data', size: csvSizeMB, color: '#6366f1', icon: <FileText className="w-4 h-4 text-white" />, bg: 'bg-[#8B5CF6]' },
     { name: 'Metadata', size: metadataSizeMB, color: '#3b82f6', icon: <List className="w-4 h-4 text-white" />, bg: 'bg-[#3B82F6]' },
-    { name: 'Reports', size: reportsSizeMB, color: '#10b981', icon: <BarChart2 className="w-4 h-4 text-white" />, bg: 'bg-[#00B050]' },
     { name: 'Model Cache', size: modelCacheSizeMB, color: '#f59e0b', icon: <Database className="w-4 h-4 text-white" />, bg: 'bg-[#F59E0B]' },
     { name: 'Others', size: othersSizeMB, color: '#ec4899', icon: <MoreVertical className="w-4 h-4 text-white" />, bg: 'bg-[#EC4899]' },
   ].filter(item => item.size > 0).sort((a, b) => b.size - a.size);

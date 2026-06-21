@@ -145,7 +145,6 @@ quantum-materials-ai/
 │   │   │   ├── Login/                 # Authentication Pages
 │   │   │   ├── Models/                # Model parameter configurations
 │   │   │   ├── Optimization/          # Active Learning loop tracker
-│   │   │   ├── Reports/               # Performance and quality reports
 │   │   │   ├── Results/               # Output visualization page
 │   │   │   ├── Settings/              # User preferences
 │   │   │   ├── Signup/                # New account generation

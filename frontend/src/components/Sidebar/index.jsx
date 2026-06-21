@@ -6,7 +6,6 @@ import {
   Database, 
   LayoutGrid, 
   TrendingUp, 
-  FileText, 
   Boxes, 
   Settings, 
   ChevronDown, 
@@ -60,7 +59,6 @@ const Sidebar = () => {
           <NavItem path="/datasets" icon={Database} label="Datasets" />
           <NavItem path="/variables" icon={LayoutGrid} label="Variables" />
           <NavItem path="/results" icon={TrendingUp} label="Results" />
-          <NavItem path="/reports" icon={FileText} label="Reports" />
           <NavItem path="/models" icon={Boxes} label="Models" />
           <NavItem path="/settings" icon={Settings} label="Settings" />
         </nav>

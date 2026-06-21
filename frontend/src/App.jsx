@@ -11,8 +11,6 @@ import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Datasets from './pages/Datasets';
 import Variables from './pages/Variables';
-import Reports from './pages/Reports';
-import FullReport from './pages/Reports/FullReport';
 import Models from './pages/Models';
 import Settings from './pages/Settings';
 import VerifyEmail from './pages/VerifyEmail';
@@ -55,8 +53,6 @@ const AppLayout = () => {
           <Route path="/variables" element={<ProtectedRoute><Variables /></ProtectedRoute>} />
           <Route path="/optimization" element={<ProtectedRoute><Optimization /></ProtectedRoute>} />
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-          <Route path="/reports/full" element={<ProtectedRoute><FullReport /></ProtectedRoute>} />
           <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Routes>
