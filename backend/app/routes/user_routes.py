@@ -8,6 +8,9 @@ from typing import Optional
 from datetime import datetime
 from bson import ObjectId
 import hashlib
+import os
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from app.database.mongodb_config import get_users_collection, get_activity_log_collection
 from app.auth import create_access_token, get_current_user
@@ -151,6 +154,92 @@ async def login_user(login_data: UserLogin):
         "expires_at": token_info["expires_at"],
         "user_id": user["_id"]
     }
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
+
+
+@router.post("/google-login")
+async def google_login(request: GoogleLoginRequest):
+    """Login or register user using Google OAuth."""
+    try:
+        # Verify the Google token
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        if not client_id:
+            raise HTTPException(status_code=500, detail="Google Client ID not configured")
+            
+        idinfo = id_token.verify_oauth2_token(
+            request.credential, requests.Request(), client_id
+        )
+
+        email = idinfo.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="No email provided by Google")
+
+        if not idinfo.get("email_verified", False):
+            raise HTTPException(status_code=403, detail="Google email is not verified")
+
+        collection = get_users_collection()
+        user = await collection.find_one({"email": email})
+        
+        google_id = idinfo.get("sub")
+        full_name = idinfo.get("name", "")
+
+        if user:
+            # User exists, link account if not already linked
+            auth_providers = user.get("auth_providers", ["local"])
+            update_data = {}
+            if "google" not in auth_providers:
+                auth_providers.append("google")
+                update_data["auth_providers"] = auth_providers
+            if not user.get("google_id"):
+                update_data["google_id"] = google_id
+                
+            if update_data:
+                await collection.update_one({"_id": user["_id"]}, {"$set": update_data})
+        else:
+            # Create new user
+            new_user = {
+                "full_name": full_name,
+                "email": email,
+                "department": "",
+                "institute": "",
+                "role": "user",
+                "auth_providers": ["google"],
+                "google_id": google_id,
+                "password_hash": None,
+                "is_verified": True,
+                "verification_token": None,
+                "member_since": datetime.utcnow().isoformat(),
+                "created_at": datetime.utcnow().isoformat()
+            }
+            result = await collection.insert_one(new_user)
+            user = new_user
+            user["_id"] = result.inserted_id
+
+        # Generate JWT
+        token_info = create_access_token(str(user["_id"]))
+
+        # Log login activity
+        activity_collection = get_activity_log_collection()
+        await activity_collection.insert_one({
+            "title": "Google Login",
+            "desc": f"User {user['email']} logged in successfully via Google.",
+            "color": "bg-blue-500",
+            "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.utcnow().isoformat(),
+            "user_id": ObjectId(user["_id"])
+        })
+
+        return {
+            "access_token": token_info["access_token"],
+            "token_type": "bearer",
+            "expires_at": token_info["expires_at"],
+            "user_id": str(user["_id"])
+        }
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
 
 
 @router.get("/me")

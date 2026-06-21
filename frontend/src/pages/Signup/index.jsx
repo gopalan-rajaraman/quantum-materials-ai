@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 /* ─── Styles ────────────────────────────────────────────────── */
 const STYLES = `
@@ -161,6 +162,26 @@ const SignUpForm = () => {
 
   const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const res = await fetch('http://localhost:8000/api/users/google-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('user', JSON.stringify(data.user_id));
+        localStorage.setItem('token', data.access_token);
+        navigate('/dashboard');
+      } else {
+        setError(data.detail || 'Google Login failed');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    }
+  };
+
   const handleSubmit = async e => {
     e.preventDefault(); setError('');
     if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
@@ -197,6 +218,21 @@ const SignUpForm = () => {
           {error}
         </div>
       )}
+      
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => setError('Google Login Failed')}
+          text="continue_with"
+          width="100%"
+        />
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>
+        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+        <span style={{ padding: '0 10px' }}>OR</span>
+        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+      </div>
 
       <Field label="Full Name" icon={<IconUser/>}>
         <input className="su-input" type="text" name="fullName" value={formData.fullName} onChange={onChange} placeholder="Enter your full name" required/>
@@ -260,6 +296,26 @@ const SignInForm = () => {
 
   const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const res = await fetch('http://localhost:8000/api/users/google-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('user', JSON.stringify(data.user_id));
+        localStorage.setItem('token', data.access_token);
+        navigate('/dashboard');
+      } else {
+        setError(data.detail || 'Google Login failed');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    }
+  };
+
   const handleSubmit = async e => {
     e.preventDefault(); setError('');
     setLoading(true);
@@ -287,6 +343,21 @@ const SignInForm = () => {
           <div style={{ width:6, height:6, borderRadius:'50%', background:'#dc2626', flexShrink:0 }}/>{error}
         </div>
       )}
+
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => setError('Google Login Failed')}
+          text="continue_with"
+          width="100%"
+        />
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>
+        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+        <span style={{ padding: '0 10px' }}>OR</span>
+        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+      </div>
 
       <Field label="Email Address" icon={<IconMail/>}>
         <input className="su-input" type="email" name="email" value={formData.email} onChange={onChange} placeholder="Enter your email address" required/>

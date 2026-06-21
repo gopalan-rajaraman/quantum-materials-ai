@@ -41,7 +41,9 @@ class UserModel(BaseModel):
     department: str = ""
     institute: str = ""
     role: str = "user"  # user, admin, student, researcher, professor, etc.
-    password_hash: str
+    auth_providers: list[str] = Field(default_factory=lambda: ["local"])
+    google_id: Optional[str] = None
+    password_hash: Optional[str] = None
     is_verified: bool = False
     verification_token: Optional[str] = None
     member_since: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
