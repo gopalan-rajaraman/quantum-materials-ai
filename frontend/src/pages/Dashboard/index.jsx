@@ -42,10 +42,15 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get logged-in username from localStorage
+  // Get logged-in display name from localStorage
   const userStr = localStorage.getItem('user');
-  const loggedInUser = userStr ? JSON.parse(userStr) : {};
-  const username = loggedInUser?.username || loggedInUser?.email?.split('@')[0] || 'Researcher';
+  let loggedInUser = {};
+  try {
+    loggedInUser = userStr ? JSON.parse(userStr) : {};
+  } catch {
+    loggedInUser = {};
+  }
+  const displayName = loggedInUser?.full_name || loggedInUser?.name || loggedInUser?.username || 'Researcher';
 
   const fetchAll = async () => {
     setLoading(true);
@@ -177,7 +182,7 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#0D0B2E] flex items-center gap-2">
-            Welcome back, {username}! <span className="animate-bounce">👋</span>
+            Welcome back, {displayName}! <span className="animate-bounce">👋</span>
           </h1>
           <p className="text-[15px] text-[#8C8CA1] font-medium mt-4 leading-relaxed">Here's what's happening with your experiments.</p>
         </div>

@@ -15,6 +15,18 @@ import {
 const Sidebar = () => {
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
+  const userStr = localStorage.getItem('user');
+  let loggedInUser = {};
+
+  try {
+    loggedInUser = userStr ? JSON.parse(userStr) : {};
+  } catch {
+    loggedInUser = {};
+  }
+
+  const displayName = loggedInUser?.full_name || loggedInUser?.name || loggedInUser?.username || 'Researcher';
+  const displayRole = loggedInUser?.role || 'Researcher';
+  const initial = displayName.charAt(0).toUpperCase();
 
   const NavItem = ({ path, icon: Icon, label }) => {
     const active = isActive(path);
@@ -69,11 +81,11 @@ const Sidebar = () => {
         <div className="flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white font-semibold text-[15px] shadow-inner">
-              K
+              {initial}
             </div>
             <div>
-              <p className="text-[14px] font-semibold text-white leading-tight">Khushboo</p>
-              <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5">Researcher</p>
+              <p className="text-[14px] font-semibold text-white leading-tight">{displayName}</p>
+              <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
             </div>
           </div>
           <ChevronDown className="w-4 h-4 text-[#8C8CA1]" />
