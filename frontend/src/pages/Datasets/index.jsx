@@ -163,37 +163,7 @@ const Datasets = () => {
               />
             </div>
             
-            <div className="flex items-center space-x-2">
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Status</span>
-                <div className="relative">
-                  <select className="appearance-none bg-slate-50 border border-slate-200 rounded text-[12px] font-semibold text-slate-700 py-1.5 pl-3 pr-8 focus:outline-none cursor-pointer">
-                    <option>All</option>
-                  </select>
-                  <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Experiment ID</span>
-                <div className="relative">
-                  <select className="appearance-none bg-slate-50 border border-slate-200 rounded text-[12px] font-semibold text-slate-700 py-1.5 pl-3 pr-8 focus:outline-none cursor-pointer">
-                    <option>All</option>
-                  </select>
-                  <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Created By</span>
-                <div className="relative">
-                  <select className="appearance-none bg-slate-50 border border-slate-200 rounded text-[12px] font-semibold text-slate-700 py-1.5 pl-3 pr-8 focus:outline-none cursor-pointer">
-                    <option>All</option>
-                  </select>
-                  <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            <button className="flex items-center space-x-2 text-slate-600 px-3 py-1.5 hover:bg-slate-50 rounded border border-slate-200 transition-colors text-[12px] font-semibold ml-2 mt-4">
+            <button className="flex items-center space-x-2 text-slate-600 px-3 py-1.5 hover:bg-slate-50 rounded border border-slate-200 transition-colors text-[12px] font-semibold ml-2">
               <Filter className="w-3.5 h-3.5" />
               <span>More Filters</span>
             </button>
