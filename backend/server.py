@@ -1,15 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
+
 from app.routes.upload_routes import router as upload_router
 from app.routes.thermal_cvd_routes import router as thermal_cvd_router, init_thermal_cvd_model
 from app.routes.dataset_routes import router as dataset_routes
 from app.routes.user_routes import router as user_router
 from app.database.mongodb_config import MongoDB
+from app.email_utils import log_smtp_status
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
+    log_smtp_status()
     # Startup
     print("Starting up... connecting to MongoDB")
     await MongoDB.connect()

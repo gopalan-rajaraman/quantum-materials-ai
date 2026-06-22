@@ -2,19 +2,24 @@
 User authentication and management routes.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, field_validator
-from typing import Optional
-from datetime import datetime
-from bson import ObjectId
 import hashlib
+import logging
 import os
-from google.oauth2 import id_token
-from google.auth.transport import requests
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional
 
-from app.database.mongodb_config import get_users_collection, get_activity_log_collection
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException
+from google.auth.transport import requests
+from google.oauth2 import id_token
+from pydantic import BaseModel, field_validator
+
 from app.auth import create_access_token, get_current_user
-from app.database.mongodb_models import UserModel
+from app.database.mongodb_config import get_activity_log_collection, get_users_collection
+from app.email_utils import send_password_reset_email, send_verification_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -55,8 +60,6 @@ async def register_user(user_data: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Generate verification token
-    import secrets
     verification_token = secrets.token_urlsafe(32)
     
     # Create new user
@@ -78,10 +81,11 @@ async def register_user(user_data: UserCreate):
     user.pop("password_hash", None)
     user.pop("verification_token", None)
     
-    # TODO: Send verification email here
-    # For now, we'll log the verification link
-    verification_link = f"http://localhost:5173/verify-email?token={verification_token}"
-    print(f"Verification link for {user_data.email}: {verification_link}")
+    try:
+        await send_verification_email(user_data.email, user_data.full_name, verification_token)
+        logger.info("Verification email sent to %s", user_data.email)
+    except Exception:
+        logger.exception("Failed to send verification email to %s", user_data.email)
     
     return {
         "message": "User registered successfully. Please check your email for verification.",
@@ -124,25 +128,31 @@ class ResetPasswordRequest(BaseModel):
 
 @router.post("/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
-    """Generate a password-reset token and log the reset link (email sending can be wired later)."""
-    import secrets
+    """Generate a password-reset token and email a reset link."""
     collection = get_users_collection()
+    email = request.email.strip()
+    logger.info("Forgot-password requested for %s", email)
 
-    user = await collection.find_one({"email": request.email})
-    # Always return success to avoid email enumeration
+    user = await collection.find_one({"email": email})
     if not user:
+        logger.info("Forgot-password: no account for %s (returning generic success)", email)
         return {"message": "If that email is registered, a reset link has been sent."}
 
     reset_token = secrets.token_urlsafe(32)
-    reset_link = f"http://localhost:5173/reset-password?token={reset_token}"
-
     await collection.update_one(
         {"_id": user["_id"]},
-        {"$set": {"reset_password_token": reset_token, "reset_token_created_at": datetime.utcnow().isoformat()}}
+        {"$set": {
+            "reset_password_token": reset_token,
+            "reset_token_created_at": datetime.utcnow().isoformat(),
+        }},
     )
+    logger.info("Reset token stored for user_id=%s email=%s", user["_id"], email)
 
-    # TODO: send email — for now log to console
-    print(f"[RESET LINK] {request.email}: {reset_link}")
+    try:
+        await send_password_reset_email(email, reset_token)
+        logger.info("Password reset email sent to %s", email)
+    except Exception:
+        logger.exception("Failed to send password reset email to %s", email)
 
     return {"message": "If that email is registered, a reset link has been sent."}
 
@@ -150,8 +160,8 @@ async def forgot_password(request: ForgotPasswordRequest):
 @router.post("/reset-password")
 async def reset_password(request: ResetPasswordRequest):
     """Validate reset token and update the user's password."""
-    from datetime import timezone, timedelta
     collection = get_users_collection()
+    logger.info("Reset-password attempt with token prefix=%s...", request.token[:8])
 
     user = await collection.find_one({"reset_password_token": request.token})
     if not user:
@@ -173,6 +183,7 @@ async def reset_password(request: ResetPasswordRequest):
          "$unset": {"reset_password_token": "", "reset_token_created_at": ""}}
     )
 
+    logger.info("Password reset successful for user_id=%s", user["_id"])
     return {"message": "Password reset successfully. You can now log in with your new password."}
 
 
@@ -303,7 +314,7 @@ async def google_login(request: GoogleLoginRequest):
             "user_id": str(user["_id"])
         }
     except ValueError as e:
-        print(f"Google Token Verification Failed: {e}")
+        logger.warning("Google token verification failed: %s", e)
         raise HTTPException(status_code=401, detail="Invalid Google token")
 
 

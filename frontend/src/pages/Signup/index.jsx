@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, X, Mail, KeyRound, ArrowLeft } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import { apiPost } from '../../config/api';
 
 /* ─── Styles ────────────────────────────────────────────────── */
 const STYLES = `
@@ -160,20 +161,28 @@ const SignUpForm = () => {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      console.log('Google login initiated');
       const res = await fetch('http://localhost:8000/api/users/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential }),
       });
       const data = await res.json();
+      console.log('Google login response:', data);
       if (res.ok) {
-        localStorage.setItem('user', JSON.stringify(data.user_id));
+        console.log('Storing user_id:', data.user_id);
+        console.log('Storing token:', data.access_token);
+        localStorage.setItem('user', data.user_id);
         localStorage.setItem('token', data.access_token);
+        console.log('Stored in localStorage:', localStorage.getItem('user'), localStorage.getItem('token'));
+        console.log('Navigating to dashboard');
         navigate('/dashboard');
       } else {
+        console.error('Google login failed:', data.detail);
         setError(data.detail || 'Google Login failed');
       }
-    } catch {
+    } catch (err) {
+      console.error('Google login error:', err);
       setError('Network error. Please try again.');
     }
   };
@@ -216,12 +225,14 @@ const SignUpForm = () => {
       )}
       
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() => setError('Google Login Failed')}
-          text="continue_with"
-          width="100%"
-        />
+        <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Login Failed')}
+            text="continue_with"
+            width="100%"
+          />
+        </GoogleOAuthProvider>
       </div>
       
       <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>
@@ -290,25 +301,23 @@ const ForgotPasswordModal = ({ onClose }) => {
   const [error, setError]     = useState('');
 
   const handleRequest = async e => {
-    e.preventDefault(); setError(''); setLoading(true);
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      const res  = await fetch('http://localhost:8000/api/users/forgot-password', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setStep('sent');
-      } else {
-        setError(data.detail || 'Something went wrong.');
-      }
-    } catch { setError('Network error. Please try again.'); }
-    finally { setLoading(false); }
+      await apiPost('/api/users/forgot-password', { email: email.trim() });
+      setStep('sent');
+    } catch (err) {
+      console.error('[ForgotPassword] Request failed:', err);
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const Overlay = ({ children }) => (
     <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={e => { if (!loading && e.target === e.currentTarget) onClose(); }}
       style={{
         position:'fixed', inset:0, zIndex:1000,
         background:'rgba(15,10,40,0.55)', backdropFilter:'blur(4px)',
@@ -395,20 +404,28 @@ const SignInForm = () => {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      console.log('Google login initiated');
       const res = await fetch('http://localhost:8000/api/users/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential }),
       });
       const data = await res.json();
+      console.log('Google login response:', data);
       if (res.ok) {
-        localStorage.setItem('user', JSON.stringify(data.user_id));
+        console.log('Storing user_id:', data.user_id);
+        console.log('Storing token:', data.access_token);
+        localStorage.setItem('user', data.user_id);
         localStorage.setItem('token', data.access_token);
+        console.log('Stored in localStorage:', localStorage.getItem('user'), localStorage.getItem('token'));
+        console.log('Navigating to dashboard');
         navigate('/dashboard');
       } else {
+        console.error('Google login failed:', data.detail);
         setError(data.detail || 'Google Login failed');
       }
-    } catch {
+    } catch (err) {
+      console.error('Google login error:', err);
       setError('Network error. Please try again.');
     }
   };
@@ -446,12 +463,14 @@ const SignInForm = () => {
       )}
 
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() => setError('Google Login Failed')}
-          text="continue_with"
-          width="100%"
-        />
+        <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Login Failed')}
+            text="continue_with"
+            width="100%"
+          />
+        </GoogleOAuthProvider>
       </div>
       
       <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#94a3b8', fontSize: 13, fontWeight: 600 }}>

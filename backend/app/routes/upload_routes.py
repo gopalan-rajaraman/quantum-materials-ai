@@ -148,6 +148,8 @@ async def get_dashboard_stats():
     cursor = activity_collection.find().sort("timestamp", -1).limit(8)
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
+        if "user_id" in doc and doc["user_id"] is not None:
+            doc["user_id"] = str(doc["user_id"])
         activity_log.append(doc)
         
     return {

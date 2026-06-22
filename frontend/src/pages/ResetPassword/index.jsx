@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Eye, EyeOff, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
+import { apiPost } from '../../config/api';
 
 /* ─── Shared style tokens ──────────────────────────────────────── */
 const STYLES = `
@@ -134,20 +135,11 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const res  = await fetch('http://localhost:8000/api/users/reset-password', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ token, new_password: newPassword }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStatus('success');
-      } else {
-        setError(data.detail || 'Reset failed. The link may have expired — please request a new one.');
-      }
-    } catch {
-      setError('Network error. Please try again.');
+      await apiPost('/api/users/reset-password', { token, new_password: newPassword });
+      setStatus('success');
+    } catch (err) {
+      console.error('[ResetPassword] Request failed:', err);
+      setError(err.message || 'Reset failed. The link may have expired — please request a new one.');
     } finally {
       setLoading(false);
     }
