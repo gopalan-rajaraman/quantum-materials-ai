@@ -2,7 +2,7 @@
 MongoDB-based routes for dataset management.
 """
 
-from fastapi import APIRouter, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import pandas as pd
@@ -14,18 +14,17 @@ from app.database.mongodb_config import (
     get_activity_log_collection
 )
 from app.database.mongodb_models import DatasetModel, ActivityLogModel
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
 
 @router.get("/list")
-async def list_datasets(user_id: Optional[str] = None):
+async def list_datasets(current_user: dict = Depends(get_current_user)):
     """Get all datasets for a user."""
     collection = get_datasets_collection()
     
-    query = {}
-    if user_id:
-        query["user_id"] = ObjectId(user_id)
+    query = {"user_id": ObjectId(current_user["_id"])}
     
     cursor = collection.find(query).sort("created_at", -1)
     datasets = []
@@ -39,14 +38,14 @@ async def list_datasets(user_id: Optional[str] = None):
 
 
 @router.get("/{dataset_id}")
-async def get_dataset(dataset_id: str):
+async def get_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Get a specific dataset by ID."""
     collection = get_datasets_collection()
     
     try:
-        doc = await collection.find_one({"_id": ObjectId(dataset_id)})
+        doc = await collection.find_one({"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])})
         if not doc:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
         
         doc["_id"] = str(doc["_id"])
         if "user_id" in doc:
@@ -58,14 +57,14 @@ async def get_dataset(dataset_id: str):
 
 
 @router.post("/create")
-async def create_dataset(dataset_data: Dict[str, Any]):
+async def create_dataset(dataset_data: Dict[str, Any], current_user: dict = Depends(get_current_user)):
     """Create a new dataset."""
     collection = get_datasets_collection()
     
     dataset = {
         "name": dataset_data.get("name", "Untitled Dataset"),
         "description": dataset_data.get("description", ""),
-        "user_id": ObjectId(dataset_data.get("user_id")) if dataset_data.get("user_id") else None,
+        "user_id": ObjectId(current_user["_id"]),
         "status": "unlocked",
         "experiment_id_range": dataset_data.get("experiment_id_range", ""),
         "total_experiments": dataset_data.get("total_experiments", 0),
@@ -83,13 +82,13 @@ async def create_dataset(dataset_data: Dict[str, Any]):
     dataset["_id"] = str(result.inserted_id)
     
     # Log activity
-    await log_activity("Dataset Created", f"Dataset '{dataset['name']}' created", "bg-purple-500")
+    await log_activity("Dataset Created", f"Dataset '{dataset['name']}' created", "bg-purple-500", user_id=current_user["_id"])
     
     return dataset
 
 
 @router.put("/{dataset_id}")
-async def update_dataset(dataset_id: str, dataset_data: Dict[str, Any]):
+async def update_dataset(dataset_id: str, dataset_data: Dict[str, Any], current_user: dict = Depends(get_current_user)):
     """Update an existing dataset."""
     collection = get_datasets_collection()
     
@@ -97,16 +96,13 @@ async def update_dataset(dataset_id: str, dataset_data: Dict[str, Any]):
         update_data = {k: v for k, v in dataset_data.items() if k != "_id"}
         update_data["updated_at"] = datetime.utcnow().isoformat()
         
-        if "user_id" in update_data and update_data["user_id"]:
-            update_data["user_id"] = ObjectId(update_data["user_id"])
-        
         result = await collection.update_one(
-            {"_id": ObjectId(dataset_id)},
+            {"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])},
             {"$set": update_data}
         )
         
         if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
         
         return {"message": "Dataset updated successfully"}
     except Exception as e:
@@ -114,17 +110,17 @@ async def update_dataset(dataset_id: str, dataset_data: Dict[str, Any]):
 
 
 @router.delete("/{dataset_id}")
-async def delete_dataset(dataset_id: str):
+async def delete_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Delete a dataset."""
     collection = get_datasets_collection()
     
     try:
-        result = await collection.delete_one({"_id": ObjectId(dataset_id)})
+        result = await collection.delete_one({"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])})
         
         if result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
         
-        await log_activity("Dataset Deleted", f"Dataset {dataset_id} deleted", "bg-red-500")
+        await log_activity("Dataset Deleted", f"Dataset {dataset_id} deleted", "bg-red-500", user_id=current_user["_id"])
         
         return {"message": "Dataset deleted successfully"}
     except Exception as e:
@@ -132,7 +128,7 @@ async def delete_dataset(dataset_id: str):
 
 
 @router.post("/upload")
-async def upload_dataset(files: list[UploadFile] = File(...), user_id: Optional[str] = None):
+async def upload_dataset(files: list[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
     """Upload and process dataset files."""
     dataframes = []
     
@@ -173,7 +169,7 @@ async def upload_dataset(files: list[UploadFile] = File(...), user_id: Optional[
         dataset = {
             "name": ", ".join(filenames),
             "description": f"Uploaded on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            "user_id": ObjectId(user_id) if user_id else None,
+            "user_id": ObjectId(current_user["_id"]),
             "status": "unlocked",
             "total_experiments": total_rows,
             "data": combined_df.to_dict(orient='records'),
@@ -184,7 +180,7 @@ async def upload_dataset(files: list[UploadFile] = File(...), user_id: Optional[
         result = await collection.insert_one(dataset)
         dataset["_id"] = str(result.inserted_id)
         
-        await log_activity("Dataset Uploaded", f"{', '.join(filenames)} uploaded ({total_rows} rows)", "bg-purple-500")
+        await log_activity("Dataset Uploaded", f"{', '.join(filenames)} uploaded ({total_rows} rows)", "bg-purple-500", user_id=current_user["_id"])
         
         return {
             "dataset_id": str(result.inserted_id),
@@ -201,20 +197,20 @@ async def upload_dataset(files: list[UploadFile] = File(...), user_id: Optional[
 
 
 @router.post("/{dataset_id}/lock")
-async def lock_dataset(dataset_id: str):
+async def lock_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Lock a dataset to prevent modifications."""
     collection = get_datasets_collection()
     
     try:
         result = await collection.update_one(
-            {"_id": ObjectId(dataset_id)},
+            {"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])},
             {"$set": {"status": "locked", "updated_at": datetime.utcnow().isoformat()}}
         )
         
         if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
         
-        await log_activity("Dataset Locked", f"Dataset {dataset_id} locked", "bg-orange-500")
+        await log_activity("Dataset Locked", f"Dataset {dataset_id} locked", "bg-orange-500", user_id=current_user["_id"])
         
         return {"message": "Dataset locked successfully"}
     except Exception as e:
@@ -222,20 +218,20 @@ async def lock_dataset(dataset_id: str):
 
 
 @router.post("/{dataset_id}/unlock")
-async def unlock_dataset(dataset_id: str):
+async def unlock_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Unlock a dataset to allow modifications."""
     collection = get_datasets_collection()
     
     try:
         result = await collection.update_one(
-            {"_id": ObjectId(dataset_id)},
+            {"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])},
             {"$set": {"status": "unlocked", "updated_at": datetime.utcnow().isoformat()}}
         )
         
         if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
         
-        await log_activity("Dataset Unlocked", f"Dataset {dataset_id} unlocked", "bg-green-500")
+        await log_activity("Dataset Unlocked", f"Dataset {dataset_id} unlocked", "bg-green-500", user_id=current_user["_id"])
         
         return {"message": "Dataset unlocked successfully"}
     except Exception as e:
@@ -243,11 +239,11 @@ async def unlock_dataset(dataset_id: str):
 
 
 @router.get("/activity-log")
-async def get_activity_log(limit: int = 20):
-    """Get recent activity log entries."""
+async def get_activity_log(limit: int = 20, current_user: dict = Depends(get_current_user)):
+    """Get recent activity log entries for the current user."""
     collection = get_activity_log_collection()
     
-    cursor = collection.find().sort("timestamp", -1).limit(limit)
+    cursor = collection.find({"user_id": ObjectId(current_user["_id"])}).sort("timestamp", -1).limit(limit)
     activities = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
@@ -276,17 +272,17 @@ async def log_activity(title: str, description: str, color: str = "bg-cyan-500",
 
 
 @router.get("/dashboard-stats")
-async def get_dashboard_stats():
-    """Get dashboard statistics."""
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    """Get dashboard statistics for the current user."""
     datasets_collection = get_datasets_collection()
     
-    total_datasets = await datasets_collection.count_documents({})
-    locked_datasets = await datasets_collection.count_documents({"status": "locked"})
-    in_progress_datasets = await datasets_collection.count_documents({"status": "in_progress"})
+    total_datasets = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"])})
+    locked_datasets = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"]), "status": "locked"})
+    in_progress_datasets = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"]), "status": "in_progress"})
     
     # Get activity log
     activities_collection = get_activity_log_collection()
-    cursor = activities_collection.find().sort("timestamp", -1).limit(8)
+    cursor = activities_collection.find({"user_id": ObjectId(current_user["_id"])}).sort("timestamp", -1).limit(8)
     activity_log = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
