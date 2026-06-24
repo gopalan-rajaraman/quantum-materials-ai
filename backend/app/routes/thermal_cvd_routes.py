@@ -4,7 +4,7 @@ Handles model training, predictions, and optimization requests.
 FastAPI routes for integration with FastAPI backend.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 from app.ml_models.thermal_cvd import ThermalCVDOptimizer
+from app.auth import get_current_user
 
 # Global optimizer instance (initialized on startup)
 optimizer_instance: Optional[ThermalCVDOptimizer] = None
@@ -384,7 +385,7 @@ def run_optimization(request: OptimizeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/simulate-run")
-async def simulate_run():
+async def simulate_run(current_user: dict = Depends(get_current_user)):
     """Simulate running the highest EI experiment and update the model."""
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
@@ -395,7 +396,7 @@ async def simulate_run():
         # Log activity
         from app.routes.upload_routes import log_activity
         fwhm = result.get('predicted_FWHM_meV', '?')
-        await log_activity("BO Experiment Simulated", f"Predicted FWHM: {fwhm:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
+        await log_activity("BO Experiment Simulated", f"Predicted FWHM: {fwhm:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500", current_user["_id"])
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -408,7 +409,7 @@ class AddExperimentRequest(BaseModel):
     PL_FWHM: float
 
 @router.post("/add-experiment")
-async def add_experiment(request: AddExperimentRequest):
+async def add_experiment(request: AddExperimentRequest, current_user: dict = Depends(get_current_user)):
     """Add a manual experiment result and update the model."""
     if optimizer_instance is None or not optimizer_instance._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
@@ -425,7 +426,7 @@ async def add_experiment(request: AddExperimentRequest):
         
         # Log activity
         from app.routes.upload_routes import log_activity
-        await log_activity("Experiment Result Added", f"FWHM: {request.PL_FWHM:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500")
+        await log_activity("Experiment Result Added", f"FWHM: {request.PL_FWHM:.2f} meV | Samples: {result.get('new_total_samples')}", "bg-emerald-500", current_user["_id"])
         return result
     except Exception as e:
         import traceback

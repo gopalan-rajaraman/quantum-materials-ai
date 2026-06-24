@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
 import io
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import app.routes.thermal_cvd_routes as cvd_routes
 from app.database.mongodb_config import get_datasets_collection, get_activity_log_collection
+from app.auth import get_current_user
 
 class SpreadsheetData(BaseModel):
     data: List[Dict[str, Any]]
@@ -32,14 +33,15 @@ async def log_activity(title: str, desc: str, color: str = "bg-cyan-500", user_i
     })
 
 @router.get("/dashboard")
-async def get_dashboard_stats():
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     """Returns live stats for the Dashboard page."""
     opt = cvd_routes.optimizer_instance
     
     datasets_collection = get_datasets_collection()
     activity_collection = get_activity_log_collection()
     
-    saved_datasets_count = await datasets_collection.count_documents({})
+    query = {"user_id": ObjectId(current_user["_id"])}
+    saved_datasets_count = await datasets_collection.count_documents(query)
     
     fitted = opt is not None and opt._fitted
     total_datasets = saved_datasets_count + (1 if fitted and saved_datasets_count == 0 else 0)
@@ -143,10 +145,13 @@ async def get_dashboard_stats():
             {"name": "May 16", "R2": 0.88, "MAE": 0.42, "RMSE": 0.33}
         ]
 
-    # Fetch recent activity from MongoDB
+    # Fetch recent activity from MongoDB for user
     activity_log = []
     cursor = activity_collection.find().sort("timestamp", -1).limit(8)
     async for doc in cursor:
+        # Only show activities that belong to the user or have no user_id (system activities)
+        if "user_id" in doc and doc["user_id"] and doc["user_id"] != ObjectId(current_user["_id"]):
+            continue
         doc["_id"] = str(doc["_id"])
         if "user_id" in doc and doc["user_id"] is not None:
             doc["user_id"] = str(doc["user_id"])
@@ -168,13 +173,14 @@ async def get_dashboard_stats():
     }
 
 @router.get("/saved")
-async def get_saved_datasets():
+async def get_saved_datasets(current_user: dict = Depends(get_current_user)):
     """Returns the list of previously uploaded datasets with live ML model info."""
     import app.routes.thermal_cvd_routes as cvd_routes
     datasets_collection = get_datasets_collection()
     
+    query = {"user_id": ObjectId(current_user["_id"])}
     enriched = []
-    cursor = datasets_collection.find().sort("created_at", 1)
+    cursor = datasets_collection.find(query).sort("created_at", 1)
     
     i = 0
     async for ds in cursor:
@@ -202,13 +208,18 @@ async def get_saved_datasets():
     return {"datasets": enriched}
 
 @router.get("/saved/{dataset_id}")
-async def get_saved_dataset(dataset_id: str):
+async def get_saved_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Get a specific saved dataset by ID."""
     collection = get_datasets_collection()
     try:
         doc = await collection.find_one({"_id": ObjectId(dataset_id)})
         if not doc:
             raise HTTPException(status_code=404, detail="Dataset not found")
+        
+        # Check ownership
+        if doc.get("user_id") and doc["user_id"] != ObjectId(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         doc["_id"] = str(doc["_id"])
         if "user_id" in doc and doc["user_id"] is not None:
             doc["user_id"] = str(doc["user_id"])
@@ -228,12 +239,19 @@ async def get_saved_dataset(dataset_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/saved/{dataset_id}")
-async def delete_saved_dataset(dataset_id: str):
+async def delete_saved_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Deletes a dataset from MongoDB by its ObjectId."""
     collection = get_datasets_collection()
     try:
         if dataset_id == 'default_fallback':
             return {"message": "Cannot delete default dataset."}
+        
+        # Check ownership first
+        existing = await collection.find_one({"_id": ObjectId(dataset_id)})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        if existing.get("user_id") and existing["user_id"] != ObjectId(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Access denied")
         
         result = await collection.delete_one({"_id": ObjectId(dataset_id)})
         if result.deleted_count == 0:
@@ -245,7 +263,7 @@ async def delete_saved_dataset(dataset_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/upload")
-async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional[str] = None):
+async def upload_datasets(files: list[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
     """
     Upload multiple CSV or Excel datasets, parse them with Pandas,
     concatenate them into a single dataframe, and detect columns.
@@ -322,7 +340,7 @@ async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional
             "dataset_id": dataset_id,
             "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
             "data": combined_df.to_dict(orient='records'),
-            "user_id": ObjectId(user_id) if user_id else None
+            "user_id": ObjectId(current_user["_id"])
         }
         await datasets_collection.insert_one(dataset_record)
 
@@ -336,9 +354,9 @@ async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional
                 "Dataset Uploaded",
                 f"{', '.join(filenames)}: {len(thermal_cvd_df)} Thermal CVD rows used",
                 "bg-purple-500",
-                user_id
+                current_user["_id"]
             )
-            await log_activity("GP Model Trained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
+            await log_activity("GP Model Trained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", current_user["_id"])
 
         return {
             "total_files_processed": len(files),
@@ -356,7 +374,7 @@ async def upload_datasets(files: list[UploadFile] = File(...), user_id: Optional
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 @router.post("/upload-json")
-async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = None):
+async def upload_json_data(payload: SpreadsheetData, current_user: dict = Depends(get_current_user)):
     """
     Accepts raw JSON data from the frontend spreadsheet component,
     converts it to a pandas DataFrame, and processes it.
@@ -412,7 +430,7 @@ async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = No
             "dataset_id": dataset_id,
             "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
             "data": df.to_dict(orient='records'),
-            "user_id": ObjectId(user_id) if user_id else None
+            "user_id": ObjectId(current_user["_id"])
         }
         await datasets_collection.insert_one(dataset_record)
 
@@ -421,8 +439,8 @@ async def upload_json_data(payload: SpreadsheetData, user_id: Optional[str] = No
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
             best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
-            await log_activity("Manual Data Submitted", f"{len(df)} Thermal CVD rows ingested", "bg-purple-500", user_id)
-            await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
+            await log_activity("Manual Data Submitted", f"{len(df)} Thermal CVD rows ingested", "bg-purple-500", current_user["_id"])
+            await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", current_user["_id"])
 
         return {
             "total_rows_aggregated": len(df),

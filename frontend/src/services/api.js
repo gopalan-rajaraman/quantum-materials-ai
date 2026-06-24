@@ -2,11 +2,20 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const request = async (path, options = {}) => {
   const url = `${API_BASE_URL}${path}`;
+  const token = localStorage.getItem('token');
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  // Add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
     cache: 'no-store',
     ...options,
   });
@@ -41,14 +50,20 @@ export const api = {
   fetchDashboardStats: () => request('/api/datasets/dashboard'),
   fetchSavedDatasets: () => request('/api/datasets/saved'),
   
-  uploadDataset: async (files, userId = null) => {
+  uploadDataset: async (files) => {
     const formData = new FormData();
     for (const file of files) {
       formData.append('files', file);
     }
-    const url = `${API_BASE_URL}/api/datasets/upload${userId ? `?user_id=${userId}` : ''}`;
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const url = `${API_BASE_URL}/api/datasets/upload`;
     const response = await fetch(url, {
       method: 'POST',
+      headers,
       body: formData,
     });
     if (!response.ok) {
