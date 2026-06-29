@@ -1,3 +1,4 @@
+
 """
 API routes for Thermal CVD Bayesian Optimization.
 Handles model training, predictions, and optimization requests.
@@ -15,8 +16,27 @@ from typing import Optional, List, Dict, Any
 from app.ml_models.thermal_cvd import ThermalCVDOptimizer
 from app.auth import get_current_user
 
-# Global optimizer instance (initialized on startup)
+# ---------------------------------------------------------------------------
+# Per-user optimizer store
+# ---------------------------------------------------------------------------
+# Keyed by user_id (str).  Never share an optimizer across users.
+optimizer_instances: Dict[str, ThermalCVDOptimizer] = {}
+
+# Legacy module-level sentinel – kept so server.py startup code that calls
+# init_thermal_cvd_model() doesn't crash.  Actual per-user instances live in
+# optimizer_instances.
 optimizer_instance: Optional[ThermalCVDOptimizer] = None
+
+
+def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
+    """Return the optimizer for *user_id*, or None if not yet initialised."""
+    return optimizer_instances.get(str(user_id))
+
+
+def set_optimizer(user_id: str, opt: ThermalCVDOptimizer) -> None:
+    """Store *opt* as the optimizer for *user_id*."""
+    optimizer_instances[str(user_id)] = opt
+
 
 router = APIRouter(prefix="/thermal-cvd", tags=["thermal-cvd"])
 
@@ -62,7 +82,10 @@ class BatchConstantUpdateRequest(BaseModel):
 
 def init_thermal_cvd_model(data_file: Optional[str] = None):
     """
-    Initialize the thermal CVD optimizer with training data.
+    Initialize a fresh ThermalCVDOptimizer at server startup.
+    This is NOT tied to any specific user – it only pre-warms the module so
+    that the first upload is faster.  Per-user instances are created inside
+    the upload route and stored via set_optimizer(user_id, opt).
 
     Args:
         data_file: Path to training data CSV/Excel file
@@ -107,7 +130,6 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
                 df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
 
             # Filter to Thermal CVD only — matches notebook Step 2:
-            # df = df_raw[df_raw[COL_MAP['TOCVD']] == 'Thermal CVD'].copy().reset_index(drop=True)
             if 'TOCVD' in df.columns:
                 df = df[df['TOCVD'] == 'Thermal CVD'].copy().reset_index(drop=True)
                 print(f'Filtered to Thermal CVD: {len(df)} rows')
@@ -139,13 +161,13 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
 
 
 @router.get("/info")
-def get_model_info():
+def get_model_info(current_user: dict = Depends(get_current_user)):
     """Get current model status and metrics."""
-    if optimizer_instance is None:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None:
         raise HTTPException(status_code=503, detail="Model not initialized")
 
     try:
-        opt = optimizer_instance
         fitted = opt._fitted
         
         if not fitted:
@@ -183,8 +205,6 @@ def get_model_info():
             feature_importances = sorted(feature_importances, key=lambda x: x["value"], reverse=True)
             
         # 2. Training History
-        # Uses y_train_scaled because the GP was trained on scaled y
-        # Matches notebook Step 7: gp.fit(X_scaled, y_scaled)
         training_history = []
         n_total = len(opt.y_train)
         steps = [max(1, int(n_total * p)) for p in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]]
@@ -195,12 +215,11 @@ def get_model_info():
         
         for idx, step in enumerate(steps):
             X_sub = opt.X_train[:step]
-            y_sub_scaled = opt.y_train_scaled[:step]  # scaled y matches GP training space
-            y_sub_raw = opt.y_train[:step]             # raw meV for loss reporting
+            y_sub_scaled = opt.y_train_scaled[:step]
+            y_sub_raw = opt.y_train[:step]
             
             if step >= 5:
                 try:
-                    # Use the optimized kernel from the fitted GP, normalize_y=False (matches notebook)
                     temp_gp = GaussianProcessRegressor(
                         kernel=opt.gp_model.gp.kernel_,
                         normalize_y=False,
@@ -208,9 +227,7 @@ def get_model_info():
                     )
                     temp_gp.fit(X_sub, y_sub_scaled)
                     y_pred_scaled = temp_gp.predict(X_sub)
-                    # R2 in scaled space (numerically stable)
                     r2 = max(0.0, r2_fn(y_sub_scaled, y_pred_scaled))
-                    # MAE in raw meV space (inverse-transform predictions)
                     y_pred_raw = opt.scaler_y.inverse_transform(
                         y_pred_scaled.reshape(-1, 1)
                     ).ravel()
@@ -260,56 +277,59 @@ def get_model_info():
 
 
 @router.get("/constants")
-def get_constants():
+def get_constants(current_user: dict = Depends(get_current_user)):
     """Get current constant values and encoding maps."""
-    if optimizer_instance is None:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None:
         raise HTTPException(status_code=503, detail="Model not initialized")
 
     try:
-        info = optimizer_instance.get_encoding_info()
+        info = opt.get_encoding_info()
         return info
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/constants")
-def set_constant(request: ConstantUpdateRequest):
+def set_constant(request: ConstantUpdateRequest, current_user: dict = Depends(get_current_user)):
     """Update a constant value for a new experimental setup."""
-    if optimizer_instance is None:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None:
         raise HTTPException(status_code=503, detail="Model not initialized")
 
     try:
-        optimizer_instance.set_constant(request.column, request.value)
-        optimizer_instance.generate_search_space(n_points=5000)
+        opt.set_constant(request.column, request.value)
+        opt.generate_search_space(n_points=5000)
 
         return {
             'message': f'Constant {request.column} updated to {request.value}',
-            'constants': optimizer_instance.get_encoding_info()['constants'],
+            'constants': opt.get_encoding_info()['constants'],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/constants/batch")
-def set_constants_batch(request: BatchConstantUpdateRequest):
+def set_constants_batch(request: BatchConstantUpdateRequest, current_user: dict = Depends(get_current_user)):
     """Update multiple constants for a new experimental setup."""
-    if optimizer_instance is None:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None:
         raise HTTPException(status_code=503, detail="Model not initialized")
 
     try:
         for k, v in request.constants.items():
-            optimizer_instance.set_constant(k, v)
-        optimizer_instance.generate_search_space(n_points=5000)
+            opt.set_constant(k, v)
+        opt.generate_search_space(n_points=5000)
 
         return {
             'message': 'Constants updated successfully',
-            'constants': optimizer_instance.get_encoding_info()['constants'],
+            'constants': opt.get_encoding_info()['constants'],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/predict")
-def predict_fwhm(request: PredictionRequest):
+def predict_fwhm(request: PredictionRequest, current_user: dict = Depends(get_current_user)):
     """
     Predict FWHM for given process variables.
 
@@ -319,11 +339,12 @@ def predict_fwhm(request: PredictionRequest):
         FRA: Ar Flow Rate (sccm)
         Pressure: Pressure (Torr)
     """
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
 
     try:
-        result = optimizer_instance.predict_fwhm(
+        result = opt.predict_fwhm(
             GTE=request.GTE,
             GTI=request.GTI,
             FRA=request.FRA,
@@ -344,18 +365,19 @@ def predict_fwhm(request: PredictionRequest):
 
 
 @router.post("/suggest")
-def suggest_experiments(request: SuggestRequest):
+def suggest_experiments(request: SuggestRequest, current_user: dict = Depends(get_current_user)):
     """
     Suggest next experiments with highest Expected Improvement.
 
     Args:
         n_suggestions: Number of recommendations to return (default=5)
     """
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
 
     try:
-        recommendations = optimizer_instance.suggest_next_experiment(
+        recommendations = opt.suggest_next_experiment(
             n_suggestions=request.n_suggestions
         )
 
@@ -368,18 +390,19 @@ def suggest_experiments(request: SuggestRequest):
 
 
 @router.post("/optimize")
-def run_optimization(request: OptimizeRequest):
+def run_optimization(request: OptimizeRequest, current_user: dict = Depends(get_current_user)):
     """
     Run full Bayesian Optimization loop.
 
     Args:
         n_steps: Number of BO iterations (default=5)
     """
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
 
     try:
-        result = optimizer_instance.run_bo_optimization(n_steps=request.n_steps)
+        result = opt.run_bo_optimization(n_steps=request.n_steps)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -387,12 +410,13 @@ def run_optimization(request: OptimizeRequest):
 @router.post("/simulate-run")
 async def simulate_run(current_user: dict = Depends(get_current_user)):
     """Simulate running the highest EI experiment and update the model."""
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
         import asyncio
-        result = await asyncio.to_thread(optimizer_instance.simulate_experiment)
+        result = await asyncio.to_thread(opt.simulate_experiment)
         # Log activity
         from app.routes.upload_routes import log_activity
         fwhm = result.get('predicted_FWHM_meV', '?')
@@ -411,7 +435,8 @@ class AddExperimentRequest(BaseModel):
 @router.post("/add-experiment")
 async def add_experiment(request: AddExperimentRequest, current_user: dict = Depends(get_current_user)):
     """Add a manual experiment result and update the model."""
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
@@ -422,7 +447,7 @@ async def add_experiment(request: AddExperimentRequest, current_user: dict = Dep
             'Pressure': request.Pressure,
         }
         import asyncio
-        result = await asyncio.to_thread(optimizer_instance.add_experiment, var_dict, request.PL_FWHM)
+        result = await asyncio.to_thread(opt.add_experiment, var_dict, request.PL_FWHM)
         
         # Log activity
         from app.routes.upload_routes import log_activity
@@ -434,21 +459,24 @@ async def add_experiment(request: AddExperimentRequest, current_user: dict = Dep
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/health")
-def health_check():
+def health_check(current_user: dict = Depends(get_current_user)):
     """Health check endpoint."""
-    status = 'healthy'
-    if optimizer_instance is None:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None:
         status = 'uninitialized'
-    elif not optimizer_instance._fitted:
+    elif not opt._fitted:
         status = 'not_fitted'
+    else:
+        status = 'healthy'
 
     return {'status': status}
 
 
 @router.get("/plot-data")
-def get_plot_data(slice_mode: str = "suggestion"):
+def get_plot_data(slice_mode: str = "suggestion", current_user: dict = Depends(get_current_user)):
     """Get 1D sequential trajectory GP curve to match textbook style."""
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
@@ -457,25 +485,20 @@ def get_plot_data(slice_mode: str = "suggestion"):
         import numpy as np
         
         # Get actual training data (Your live measured FWHM dataset)
-        y_train = optimizer_instance.y_train.ravel()
+        y_train = opt.y_train.ravel()
         n_points = len(y_train)
-        initial_count = optimizer_instance._training_info.get('initial_samples', 0)
+        initial_count = opt._training_info.get('initial_samples', 0)
         
         # 1D Sequence Index
         x_1d_train = np.arange(n_points).reshape(-1, 1)
         
-        # Fit a 1D GP specifically for this visualization
-        # We increase alpha to 1e-2 to allow non-zero uncertainty at observations,
-        # and adjust length_scale_bounds to (0.5, 10.0) to ensure a smooth surrogate model.
         kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(0.5, 10.0))
         vis_gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-2, normalize_y=True, n_restarts_optimizer=5)
         vis_gp.fit(x_1d_train, y_train)
         
-        # Generate dense grid (including space for the "Next" experiment at index n_points)
         x_dense = np.linspace(-0.5, n_points + 0.5, 500).reshape(-1, 1)
         mu_pred, sigma_pred = vis_gp.predict(x_dense, return_std=True)
         
-        # Calculate Mock Expected Improvement for the 1D visualization
         y_best = np.min(y_train)
         with np.errstate(divide='warn', invalid='ignore'):
             imp = y_best - mu_pred - 0.01
@@ -484,16 +507,13 @@ def get_plot_data(slice_mode: str = "suggestion"):
             ei_vals = imp * norm.cdf(Z) + sigma_pred * norm.pdf(Z)
             ei_vals[sigma_pred == 0.0] = 0.0
             
-            # Clip and apply power-transform (square root) to normalized EI values
-            # so secondary peaks are visually prominent on the linear dashboard plot
             ei_vals = np.clip(ei_vals, 0.0, None)
             max_ei = np.max(ei_vals)
             if max_ei > 0:
                 ei_vals = (ei_vals / max_ei) ** 0.5 * max_ei
             
-        # Extract the original raw parameters to show in tooltips
-        unscaled_X = optimizer_instance.encoder.scaler_X.inverse_transform(optimizer_instance.X_train)
-        var_map = {var: i for i, var in enumerate(optimizer_instance.encoder.VARIABLES)}
+        unscaled_X = opt.encoder.scaler_X.inverse_transform(opt.X_train)
+        var_map = {var: i for i, var in enumerate(opt.encoder.VARIABLES)}
         gte_train = unscaled_X[:, var_map['GTE']].tolist()
         gti_train = unscaled_X[:, var_map['GTI']].tolist()
         fra_train = unscaled_X[:, var_map['FRA']].tolist()
@@ -501,26 +521,26 @@ def get_plot_data(slice_mode: str = "suggestion"):
 
         search_ei = []
         if (
-            optimizer_instance.X_search is not None
-            and optimizer_instance.gp_model is not None
-            and optimizer_instance.gp_model.gp is not None
-            and optimizer_instance.y_train_scaled is not None
+            opt.X_search is not None
+            and opt.gp_model is not None
+            and opt.gp_model.gp is not None
+            and opt.y_train_scaled is not None
         ):
-            y_best_scaled = optimizer_instance.y_train_scaled.min()
-            ei_search = optimizer_instance.bo_engine.expected_improvement(
-                optimizer_instance.X_search,
-                optimizer_instance.gp_model.gp,
+            y_best_scaled = opt.y_train_scaled.min()
+            ei_search = opt.bo_engine.expected_improvement(
+                opt.X_search,
+                opt.gp_model.gp,
                 y_best_scaled,
-                xi=optimizer_instance.bo_engine.xi,
+                xi=opt.bo_engine.xi,
             )
-            mu_search_scaled, sigma_search_scaled = optimizer_instance.gp_model.predict(
-                optimizer_instance.X_search,
+            mu_search_scaled, sigma_search_scaled = opt.gp_model.predict(
+                opt.X_search,
                 return_std=True,
             )
-            mu_search = optimizer_instance.scaler_y.inverse_transform(
+            mu_search = opt.scaler_y.inverse_transform(
                 mu_search_scaled.reshape(-1, 1)
             ).ravel()
-            sigma_search = sigma_search_scaled * optimizer_instance.scaler_y.scale_[0]
+            sigma_search = sigma_search_scaled * opt.scaler_y.scale_[0]
 
             selected_idx = int(np.argmax(ei_search))
             sample_indices = np.linspace(
@@ -570,13 +590,14 @@ def get_plot_data(slice_mode: str = "suggestion"):
 
 
 @router.get("/timeline")
-def get_timeline():
+def get_timeline(current_user: dict = Depends(get_current_user)):
     """Returns the full history of Initial vs User experiments."""
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=400, detail="Model not initialized")
     try:
-        initial_count = optimizer_instance._training_info['initial_samples']
-        df = optimizer_instance.df_raw.reset_index(drop=True)
+        initial_count = opt._training_info['initial_samples']
+        df = opt.df_raw.reset_index(drop=True)
         import math
         import pandas as pd
         def safe_float(v):
@@ -608,7 +629,7 @@ def get_timeline():
 
 @router.post("/reload")
 def reload_model():
-    """Reload model from training data."""
+    """Reload the default (server-startup) model from training data."""
     try:
         init_thermal_cvd_model()
         return {'message': 'Model reloaded successfully'}
@@ -617,39 +638,39 @@ def reload_model():
 
 
 @router.get("/bo-progress")
-def get_bo_progress():
+def get_bo_progress(current_user: dict = Depends(get_current_user)):
     """Get current BO Loop progress (steps completed)."""
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
     
     try:
-        initial_samples = optimizer_instance._training_info.get('initial_samples', 0)
+        initial_samples = opt._training_info.get('initial_samples', 0)
         
-        # Patch for older models that don't have initial_samples set
-        if initial_samples == 0 and len(optimizer_instance.y_train) > 0:
-            initial_samples = len(optimizer_instance.y_train)
-            optimizer_instance._training_info['initial_samples'] = initial_samples
+        if initial_samples == 0 and len(opt.y_train) > 0:
+            initial_samples = len(opt.y_train)
+            opt._training_info['initial_samples'] = initial_samples
             
-        n_steps = len(optimizer_instance.y_train) - initial_samples
+        n_steps = len(opt.y_train) - initial_samples
         
         return {
             'total_steps': n_steps,
             'min_required_steps': 5,
             'can_access_results': n_steps >= 5,
-            'current_best_fwhm': float(optimizer_instance.y_train.min()) if len(optimizer_instance.y_train) > 0 else None
+            'current_best_fwhm': float(opt.y_train.min()) if len(opt.y_train) > 0 else None
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/variables-distribution")
-def get_variables_distribution():
+def get_variables_distribution(current_user: dict = Depends(get_current_user)):
     """Get dynamic binned distributions of variables and constants."""
-    if optimizer_instance is None:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None:
         raise HTTPException(status_code=503, detail="Model not initialized")
         
     try:
-        opt = optimizer_instance
         df = getattr(opt, 'df_raw', None)
         
         if df is None:
@@ -731,20 +752,19 @@ def get_variables_distribution():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/surface-data")
-def get_surface_data(request: SurfaceDataRequest):
+def get_surface_data(request: SurfaceDataRequest, current_user: dict = Depends(get_current_user)):
     """Generate 2D grid data for GP Response Surface visualization."""
-    if optimizer_instance is None or not optimizer_instance._fitted:
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not opt._fitted:
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
-        # Get optimal params to fix the other variables
-        best_rec = optimizer_instance.suggest_next_experiment(n_suggestions=1)[0]
+        best_rec = opt.suggest_next_experiment(n_suggestions=1)[0]
         
         var_x = request.var_x
         var_y = request.var_y
         
-        # Get bounds
-        ranges = optimizer_instance.encoder.VARIABLE_RANGES
+        ranges = opt.encoder.VARIABLE_RANGES
         x_min, x_max = ranges[var_x]
         y_min, y_max = ranges[var_y]
         
@@ -764,7 +784,7 @@ def get_surface_data(request: SurfaceDataRequest):
                 var_dict[var_x] = float(x_val)
                 var_dict[var_y] = float(y_val)
                 
-                pred = optimizer_instance.predict_fwhm(**var_dict)
+                pred = opt.predict_fwhm(**var_dict)
                 row.append(pred['predicted_FWHM_meV'])
             z_vals.append(row)
             
