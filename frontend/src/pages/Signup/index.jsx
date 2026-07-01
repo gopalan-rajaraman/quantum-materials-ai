@@ -3,10 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle2, Mail, ArrowLeft } from 'lucide-react';
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { apiPost } from '../../config/api';
+import { saveAuth } from '../../utils/auth';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthField from '../../components/auth/AuthField';
 import { IconMail, IconLock, IconEye, IconEyeOff } from '../../components/auth/AuthField';
-
+ 
 /* ─── Icons ─────────────────────────────────────────────────── */
 const Ico = ({ d, size=15 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -26,7 +27,7 @@ const IconBrief   = () => (
   </svg>
 );
 const IconChevron = () => <Ico d="M6 9l6 6 6-6" size={13}/>;
-
+ 
 /* ─── Sign Up Form ───────────────────────────────────────────── */
 const SignUpForm = () => {
   const [showPw, setShowPw]   = useState(false);
@@ -39,9 +40,9 @@ const SignUpForm = () => {
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-
+ 
   const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
-
+ 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       console.log('Google login initiated');
@@ -53,12 +54,7 @@ const SignUpForm = () => {
       const data = await res.json();
       console.log('Google login response:', data);
       if (res.ok) {
-        console.log('Storing user_id:', data.user_id);
-        console.log('Storing token:', data.access_token);
-        localStorage.setItem('user', data.user_id);
-        localStorage.setItem('token', data.access_token);
-        console.log('Stored in localStorage:', localStorage.getItem('user'), localStorage.getItem('token'));
-        console.log('Navigating to dashboard');
+        saveAuth(data);
         navigate('/dashboard');
       } else {
         console.error('Google login failed:', data.detail);
@@ -69,7 +65,7 @@ const SignUpForm = () => {
       setError('Network error. Please try again.');
     }
   };
-
+ 
   const handleSubmit = async e => {
     e.preventDefault(); setError('');
     if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
@@ -81,12 +77,12 @@ const SignUpForm = () => {
         body: JSON.stringify({ full_name:formData.fullName, email:formData.email, department:formData.department, institute:formData.institute, role:formData.role, password:formData.password }),
       });
       const data = await res.json();
-      if (res.ok) { setSuccess(true); setTimeout(() => navigate('/dashboard'), 3000); }
+      if (res.ok) { saveAuth(data); setSuccess(true); setTimeout(() => navigate('/dashboard'), 3000); }
       else setError(data.detail || 'Registration failed');
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
   };
-
+ 
   if (success) return (
     <div style={{ textAlign:'center', padding:'40px 0' }}>
       <div style={{ width:70, height:70, borderRadius:'50%', background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
@@ -97,7 +93,7 @@ const SignUpForm = () => {
       <div style={{ background:'#eef2ff', color:'#6366f1', padding:'10px', borderRadius:8, fontSize:13.5, fontWeight:600 }}>Redirecting…</div>
     </div>
   );
-
+ 
   return (
     <form onSubmit={handleSubmit} className="form-panel">
       {error && (
@@ -123,7 +119,7 @@ const SignUpForm = () => {
         <span style={{ padding: '0 10px' }}>OR</span>
         <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
       </div>
-
+ 
       <AuthField label="Full Name" icon={<IconUser/>}>
         <input className="su-input" type="text" name="fullName" value={formData.fullName} onChange={onChange} placeholder="Enter your full name" required/>
       </AuthField>
@@ -160,29 +156,29 @@ const SignUpForm = () => {
           {showCpw ? <IconEyeOff/> : <IconEye/>}
         </button>
       </AuthField>
-
+ 
       <div style={{ display:'flex', alignItems:'flex-start', gap:8, margin:'10px 0 14px' }}>
         <input type="checkbox" id="terms" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ marginTop:3, accentColor:'#6366f1', flexShrink:0 }} required/>
         <label htmlFor="terms" style={{ fontSize:13, color:'#64748b', lineHeight:1.5 }}>
           I agree to the <span style={{ color:'#6366f1', fontWeight:600, cursor:'pointer' }}>Terms of Service</span> and <span style={{ color:'#6366f1', fontWeight:600, cursor:'pointer' }}>Privacy Policy</span>
         </label>
       </div>
-
+ 
       <button type="submit" className="action-btn" disabled={loading || !agreed}>
         {loading ? 'Creating Account…' : 'Create Account'}
       </button>
-
+ 
     </form>
   );
 };
-
+ 
 /* ─── Forgot Password Panel ─────────────────────────────────── */
 const ForgotPasswordPanel = ({ onBack }) => {
   const [step, setStep] = useState('request');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+ 
   const handleRequest = async e => {
     e.preventDefault();
     setError('');
@@ -197,7 +193,7 @@ const ForgotPasswordPanel = ({ onBack }) => {
       setLoading(false);
     }
   };
-
+ 
   if (step === 'sent') return (
     <div className="form-panel">
       <button
@@ -227,7 +223,7 @@ const ForgotPasswordPanel = ({ onBack }) => {
       </div>
     </div>
   );
-
+ 
   return (
     <div className="form-panel">
       <button
@@ -261,7 +257,7 @@ const ForgotPasswordPanel = ({ onBack }) => {
     </div>
   );
 };
-
+ 
 /* ─── Sign In Form ───────────────────────────────────────────── */
 const SignInForm = () => {
   const [showPw, setShowPw]           = useState(false);
@@ -270,9 +266,9 @@ const SignInForm = () => {
   const [error, setError]             = useState('');
   const [showForgot, setShowForgot]   = useState(false);
   const navigate = useNavigate();
-
+ 
   const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
-
+ 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       console.log('Google login initiated');
@@ -284,12 +280,7 @@ const SignInForm = () => {
       const data = await res.json();
       console.log('Google login response:', data);
       if (res.ok) {
-        console.log('Storing user_id:', data.user_id);
-        console.log('Storing token:', data.access_token);
-        localStorage.setItem('user', data.user_id);
-        localStorage.setItem('token', data.access_token);
-        console.log('Stored in localStorage:', localStorage.getItem('user'), localStorage.getItem('token'));
-        console.log('Navigating to dashboard');
+        saveAuth(data);
         navigate('/dashboard');
       } else {
         console.error('Google login failed:', data.detail);
@@ -300,7 +291,7 @@ const SignInForm = () => {
       setError('Network error. Please try again.');
     }
   };
-
+ 
   const handleSubmit = async e => {
     e.preventDefault(); setError('');
     setLoading(true);
@@ -311,32 +302,31 @@ const SignInForm = () => {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('user', JSON.stringify(data.user_id));
-        localStorage.setItem('token', data.access_token);
+        saveAuth(data);
         navigate('/dashboard');
       }
       else setError(data.detail || 'Login failed');
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
   };
-
+ 
   if (showForgot) {
     return <ForgotPasswordPanel onBack={() => setShowForgot(false)} />;
   }
-
+ 
   return (
     <form onSubmit={handleSubmit} className="form-panel">
       <div style={{ marginBottom:20 }}>
         <h2 style={{ margin:'0 0 4px', fontSize:22, fontWeight:800, color:'#1e1b4b', letterSpacing:'-0.02em' }}>Welcome back</h2>
         <p style={{ margin:0, fontSize:14, color:'#94a3b8' }}>Sign in to continue your research journey.</p>
       </div>
-
+ 
       {error && (
         <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', padding:'10px 14px', borderRadius:8, fontSize:13.5, marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
           <div style={{ width:6, height:6, borderRadius:'50%', background:'#dc2626', flexShrink:0 }}/>{error}
         </div>
       )}
-
+ 
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
         <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
           <GoogleLogin
@@ -353,7 +343,7 @@ const SignInForm = () => {
         <span style={{ padding: '0 10px' }}>OR</span>
         <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
       </div>
-
+ 
       <AuthField label="Email Address" icon={<IconMail/>}>
         <input className="su-input" type="email" name="email" value={formData.email} onChange={onChange} placeholder="Enter your email address" required/>
       </AuthField>
@@ -363,7 +353,7 @@ const SignInForm = () => {
           {showPw ? <IconEyeOff/> : <IconEye/>}
         </button>
       </AuthField>
-
+ 
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
         <label style={{ display:'flex', alignItems:'center', gap:7, fontSize:13.5, color:'#64748b', cursor:'pointer' }}>
           <input type="checkbox" style={{ accentColor:'#6366f1' }}/> Remember me
@@ -373,20 +363,20 @@ const SignInForm = () => {
           onClick={() => setShowForgot(true)}
         >Forgot password?</span>
       </div>
-
+ 
       <button type="submit" className="action-btn" disabled={loading}>
         {loading ? 'Signing In…' : 'Sign In'}
       </button>
     </form>
   );
 };
-
+ 
 /* ─── Main Component ─────────────────────────────────────────── */
 const AuthPage = () => {
   const location = useLocation();
   const tab = location.pathname.includes('/login') ? 'signin' : 'signup';
   const navigate = useNavigate();
-
+ 
   return (
     <AuthLayout
       footer={
@@ -404,10 +394,10 @@ const AuthPage = () => {
           <p style={{ margin: 0, fontSize: 14, color: '#94a3b8' }}>Start your research journey with us.</p>
         </div>
       )}
-
+ 
       {tab === 'signup' ? <SignUpForm /> : <SignInForm />}
     </AuthLayout>
   );
 };
-
+ 
 export default AuthPage;

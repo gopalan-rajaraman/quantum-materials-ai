@@ -9,42 +9,35 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip
 } from 'recharts';
 import api from '../../services/api';
-
+import { getStoredUser, getUserDisplayName } from '../../utils/auth';
+ 
 const Datasets = () => {
   const navigate = useNavigate();
   const [datasetsList, setDatasetsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-
- const fetchDatasets = async () => {
-  setLoading(true);
-  try {
-    const data = await api.fetchSavedDatasets();
-    setDatasetsList(data.datasets || []);
-  } catch (e) {
-    console.error('Error fetching datasets:', e);
-    setDatasetsList([]);  // ← add this line
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Get logged-in user from localStorage safely
-  const userStr = localStorage.getItem('user');
-  let loggedInUser = {};
-  try {
-    loggedInUser = userStr ? JSON.parse(userStr) : {};
-  } catch (e) {
-    console.error('Error parsing user from localStorage:', e);
-    loggedInUser = {};
-  }
-  const loggedInUsername = loggedInUser?.username || loggedInUser?.name || loggedInUser?.email?.split('@')[0] || '—';
+ 
+  const fetchDatasets = async () => {
+    setLoading(true);
+    try {
+      const data = await api.fetchSavedDatasets();
+      setDatasetsList(data.datasets || []);
+    } catch (e) {
+      console.error('Error fetching datasets:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+ 
+  // Get logged-in user from localStorage
+  const loggedInUser = getStoredUser();
+  const loggedInUsername = getUserDisplayName(loggedInUser, '—');
   const loggedInRole = loggedInUser?.role || 'Researcher';
-
+ 
   useEffect(() => {
     fetchDatasets();
   }, []);
-
+ 
   const totalDatasets = datasetsList.length;
   const lockedDatasets = datasetsList.filter(ds => ds.status === 'Completed').length;
   const unlockedDatasets = totalDatasets - lockedDatasets;
@@ -53,26 +46,26 @@ const Datasets = () => {
     const rows = parseInt(curr.rows || '0', 10);
     return acc + (isNaN(rows) ? 0 : rows);
   }, 0);
-
+ 
   const csvSizeMB = datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0) / 1024;
   const metadataSizeMB = datasetsList.length * 0.05;
   const modelCacheSizeMB = datasetsList.length > 0 ? 0.8 : 0;
   const othersSizeMB = datasetsList.length > 0 ? 0.15 : 0;
   const totalSizeMB = csvSizeMB + metadataSizeMB + modelCacheSizeMB + othersSizeMB;
-
+ 
   const categoryData = [
     { name: 'CSV Data', size: csvSizeMB, color: '#6366f1', icon: <FileText className="w-4 h-4 text-white" />, bg: 'bg-[#8B5CF6]' },
     { name: 'Metadata', size: metadataSizeMB, color: '#3b82f6', icon: <List className="w-4 h-4 text-white" />, bg: 'bg-[#3B82F6]' },
     { name: 'Model Cache', size: modelCacheSizeMB, color: '#f59e0b', icon: <Database className="w-4 h-4 text-white" />, bg: 'bg-[#F59E0B]' },
     { name: 'Others', size: othersSizeMB, color: '#ec4899', icon: <MoreVertical className="w-4 h-4 text-white" />, bg: 'bg-[#EC4899]' },
   ].filter(item => item.size > 0).sort((a, b) => b.size - a.size);
-
+ 
   const formatSize = (mb) => mb < 1 ? `${(mb * 1024).toFixed(1)} KB` : `${mb.toFixed(2)} MB`;
-
+ 
   const lastUpdated = datasetsList.length > 0 && datasetsList[datasetsList.length - 1].date 
     ? new Date(datasetsList[datasetsList.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '—';
-
+ 
   const StatusBadge = ({ status }) => {
     if (status === 'Completed' || status === 'Locked') {
       return (
@@ -89,12 +82,12 @@ const Datasets = () => {
       </span>
     );
   };
-
+ 
   const filteredDatasets = datasetsList.filter(ds => 
     (ds.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     (ds.target || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
-
+ 
   return (
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
       <div className="flex justify-between items-start">
@@ -110,7 +103,7 @@ const Datasets = () => {
           <span>New Dataset</span>
         </button>
       </div>
-
+ 
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-5 flex items-center space-x-4">
           <div className="w-12 h-12 rounded-xl bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
@@ -153,7 +146,7 @@ const Datasets = () => {
           </div>
         </div>
       </div>
-
+ 
       {/* Table Section */}
       <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100">
         {/* Filters */}
@@ -175,7 +168,7 @@ const Datasets = () => {
               <span>More Filters</span>
             </button>
           </div>
-
+ 
           <div className="flex items-center space-x-4">
             <div className="flex flex-col">
               <span className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">Sort by</span>
@@ -196,7 +189,7 @@ const Datasets = () => {
             </div>
           </div>
         </div>
-
+ 
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -250,7 +243,7 @@ const Datasets = () => {
             </tbody>
           </table>
         </div>
-
+ 
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between">
           <span className="text-[12px] font-medium text-slate-500">Showing <span className="font-bold text-[#4C3BDE]">{filteredDatasets.length > 0 ? 1 : 0} to {filteredDatasets.length} of {totalDatasets} datasets</span></span>
@@ -274,7 +267,7 @@ const Datasets = () => {
           </div>
         </div>
       </div>
-
+ 
       {/* Dataset Size Overview */}
       <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden mb-6">
         <div className="p-8 pb-4">
@@ -293,7 +286,7 @@ const Datasets = () => {
               </div>
             </div>
           </div>
-
+ 
           <div className="flex items-center justify-between">
             {/* Chart */}
             <div className="w-[320px] h-[320px] relative flex-shrink-0">
@@ -324,7 +317,7 @@ const Datasets = () => {
                 <span className="text-[12px] font-bold text-slate-400">Total Size</span>
               </div>
             </div>
-
+ 
             {/* List */}
             <div className="flex-1 max-w-[600px] ml-12">
               <div className="grid grid-cols-12 text-[12px] font-bold text-slate-400 mb-4 px-2">
@@ -364,5 +357,6 @@ const Datasets = () => {
     </div>
   );
 };
-
+ 
 export default Datasets;
+ 

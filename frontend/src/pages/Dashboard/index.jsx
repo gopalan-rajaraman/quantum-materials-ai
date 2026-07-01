@@ -34,24 +34,19 @@ import {
   Line 
 } from 'recharts';
 import api from '../../services/api';
-
+import { getStoredUser, getUserDisplayName } from '../../utils/auth';
+ 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [savedDatasets, setSavedDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-
+ 
   // Get logged-in display name from localStorage
-  const userStr = localStorage.getItem('user');
-  let loggedInUser = {};
-  try {
-    loggedInUser = userStr ? JSON.parse(userStr) : {};
-  } catch {
-    loggedInUser = {};
-  }
-  const displayName = loggedInUser?.full_name || loggedInUser?.name || loggedInUser?.username || 'Researcher';
-
+  const loggedInUser = getStoredUser();
+  const displayName = getUserDisplayName(loggedInUser);
+ 
   const fetchAll = async () => {
     setLoading(true);
     try {
@@ -59,7 +54,7 @@ const Dashboard = () => {
         api.fetchDashboardStats().catch(() => null),
         api.fetchSavedDatasets().catch(() => null)
       ]);
-
+ 
       if (statsData) {
         setStats(statsData);
       }
@@ -72,17 +67,17 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
-
+ 
   useEffect(() => {
     fetchAll();
   }, []);
-
+ 
   // Stats Card data
   const totalDatasets = stats?.total_datasets ?? 0;
   const activeExperiments = stats?.active_experiments ?? 0;
   const completedRuns = stats?.n_training_samples ?? 0;
   const inProgressCount = savedDatasets.filter(ds => ds.status !== 'Completed').length;
-
+ 
   const statCardsData = [
     {
       title: 'Total Datasets',
@@ -121,7 +116,7 @@ const Dashboard = () => {
       label: 'vs last 30 days',
     },
   ];
-
+ 
   const loadedDatasets = savedDatasets.map((ds, idx) => ({
     name: ds.name?.replace(' (auto-loaded)', '') || 'dataset_' + (idx + 1),
     description: ds.target ? `Target: ${ds.target}` : 'Uploaded dataset',
@@ -129,22 +124,22 @@ const Dashboard = () => {
     status: ds.status === 'Completed' ? 'Locked' : 'In Progress',
     updated: ds.date ? ds.date.split(' ')[0].split('-').reverse().join('/') : '20/05/2026'
   }));
-
+ 
   const allDatasets = loadedDatasets;
   const filteredDatasets = allDatasets.filter(ds => 
     ds.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     ds.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
+ 
   // Experiments Overview Chart Data (reproducing mockup trend)
   const overviewChartData = stats?.overview_chart_data || [];
-
+ 
   // Donut chart data for Variable Summary
   const variableSummaryData = stats?.variable_summary_data || [];
-
+ 
   // Model performance charts data
   const modelPerformanceData = stats?.model_performance_data || [];
-
+ 
   // Activity Feed logs
   const activityLogs = (stats?.activity_log || []).map(log => {
     let icon = <FileText className="w-3.5 h-3.5 text-white" />;
@@ -160,12 +155,12 @@ const Dashboard = () => {
     } else if (iconBg.includes('green')) {
       icon = <Unlock className="w-3.5 h-3.5 text-white" />;
     }
-
+ 
     let timeStr = log.time || log.timestamp || 'Just now';
     if (timeStr.includes(' ')) {
       timeStr = timeStr.split(' ')[1];
     }
-
+ 
     return {
       title: log.title,
       desc: log.desc || log.description,
@@ -174,7 +169,7 @@ const Dashboard = () => {
       iconBg
     };
   });
-
+ 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 pb-12 animate-fade-in select-none">
       
@@ -186,7 +181,7 @@ const Dashboard = () => {
           </h1>
           <p className="text-[15px] text-[#8C8CA1] font-medium mt-4 leading-relaxed">Here's what's happening with your experiments.</p>
         </div>
-
+ 
         {/* Action Controls */}
         <div className="flex items-center gap-3">
           {/* Search bar */}
@@ -200,8 +195,8 @@ const Dashboard = () => {
               className="pl-10 pr-4 py-2 w-64 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5D3EBC]/20 focus:border-[#5D3EBC] text-[13px] font-medium placeholder:text-[#8C8CA1] bg-white text-slate-800 transition-all"
             />
           </div>
-
-
+ 
+ 
           {/* New Dataset Button */}
           <button 
             onClick={() => navigate('/datasets/upload')}
@@ -210,7 +205,7 @@ const Dashboard = () => {
             <Plus className="w-4 h-4" />
             <span>New Dataset</span>
           </button>
-
+ 
           {/* Refresh Button */}
           <button 
             onClick={fetchAll}
@@ -221,7 +216,7 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
-
+ 
       {/* Row 1: Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {statCardsData.map((card, i) => (
@@ -242,7 +237,7 @@ const Dashboard = () => {
           </div>
         ))}
       </div>
-
+ 
       {/* Row 2: Recent Datasets */}
       <div className="grid grid-cols-1 gap-6">
         
@@ -258,7 +253,7 @@ const Dashboard = () => {
                 View all
               </button>
             </div>
-
+ 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[13px]">
                 <thead>
@@ -304,14 +299,14 @@ const Dashboard = () => {
               </table>
             </div>
           </div>
-
+ 
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-[#8C8CA1] font-medium">
             <span>Showing {searchQuery ? filteredDatasets.length : Math.min(3, filteredDatasets.length)} of {filteredDatasets.length} datasets</span>
           </div>
         </div>
-
+ 
       </div>
-
+ 
       {/* Row 3: Variable Summary, Activity Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
@@ -324,7 +319,7 @@ const Dashboard = () => {
               </span>
               <h3 className="text-[15px] font-bold text-[#0D0B2E]">Variable Summary</h3>
             </div>
-
+ 
             <div className="flex items-center justify-between gap-4 py-2">
               {/* Donut Chart */}
               <div className="relative w-36 h-36">
@@ -353,7 +348,7 @@ const Dashboard = () => {
                   <span className="text-[10px] font-semibold text-[#8C8CA1] mt-0.5">Total</span>
                 </div>
               </div>
-
+ 
               {/* Legend List */}
               <div className="flex-1 mt-2">
                 {variableSummaryData.map((item, idx) => (
@@ -371,7 +366,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
+ 
           <button 
             onClick={() => navigate('/variables')}
             className="flex items-center gap-1.5 text-[11px] font-bold text-[#5D3EBC] hover:translate-x-0.5 transition-transform text-left w-fit mt-2"
@@ -380,8 +375,8 @@ const Dashboard = () => {
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
         </div>
-
-
+ 
+ 
         {/* Activity Feed */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between h-[300px]">
           <div>
@@ -399,12 +394,12 @@ const Dashboard = () => {
                 View all
               </button>
             </div>
-
+ 
             {/* Vertical Feed Timeline */}
             <div className="space-y-3.5 relative pl-4 max-h-[190px] overflow-y-auto no-scrollbar">
               {/* Vertical line connector */}
               <div className="absolute left-[23px] top-2 bottom-6 w-0.5 bg-slate-100" />
-
+ 
               {activityLogs.map((log, idx) => (
                 <div key={idx} className="flex gap-3 items-start relative">
                   {/* Icon */}
@@ -423,11 +418,12 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
+ 
       </div>
-
+ 
     </div>
   );
 };
-
+ 
 export default Dashboard;
+ 

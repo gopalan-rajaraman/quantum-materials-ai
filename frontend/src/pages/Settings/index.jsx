@@ -3,25 +3,18 @@ import {
   User, Mail, Briefcase, Building2, Calendar, Lock,
   FlaskConical, Info, ChevronDown
 } from 'lucide-react';
-
+import { getStoredUser, getUserDisplayName } from '../../utils/auth';
+ 
 const Settings = () => {
   const [boIterations, setBoIterations] = useState('10');
   const [optGoal, setOptGoal] = useState('Minimize FWHM');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-
-  // Get logged-in user from localStorage safely
-  const userStr = localStorage.getItem('user');
-  let loggedInUser = {};
-  try {
-    loggedInUser = userStr ? JSON.parse(userStr) : {};
-  } catch (e) {
-    console.error('Error parsing user from localStorage:', e);
-    loggedInUser = {};
-  }
-  const displayName = loggedInUser.username || loggedInUser.name || 'Khushboo';
-  const displayEmail = loggedInUser.email || 'khushboo.research@boloop.com';
+ 
+  const loggedInUser = getStoredUser();
+  const displayName = getUserDisplayName(loggedInUser);
+  const displayEmail = loggedInUser.email || '—';
   const displayRole = loggedInUser.role || 'Researcher';
-
+ 
   return (
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
       {/* Header */}
@@ -29,10 +22,10 @@ const Settings = () => {
         <h1 className="text-2xl font-bold text-[#1e1b4b] mb-1">Settings</h1>
         <p className="text-slate-500 text-sm">Manage your account and experiment preferences.</p>
       </div>
-
+ 
       {/* Two Column Layout */}
       <div className="flex flex-col lg:flex-row gap-6">
-
+ 
         {/* Left Card: Account Settings */}
         <div className="lg:w-1/2 bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-slate-100 p-8">
           {/* Card Header */}
@@ -45,7 +38,7 @@ const Settings = () => {
               <p className="text-[12px] text-slate-500 font-medium">Manage your personal and account details.</p>
             </div>
           </div>
-
+ 
           {/* Fields */}
           <div className="space-y-6">
             <div className="flex items-center space-x-5 py-4 border-b border-slate-100">
@@ -57,7 +50,7 @@ const Settings = () => {
                 <span className="text-[13px] font-bold text-slate-800">{displayName}</span>
               </div>
             </div>
-
+ 
             <div className="flex items-center space-x-5 py-4 border-b border-slate-100">
               <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
                 <Mail className="w-4 h-4" />
@@ -67,7 +60,7 @@ const Settings = () => {
                 <span className="text-[13px] font-bold text-slate-800">{displayEmail}</span>
               </div>
             </div>
-
+ 
             <div className="flex items-center space-x-5 py-4 border-b border-slate-100">
               <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
                 <Briefcase className="w-4 h-4" />
@@ -79,7 +72,7 @@ const Settings = () => {
                 </span>
               </div>
             </div>
-
+ 
             <div className="flex items-center space-x-5 py-4 border-b border-slate-100">
               <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
                 <Building2 className="w-4 h-4" />
@@ -89,7 +82,7 @@ const Settings = () => {
                 <span className="text-[13px] font-bold text-slate-800">BO Loop Labs</span>
               </div>
             </div>
-
+ 
             <div className="flex items-center space-x-5 py-4">
               <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
                 <Calendar className="w-4 h-4" />
@@ -100,7 +93,7 @@ const Settings = () => {
               </div>
             </div>
           </div>
-
+ 
           {/* Change Password Button */}
           <button
             onClick={() => setShowPasswordModal(true)}
@@ -110,7 +103,7 @@ const Settings = () => {
             <span>Change Password</span>
           </button>
         </div>
-
+ 
         {/* Right Card: Experiment Defaults */}
         <div className="lg:w-1/2 bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-slate-100 p-8">
           {/* Card Header */}
@@ -123,7 +116,7 @@ const Settings = () => {
               <p className="text-[12px] text-slate-500 font-medium">Set your default preferences for new experiments.</p>
             </div>
           </div>
-
+ 
           {/* Fields */}
           <div className="space-y-8">
             {/* Default BO Iterations */}
@@ -156,7 +149,7 @@ const Settings = () => {
                 <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
-
+ 
             {/* Optimization Goal */}
             <div className="flex items-center justify-between">
               <div className="flex-1 mr-8">
@@ -186,7 +179,7 @@ const Settings = () => {
               </div>
             </div>
           </div>
-
+ 
           {/* Info Banner */}
           <div className="mt-10 bg-[#F4F0FF] border border-[#4C3BDE]/15 rounded-xl p-4 flex items-start space-x-3">
             <Info className="w-4 h-4 text-[#4C3BDE] flex-shrink-0 mt-0.5" />
@@ -197,7 +190,7 @@ const Settings = () => {
           </div>
         </div>
       </div>
-
+ 
       {/* Change Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -238,5 +231,6 @@ const Settings = () => {
     </div>
   );
 };
-
+ 
 export default Settings;
+ 

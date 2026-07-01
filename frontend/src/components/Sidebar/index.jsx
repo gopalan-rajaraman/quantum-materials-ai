@@ -8,32 +8,19 @@ import {
   TrendingUp, 
   Boxes, 
   Settings, 
-  LogOut, 
+  ChevronDown, 
   Hexagon 
 } from 'lucide-react';
-
+import { getStoredUser, getUserDisplayName } from '../../utils/auth';
+ 
 const Sidebar = () => {
   const location = useLocation();
   const isActive = (path) => location.pathname === path;
-  const userStr = localStorage.getItem('user');
-  let loggedInUser = {};
-
-  try {
-    loggedInUser = userStr ? JSON.parse(userStr) : {};
-  } catch {
-    loggedInUser = {};
-  }
-
-  const displayName = loggedInUser?.full_name || loggedInUser?.name || loggedInUser?.username || 'Researcher';
+  const loggedInUser = getStoredUser();
+  const displayName = getUserDisplayName(loggedInUser);
   const displayRole = loggedInUser?.role || 'Researcher';
   const initial = displayName.charAt(0).toUpperCase();
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-  };
-
+ 
   const NavItem = ({ path, icon: Icon, label }) => {
     const active = isActive(path);
     return (
@@ -50,7 +37,7 @@ const Sidebar = () => {
       </Link>
     );
   };
-
+ 
   return (
     <aside className="w-[260px] bg-[#0D0B2E] min-h-screen h-screen sticky top-0 p-5 flex flex-col justify-between shrink-0 text-white select-none print:hidden">
       <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar">
@@ -69,7 +56,7 @@ const Sidebar = () => {
           </div>
           <span className="text-[14px] font-bold tracking-tight text-white leading-tight">Quantum<br/>Materials AI</span>
         </div>
-
+ 
         {/* Navigation Items */}
         <nav className="flex-1 space-y-1">
           <NavItem path="/dashboard" icon={Home} label="Dashboard" />
@@ -81,14 +68,10 @@ const Sidebar = () => {
           <NavItem path="/settings" icon={Settings} label="Settings" />
         </nav>
       </div>
-
+ 
       <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
         {/* User Profile */}
-        <div 
-          onClick={handleLogout}
-          className="flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group"
-          title="Logout"
-        >
+        <div className="flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white font-semibold text-[15px] shadow-inner">
               {initial}
@@ -98,9 +81,9 @@ const Sidebar = () => {
               <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
             </div>
           </div>
-          <LogOut className="w-4 h-4 text-[#8C8CA1] group-hover:text-red-400 transition-colors" />
+          <ChevronDown className="w-4 h-4 text-[#8C8CA1]" />
         </div>
-
+ 
         {/* Glow Info Card */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#1C184B] to-[#120F38] border border-[#2B256B] p-4 text-center">
           {/* Neon Floating Chart SVG */}
@@ -127,13 +110,13 @@ const Sidebar = () => {
               <line x1="20" y1="80" x2="140" y2="80" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
               <line x1="50" y1="10" x2="50" y2="90" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
               <line x1="110" y1="10" x2="110" y2="90" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
-
+ 
               {/* Bars */}
               <rect x="40" y="60" width="8" height="20" rx="1.5" fill="url(#glowBar)" />
               <rect x="52" y="48" width="8" height="32" rx="1.5" fill="url(#glowBar)" />
               <rect x="98" y="40" width="8" height="40" rx="1.5" fill="url(#glowBar)" />
               <rect x="110" y="55" width="8" height="25" rx="1.5" fill="url(#glowBar)" />
-
+ 
               {/* Line chart overlay */}
               <path d="M 25 75 Q 50 35 80 60 T 135 25" fill="none" stroke="url(#neonPath)" strokeWidth="2.5" strokeLinecap="round" />
               <circle cx="135" cy="25" r="3" fill="#60A5FA" />
@@ -153,5 +136,5 @@ const Sidebar = () => {
     </aside>
   );
 };
-
+ 
 export default Sidebar;

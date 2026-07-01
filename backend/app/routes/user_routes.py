@@ -1,29 +1,29 @@
 """
 User authentication and management routes.
 """
-
+ 
 import hashlib
 import logging
 import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
-
+ 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from pydantic import BaseModel, field_validator
-
+ 
 from app.auth import create_access_token, get_current_user
 from app.database.mongodb_config import get_activity_log_collection, get_users_collection
 from app.email_utils import send_password_reset_email, send_verification_email
-
+ 
 logger = logging.getLogger(__name__)
-
+ 
 router = APIRouter(prefix="/api/users", tags=["users"])
-
-
+ 
+ 
 class UserCreate(BaseModel):
     full_name: str
     email: str
@@ -38,18 +38,42 @@ class UserCreate(BaseModel):
         if '@' not in v:
             raise ValueError('Invalid email format')
         return v
-
-
+ 
+ 
 class UserLogin(BaseModel):
     email: str
     password: str
-
-
+ 
+ 
 def hash_password(password: str) -> str:
     """Hash password using SHA-256."""
     return hashlib.sha256(password.encode()).hexdigest()
-
-
+ 
+ 
+def serialize_user(user: dict) -> dict:
+    """Return a copy of the user document safe to send to clients."""
+    safe = dict(user)
+    safe["_id"] = str(safe["_id"])
+    safe.pop("password_hash", None)
+    safe.pop("verification_token", None)
+    safe.pop("reset_password_token", None)
+    safe.pop("reset_token_created_at", None)
+    return safe
+ 
+ 
+def build_auth_response(user: dict) -> dict:
+    """Build the standard authentication payload (token + user object)."""
+    safe_user = serialize_user(user)
+    token_info = create_access_token(safe_user["_id"])
+    return {
+        "access_token": token_info["access_token"],
+        "token_type": "bearer",
+        "expires_at": token_info["expires_at"],
+        "user_id": safe_user["_id"],
+        "user": safe_user,
+    }
+ 
+ 
 @router.post("/register")
 async def register_user(user_data: UserCreate):
     """Register a new user."""
@@ -77,26 +101,24 @@ async def register_user(user_data: UserCreate):
     }
     
     result = await collection.insert_one(user)
-    user["_id"] = str(result.inserted_id)
-    user.pop("password_hash", None)
-    user.pop("verification_token", None)
-    
+    user["_id"] = result.inserted_id
+ 
     try:
         await send_verification_email(user_data.email, user_data.full_name, verification_token)
         logger.info("Verification email sent to %s", user_data.email)
     except Exception:
         logger.exception("Failed to send verification email to %s", user_data.email)
-    
+ 
     return {
         "message": "User registered successfully. Please check your email for verification.",
-        "user": user
+        **build_auth_response(user),
     }
-
-
+ 
+ 
 class VerifyEmailRequest(BaseModel):
     token: str
-
-
+ 
+ 
 @router.post("/verify-email")
 async def verify_email(request: VerifyEmailRequest):
     """Verify user email with token."""
@@ -115,29 +137,29 @@ async def verify_email(request: VerifyEmailRequest):
     )
     
     return {"message": "Email verified successfully"}
-
-
+ 
+ 
 class ForgotPasswordRequest(BaseModel):
     email: str
-
-
+ 
+ 
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
-
-
+ 
+ 
 @router.post("/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
     """Generate a password-reset token and email a reset link."""
     collection = get_users_collection()
     email = request.email.strip()
     logger.info("Forgot-password requested for %s", email)
-
+ 
     user = await collection.find_one({"email": email})
     if not user:
         logger.info("Forgot-password: no account for %s (returning generic success)", email)
         return {"message": "If that email is registered, a reset link has been sent."}
-
+ 
     reset_token = secrets.token_urlsafe(32)
     await collection.update_one(
         {"_id": user["_id"]},
@@ -147,46 +169,46 @@ async def forgot_password(request: ForgotPasswordRequest):
         }},
     )
     logger.info("Reset token stored for user_id=%s email=%s", user["_id"], email)
-
+ 
     try:
         await send_password_reset_email(email, reset_token)
         logger.info("Password reset email sent to %s", email)
     except Exception:
         logger.exception("Failed to send password reset email to %s", email)
-
+ 
     return {"message": "If that email is registered, a reset link has been sent."}
-
-
+ 
+ 
 @router.post("/reset-password")
 async def reset_password(request: ResetPasswordRequest):
     """Validate reset token and update the user's password."""
     collection = get_users_collection()
     logger.info("Reset-password attempt with token prefix=%s...", request.token[:8])
-
+ 
     user = await collection.find_one({"reset_password_token": request.token})
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-
+ 
     # Check token age (expire after 1 hour)
     created_at_str = user.get("reset_token_created_at")
     if created_at_str:
         created_at = datetime.fromisoformat(created_at_str)
         if (datetime.utcnow() - created_at) > timedelta(hours=1):
             raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new one.")
-
+ 
     if len(request.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-
+ 
     await collection.update_one(
         {"_id": user["_id"]},
         {"$set": {"password_hash": hash_password(request.new_password)},
          "$unset": {"reset_password_token": "", "reset_token_created_at": ""}}
     )
-
+ 
     logger.info("Password reset successful for user_id=%s", user["_id"])
     return {"message": "Password reset successfully. You can now log in with your new password."}
-
-
+ 
+ 
 @router.post("/login")
 async def login_user(login_data: UserLogin):
     """Login user and return user data."""
@@ -203,14 +225,8 @@ async def login_user(login_data: UserLogin):
     # if not user.get("is_verified", False):
     #     raise HTTPException(status_code=403, detail="Please verify your email before logging in")
     
-    # Create a JWT access token for the user
-    token_info = create_access_token(str(user["_id"]))
-
-    # Prepare user object to return (don't expose password hash)
-    user["_id"] = str(user["_id"])
-    user.pop("password_hash", None)
-    user.pop("verification_token", None)
-
+    response = build_auth_response(user)
+ 
     # Log login activity
     activity_collection = get_activity_log_collection()
     await activity_collection.insert_one({
@@ -219,21 +235,16 @@ async def login_user(login_data: UserLogin):
         "color": "bg-green-500",
         "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         "timestamp": datetime.utcnow().isoformat(),
-        "user_id": ObjectId(user["_id"])
+        "user_id": ObjectId(response["user_id"])
     })
-
-    return {
-        "access_token": token_info["access_token"],
-        "token_type": "bearer",
-        "expires_at": token_info["expires_at"],
-        "user_id": user["_id"]
-    }
-
-
+ 
+    return response
+ 
+ 
 class GoogleLoginRequest(BaseModel):
     credential: str
-
-
+ 
+ 
 @router.post("/google-login")
 async def google_login(request: GoogleLoginRequest):
     """Login or register user using Google OAuth."""
@@ -247,20 +258,20 @@ async def google_login(request: GoogleLoginRequest):
             request.credential, requests.Request(), client_id,
             clock_skew_in_seconds=10
         )
-
+ 
         email = idinfo.get("email")
         if not email:
             raise HTTPException(status_code=400, detail="No email provided by Google")
-
+ 
         if not idinfo.get("email_verified", False):
             raise HTTPException(status_code=403, detail="Google email is not verified")
-
+ 
         collection = get_users_collection()
         user = await collection.find_one({"email": email})
         
         google_id = idinfo.get("sub")
         full_name = idinfo.get("name", "")
-
+ 
         if user:
             # User exists, link account if not already linked
             auth_providers = user.get("auth_providers", ["local"])
@@ -292,10 +303,9 @@ async def google_login(request: GoogleLoginRequest):
             result = await collection.insert_one(new_user)
             user = new_user
             user["_id"] = result.inserted_id
-
-        # Generate JWT
-        token_info = create_access_token(str(user["_id"]))
-
+ 
+        response = build_auth_response(user)
+ 
         # Log login activity
         activity_collection = get_activity_log_collection()
         await activity_collection.insert_one({
@@ -304,33 +314,28 @@ async def google_login(request: GoogleLoginRequest):
             "color": "bg-blue-500",
             "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             "timestamp": datetime.utcnow().isoformat(),
-            "user_id": ObjectId(user["_id"])
+            "user_id": ObjectId(response["user_id"])
         })
-
-        return {
-            "access_token": token_info["access_token"],
-            "token_type": "bearer",
-            "expires_at": token_info["expires_at"],
-            "user_id": str(user["_id"])
-        }
+ 
+        return response
     except ValueError as e:
         logger.warning("Google token verification failed: %s", e)
         raise HTTPException(status_code=401, detail="Invalid Google token")
-
-
+ 
+ 
 @router.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     """Return the currently authenticated user's profile."""
     return current_user
-
-
+ 
+ 
 @router.get("/{user_id}")
 async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
     """Get user by ID. Only the user themself or admin can access another user's data."""
     # Only allow access to own profile unless admin
     if current_user["_id"] != user_id and current_user.get("role", "user") != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
-
+ 
     collection = get_users_collection()
     try:
         user = await collection.find_one({"_id": ObjectId(user_id)})
@@ -344,15 +349,15 @@ async def get_user(user_id: str, current_user: dict = Depends(get_current_user))
         return user
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
+ 
+ 
 @router.put("/{user_id}")
 async def update_user(user_id: str, user_data: dict, current_user: dict = Depends(get_current_user)):
     """Update user information. Only the user themself or admin can update."""
     # Only allow updating own profile unless admin
     if current_user["_id"] != user_id and current_user.get("role", "user") != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
-
+ 
     collection = get_users_collection()
     try:
         # Don't allow updating password through this endpoint
@@ -360,21 +365,22 @@ async def update_user(user_id: str, user_data: dict, current_user: dict = Depend
             del user_data["password_hash"]
         if "password" in user_data:
             del user_data["password"]
-
+ 
         # Only admin can change role
         if "role" in user_data and current_user.get("role", "user") != "admin":
             del user_data["role"]
-
+ 
         update_data = {k: v for k, v in user_data.items() if k != "_id"}
-
+ 
         result = await collection.update_one(
             {"_id": ObjectId(user_id)},
             {"$set": update_data}
         )
-
+ 
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="User not found")
-
+ 
         return {"message": "User updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+ 
