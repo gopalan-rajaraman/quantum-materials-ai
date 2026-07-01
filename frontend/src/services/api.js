@@ -47,13 +47,20 @@ export const api = {
     }),
 
   // Datasets
-  fetchDashboardStats: () => request('/api/datasets/dashboard'),
-  fetchSavedDatasets: () => request('/api/datasets/saved'),
+ fetchDashboardStats: () => request('/api/datasets/dashboard-stats'),
+fetchSavedDatasets: () => request('/api/datasets/list'),
   
-  uploadDataset: async (files) => {
+  uploadDataset: async (files, catConstants = {}, numConstants = {}) => {
     const formData = new FormData();
     for (const file of files) {
       formData.append('files', file);
+    }
+    // Add constants as JSON strings
+    if (Object.keys(catConstants).length > 0) {
+      formData.append('cat_constants', JSON.stringify(catConstants));
+    }
+    if (Object.keys(numConstants).length > 0) {
+      formData.append('num_constants', JSON.stringify(numConstants));
     }
     const token = localStorage.getItem('token');
     const headers = {};
@@ -124,7 +131,7 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
-  getPlotData: () => request('/thermal-cvd/plot-data'),
+  getPlotData: (sliceMode = 'suggestion') => request(`/thermal-cvd/plot-data?slice_mode=${sliceMode}`),
   getBoProgress: () => request('/thermal-cvd/bo-progress'),
   fetchVariablesDistribution: () => request('/thermal-cvd/variables-distribution'),
 };

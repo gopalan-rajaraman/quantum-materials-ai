@@ -44,6 +44,8 @@ const Upload = () => {
   const [lockError, setLockError] = useState(null);
   const [confirmedExpIds, setConfirmedExpIds] = useState(new Set());
   const [showFinalLockModal, setShowFinalLockModal] = useState(false);
+  const [searchSpace, setSearchSpace] = useState([]);
+  const [variableRanges, setVariableRanges] = useState({});
 
   const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#2dd4bf', '#fb923c', '#f472b6'];
 
@@ -274,15 +276,30 @@ const Upload = () => {
     setIsLocking(true);
     setLockError(null);
     try {
-      const selectedExperiments = getExperimentalIds().filter(exp => confirmedExpIds.has(exp.id));
-      const filteredData = selectedExperiments.flatMap(exp => exp.samples);
-      
-      const enrichedData = filteredData.map(row => ({
-        ...row,
-        ...boConstants,
-        TOCVD: 'Thermal CVD'
-      }));
-      await api.uploadJsonDataset(enrichedData, datasetName || autoGenFileName);
+      // Separate categorical and numerical constants
+      const catConstants = {
+        P1: boConstants.P1,
+        P2: boConstants.P2,
+        Substrate: boConstants.Substrate,
+        CG: boConstants.CG,
+        COM: boConstants.COM,
+        PC: boConstants.PC,
+        SA: boConstants.SA,
+        Class: boConstants.Class
+      };
+      const numConstants = {
+        FRH: parseFloat(boConstants.FRH) || 0
+      };
+
+      const response = await api.uploadDataset([file], catConstants, numConstants);
+
+      // Store search space and variable ranges
+      if (response.search_space) {
+        setSearchSpace(response.search_space);
+      }
+      if (response.variable_ranges) {
+        setVariableRanges(response.variable_ranges);
+      }
 
       setIsLocked(true);
     } catch (err) {
@@ -291,6 +308,15 @@ const Upload = () => {
     } finally {
       setIsLocking(false);
     }
+  };
+
+  const downloadSearchSpace = () => {
+    if (searchSpace.length === 0) return;
+
+    const ws = XLSX.utils.json_to_sheet(searchSpace);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Virtual Space');
+    XLSX.writeFile(wb, `Virtual_Space_${datasetName || 'Dataset'}.xlsx`);
   };
 
   const StepsSidebar = () => {
@@ -370,16 +396,52 @@ const Upload = () => {
   return (
     <div className="p-8 max-w-7xl mx-auto min-h-full">
       {isLocked ? (
-        <div className="max-w-3xl mx-auto bg-white rounded-3xl p-12 shadow-sm border border-slate-200 text-center mt-10 animate-fade-in">
+        <div className="max-w-4xl mx-auto bg-white rounded-3xl p-12 shadow-sm border border-slate-200 text-center mt-10 animate-fade-in">
           <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-2">Dataset Registered Successfully!</h2>
-          <p className="text-slate-500 mb-10 max-w-lg mx-auto">
-            You can now start the BO Loop. After each experimental run, enter the PL FWHM result to let the model learn and suggest the next best experiment.
+          <p className="text-slate-500 mb-8 max-w-lg mx-auto">
+            Your dataset has been locked and the virtual search space has been generated. You can download the virtual space or proceed to the BO Loop.
           </p>
 
-          <div className="grid grid-cols-2 gap-8 text-left mb-10">
+          {/* Virtual Space Summary */}
+          {searchSpace.length > 0 && (
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 mb-8 border border-indigo-100 text-left">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <Layers className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900">Virtual Search Space</h3>
+                    <p className="text-sm text-slate-500">{searchSpace.length} candidate experiments generated</p>
+                  </div>
+                </div>
+                <button
+                  onClick={downloadSearchSpace}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-indigo-700 font-semibold hover:bg-indigo-50 transition-colors text-sm"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Download Excel
+                </button>
+              </div>
+
+              {/* Variable Ranges */}
+              {Object.keys(variableRanges).length > 0 && (
+                <div className="grid grid-cols-4 gap-4 mt-4">
+                  {Object.entries(variableRanges).map(([varName, [min, max]]) => (
+                    <div key={varName} className="bg-white/80 rounded-lg p-3 border border-indigo-100">
+                      <p className="text-xs font-bold text-slate-500 mb-1">{varName}</p>
+                      <p className="text-sm font-semibold text-indigo-700">{min.toFixed(1)} - {max.toFixed(1)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-8 text-left mb-8">
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <h3 className="font-bold text-slate-900 mb-4">Dataset Summary</h3>
               <div className="space-y-3 text-sm">
@@ -392,16 +454,16 @@ const Upload = () => {
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <h3 className="font-bold text-slate-900 mb-4">What's Next?</h3>
               <ol className="space-y-3 text-sm text-slate-600 list-decimal list-inside">
+                <li>Download virtual space (optional)</li>
                 <li>Start the BO Loop</li>
                 <li>Run experiments as suggested</li>
                 <li>Enter PL FWHM results</li>
                 <li>Model learns and optimizes</li>
-                <li>View results after convergence</li>
               </ol>
             </div>
           </div>
 
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start text-left mb-10">
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start text-left mb-8">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
               <span className="text-[#4C3BDE] font-bold text-xs">i</span>
             </div>
@@ -411,10 +473,15 @@ const Upload = () => {
             </div>
           </div>
 
-          <button onClick={() => navigate('/optimization')} className="bg-[#4C3BDE] hover:bg-[#3D2EB0] text-white px-8 py-3 rounded-xl font-medium transition-all shadow-sm flex items-center justify-center mx-auto space-x-2">
-            <span>Go to BO Loop</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          <div className="flex justify-center gap-4">
+            <button onClick={() => navigate('/datasets')} className="px-8 py-3 border border-slate-200 bg-white text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all">
+              View Datasets
+            </button>
+            <button onClick={() => navigate('/optimization')} className="bg-[#4C3BDE] hover:bg-[#3D2EB0] text-white px-8 py-3 rounded-xl font-medium transition-all shadow-sm flex items-center justify-center space-x-2">
+              <span>Go to BO Loop</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex min-h-[600px] relative">

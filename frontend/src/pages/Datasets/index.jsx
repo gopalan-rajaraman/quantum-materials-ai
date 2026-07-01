@@ -16,21 +16,28 @@ const Datasets = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchDatasets = async () => {
-    setLoading(true);
-    try {
-      const data = await api.fetchSavedDatasets();
-      setDatasetsList(data.datasets || []);
-    } catch (e) {
-      console.error('Error fetching datasets:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
+ const fetchDatasets = async () => {
+  setLoading(true);
+  try {
+    const data = await api.fetchSavedDatasets();
+    setDatasetsList(data.datasets || []);
+  } catch (e) {
+    console.error('Error fetching datasets:', e);
+    setDatasetsList([]);  // ← add this line
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Get logged-in user from localStorage
+  // Get logged-in user from localStorage safely
   const userStr = localStorage.getItem('user');
-  const loggedInUser = userStr ? JSON.parse(userStr) : {};
+  let loggedInUser = {};
+  try {
+    loggedInUser = userStr ? JSON.parse(userStr) : {};
+  } catch (e) {
+    console.error('Error parsing user from localStorage:', e);
+    loggedInUser = {};
+  }
   const loggedInUsername = loggedInUser?.username || loggedInUser?.name || loggedInUser?.email?.split('@')[0] || '—';
   const loggedInRole = loggedInUser?.role || 'Researcher';
 

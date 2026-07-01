@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
+import api from '../../services/api';
 
 const Optimization = () => {
   const [modelInfo, setModelInfo] = useState(null);
@@ -34,33 +35,29 @@ const Optimization = () => {
 
   const fetchModelData = async () => {
     try {
-      const infoRes = await fetch('http://localhost:8000/thermal-cvd/info');
-      if (infoRes.ok) {
-        const info = await infoRes.json();
-        setModelInfo(info);
+      const info = await api.fetchModelInfo();
+      setModelInfo(info);
+      
+      if (info.status === 'fitted') {
+        try { await api.getBoProgress(); } catch (e) {}
         
-        if (info.status === 'fitted') {
-          const progressRes = await fetch('http://localhost:8000/thermal-cvd/bo-progress');
-          if (progressRes.ok) await progressRes.json();
-          
-          const suggRes = await fetch('http://localhost:8000/thermal-cvd/suggest', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ n_suggestions: 1 })
-          });
-          if (suggRes.ok) setSuggestions((await suggRes.json()).recommendations);
-          
-          const plotRes = await fetch(`http://localhost:8000/thermal-cvd/plot-data?slice_mode=${sliceMode}`);
-          if (plotRes.ok) {
-            const pd = await plotRes.json();
-            setPlotData(pd);
-            if (pd.training_points.x.length > pd.training_points.initial_count) {
-              setBoStarted(true);
-            }
+        try {
+          const sugg = await api.suggestExperiments(1);
+          setSuggestions(sugg.recommendations || []);
+        } catch (e) { console.error(e); }
+        
+        try {
+          const pd = await api.getPlotData(sliceMode);
+          setPlotData(pd);
+          if (pd && pd.training_points && pd.training_points.x.length > pd.training_points.initial_count) {
+            setBoStarted(true);
           }
-          
-          const timelineRes = await fetch('http://localhost:8000/thermal-cvd/timeline');
-          if (timelineRes.ok) setTimelineData((await timelineRes.json()).timeline);
-        }
+        } catch (e) { console.error(e); }
+        
+        try {
+          const timeline = await api.fetchTimeline();
+          setTimelineData(timeline.timeline || []);
+        } catch (e) { console.error(e); }
       }
     } catch (e) {
       console.error(e);
@@ -78,21 +75,16 @@ const Optimization = () => {
     if (suggestions.length === 0 || !fwhmResult) return;
     setSubmitting(true);
     try {
-      const res = await fetch('http://localhost:8000/thermal-cvd/add-experiment', { 
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          GTE: parseFloat(actualGte), GTI: parseFloat(actualGti),
-          FRA: parseFloat(actualFra), Pressure: parseFloat(actualPressure),
-          PL_FWHM: parseFloat(fwhmResult)
-        })
+      await api.addManualExperiment({
+        GTE: parseFloat(actualGte), GTI: parseFloat(actualGti),
+        FRA: parseFloat(actualFra), Pressure: parseFloat(actualPressure),
+        PL_FWHM: parseFloat(fwhmResult)
       });
-      if (res.ok) {
-        setFwhmResult('');
-        setLoading(true);
-        await fetchModelData();
-      } else alert("Failed to submit result.");
+      setFwhmResult('');
+      setLoading(true);
+      await fetchModelData();
     } catch (e) {
-      alert('Failed to add experiment result.');
+      alert('Failed to add experiment result: ' + e.message);
     } finally {
       setSubmitting(false);
     }

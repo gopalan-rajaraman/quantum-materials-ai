@@ -8,7 +8,7 @@ import {
   TrendingUp, 
   Boxes, 
   Settings, 
-  ChevronDown, 
+  LogOut, 
   Hexagon 
 } from 'lucide-react';
 
@@ -27,6 +27,12 @@ const Sidebar = () => {
   const displayName = loggedInUser?.full_name || loggedInUser?.name || loggedInUser?.username || 'Researcher';
   const displayRole = loggedInUser?.role || 'Researcher';
   const initial = displayName.charAt(0).toUpperCase();
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  };
 
   const NavItem = ({ path, icon: Icon, label }) => {
     const active = isActive(path);
@@ -78,7 +84,11 @@ const Sidebar = () => {
 
       <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
         {/* User Profile */}
-        <div className="flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
+        <div 
+          onClick={handleLogout}
+          className="flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group"
+          title="Logout"
+        >
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white font-semibold text-[15px] shadow-inner">
               {initial}
@@ -88,7 +98,7 @@ const Sidebar = () => {
               <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
             </div>
           </div>
-          <ChevronDown className="w-4 h-4 text-[#8C8CA1]" />
+          <LogOut className="w-4 h-4 text-[#8C8CA1] group-hover:text-red-400 transition-colors" />
         </div>
 
         {/* Glow Info Card */}

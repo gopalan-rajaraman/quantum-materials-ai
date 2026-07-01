@@ -103,6 +103,15 @@ class ThermalCVDEncoder:
             raise ValueError(f"Column {col} is not a known constant")
         self.constant_values[col] = value
 
+    def set_constants_from_dict(self, cat_constants: Dict[str, str], num_constants: Dict[str, float]) -> None:
+        """Set multiple constants from dictionaries."""
+        for col, val in cat_constants.items():
+            if col in self.CAT_CONSTANTS:
+                self.constant_values[col] = val
+        for col, val in num_constants.items():
+            if col in self.NUM_CONSTANTS:
+                self.constant_values[col] = float(val)
+
     def _build_raw_feature_matrix(self, df: pd.DataFrame) -> np.ndarray:
         """
         Build raw (unscaled) feature matrix matching 4D BO refactor.

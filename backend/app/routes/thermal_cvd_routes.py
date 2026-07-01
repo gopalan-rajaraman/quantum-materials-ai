@@ -29,8 +29,15 @@ optimizer_instance: Optional[ThermalCVDOptimizer] = None
 
 
 def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
-    """Return the optimizer for *user_id*, or None if not yet initialised."""
-    return optimizer_instances.get(str(user_id))
+    """Return the optimizer for *user_id*, falling back to default then global instance if none exists."""
+    user_opt = optimizer_instances.get(str(user_id))
+    if user_opt is not None:
+        return user_opt
+    # Fall back to default optimizer for users who haven't uploaded data
+    default_opt = optimizer_instances.get('default')
+    if default_opt is not None:
+        return default_opt
+    return optimizer_instance
 
 
 def set_optimizer(user_id: str, opt: ThermalCVDOptimizer) -> None:
@@ -145,6 +152,9 @@ def init_thermal_cvd_model(data_file: Optional[str] = None):
             optimizer_instance.load_training_data(df)
             optimizer_instance.generate_search_space(n_points=5000)
             optimizer_instance.train_gp()
+
+            # Store default optimizer for users who haven't uploaded data
+            optimizer_instances['default'] = optimizer_instance
 
             print(f'Thermal CVD optimizer initialized with {len(df)} training samples')
         else:

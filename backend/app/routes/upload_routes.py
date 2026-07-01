@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Form
 import io
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -14,6 +14,11 @@ from app.auth import get_current_user
 class SpreadsheetData(BaseModel):
     data: List[Dict[str, Any]]
     name: Optional[str] = None
+
+class UploadWithConstants(BaseModel):
+    files: List[str]  # This would be handled differently in multipart form
+    cat_constants: Optional[Dict[str, str]] = None  # P1, P2, Substrate, CG, COM, PC, SA, Class
+    num_constants: Optional[Dict[str, float]] = None  # FRH, HR, FRP1, FRP2, CP1, CP2
 
 router = APIRouter(
     prefix="/api/datasets",
@@ -36,26 +41,26 @@ async def log_activity(title: str, desc: str, color: str = "bg-cyan-500", user_i
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     """Returns live stats for the Dashboard page."""
     opt = cvd_routes.optimizer_instance
-    
+
     datasets_collection = get_datasets_collection()
     activity_collection = get_activity_log_collection()
-    
+
     query = {"user_id": ObjectId(current_user["_id"])}
     saved_datasets_count = await datasets_collection.count_documents(query)
-    
+
     fitted = opt is not None and opt._fitted
-    total_datasets = saved_datasets_count + (1 if fitted and saved_datasets_count == 0 else 0)
-    
+    total_datasets = saved_datasets_count
+
     best_fwhm = None
     r2_score = None
     mae = None
     kernel_info = None
     n_samples = 0
-    
+
     overview_chart_data = []
     model_performance_data = []
     variable_summary_data = []
-    
+
     if fitted:
         best_fwhm = float(opt.y_train.min())
         metrics = opt.gp_model.get_metrics(opt.X_train, opt.y_train)
@@ -63,37 +68,37 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         mae = round(float(metrics['MAE_meV']), 4)
         n_samples = int(metrics['n_train_samples'])
         kernel_info = str(opt.gp_model.gp.kernel_).split('(')[0]
-        
+
         # 1. Variable Summary
         num_const = len(opt.encoder.NUM_CONSTANTS)
         cat_const = len(opt.encoder.CAT_CONSTANTS)
         variables_count = len(opt.encoder.VARIABLES)
         total_features = num_const + cat_const + variables_count
-        
+
         variable_summary_data = [
             {"name": "Numerical", "value": num_const, "percentage": f"{num_const/total_features*100:.1f}%" if total_features else "0%", "color": "#5D3EBC"},
             {"name": "Categorical", "value": cat_const, "percentage": f"{cat_const/total_features*100:.1f}%" if total_features else "0%", "color": "#3B82F6"},
             {"name": "Discrete", "value": variables_count, "percentage": f"{variables_count/total_features*100:.1f}%" if total_features else "0%", "color": "#F59E0B"},
             {"name": "Boolean", "value": 0, "percentage": "0%", "color": "#EF4444"}
         ]
-        
+
         # 2. Overview Chart Data (growth of samples/runs progression)
         n_total = len(opt.y_train)
         steps = [max(1, int(n_total * p)) for p in [0.2, 0.4, 0.6, 0.8, 1.0]]
         steps = sorted(list(set(steps)))
-        
+
         from sklearn.gaussian_process import GaussianProcessRegressor
         from sklearn.metrics import r2_score as r2_fn, mean_absolute_error, mean_squared_error
-        
+
         for idx, step in enumerate(steps):
             X_sub = opt.X_train[:step]
             y_sub = opt.y_train[:step]
-            
+
             overview_chart_data.append({
                 "name": f"Run {step}",
                 "value": step
             })
-            
+
             if step >= 5:
                 try:
                     temp_gp = GaussianProcessRegressor(kernel=opt.gp_model.gp.kernel, alpha=opt.gp_model.gp.alpha, random_state=42)
@@ -102,7 +107,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
                     r2 = max(0.0, r2_fn(y_sub, y_pred))
                     mae_val = mean_absolute_error(y_sub, y_pred)
                     rmse_val = np.sqrt(mean_squared_error(y_sub, y_pred))
-                    
+
                     model_performance_data.append({
                         "name": f"Run {step}",
                         "R2": round(r2, 2),
@@ -118,7 +123,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
                     "MAE": 1.0 - idx * 0.1,
                     "RMSE": 1.2 - idx * 0.1
                 })
-        
+
         if not model_performance_data:
             model_performance_data = [
                 {"name": "No Data", "R2": 0.0, "MAE": 0.0, "RMSE": 0.0}
@@ -156,7 +161,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         if "user_id" in doc and doc["user_id"] is not None:
             doc["user_id"] = str(doc["user_id"])
         activity_log.append(doc)
-        
+
     return {
         "total_datasets": total_datasets,
         "active_experiments": saved_datasets_count,
@@ -172,16 +177,16 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         "variable_summary_data": variable_summary_data
     }
 
-@router.get("/saved")
+@router.get("/list")
 async def get_saved_datasets(current_user: dict = Depends(get_current_user)):
     """Returns the list of previously uploaded datasets with live ML model info."""
     import app.routes.thermal_cvd_routes as cvd_routes
     datasets_collection = get_datasets_collection()
-    
+
     query = {"user_id": ObjectId(current_user["_id"])}
     enriched = []
-    cursor = datasets_collection.find(query).sort("created_at", 1)
-    
+    cursor = datasets_collection.find(query).sort("created_at", -1)
+
     i = 0
     async for ds in cursor:
         entry = dict(ds)
@@ -191,21 +196,100 @@ async def get_saved_datasets(current_user: dict = Depends(get_current_user)):
         entry['id'] = f'EXP-{100 + i + 1}'
         entry['target'] = 'PL_FWHM (meV)'
         entry.pop('data', None)
-        
+
+        # Use actual status from database, default to 'unlocked' if not set
+        entry['status'] = entry.get('status', 'unlocked')
+
         # Pull live best value from the model if fitted
         if cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:
             best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
             entry['bestValue'] = f'{best_fwhm:.2f} meV'
-            entry['status'] = 'Completed'
         else:
             entry['bestValue'] = '--'
-            entry['status'] = 'In Progress'
-        
+
         enriched.append(entry)
         i += 1
-    
-    
+
+
     return {"datasets": enriched}
+
+@router.post("/{dataset_id}/lock")
+async def lock_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    """Lock a dataset to prevent modifications."""
+    collection = get_datasets_collection()
+    try:
+        result = await collection.update_one(
+            {"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])},
+            {"$set": {"status": "locked", "updated_at": datetime.utcnow().isoformat()}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
+        await log_activity("Dataset Locked", f"Dataset {dataset_id} locked", "bg-orange-500", current_user["_id"])
+        return {"message": "Dataset locked successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/{dataset_id}/unlock")
+async def unlock_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    """Unlock a dataset to allow modifications."""
+    collection = get_datasets_collection()
+    try:
+        result = await collection.update_one(
+            {"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])},
+            {"$set": {"status": "unlocked", "updated_at": datetime.utcnow().isoformat()}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Dataset not found or access denied")
+        await log_activity("Dataset Unlocked", f"Dataset {dataset_id} unlocked", "bg-green-500", current_user["_id"])
+        return {"message": "Dataset unlocked successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{dataset_id}")
+async def get_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific saved dataset by ID."""
+    collection = get_datasets_collection()
+    try:
+        doc = await collection.find_one({"_id": ObjectId(dataset_id)})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        # Check ownership
+        if doc.get("user_id") and doc["user_id"] != ObjectId(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Access denied")
+        doc["_id"] = str(doc["_id"])
+        if "user_id" in doc and doc["user_id"] is not None:
+            doc["user_id"] = str(doc["user_id"])
+        import math
+        def clean_nan(obj):
+            if isinstance(obj, float) and math.isnan(obj):
+                return None
+            elif isinstance(obj, dict):
+                return {k: clean_nan(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_nan(v) for v in obj]
+            return obj
+        return clean_nan(doc)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/{dataset_id}")
+async def delete_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    """Deletes a dataset from MongoDB by its ObjectId."""
+    collection = get_datasets_collection()
+    try:
+        # Check ownership first
+        existing = await collection.find_one({"_id": ObjectId(dataset_id)})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        if existing.get("user_id") and existing["user_id"] != ObjectId(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Access denied")
+        result = await collection.delete_one({"_id": ObjectId(dataset_id)})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        await log_activity("Dataset Deleted", f"Deleted dataset with ID {dataset_id}", "bg-red-500", current_user["_id"])
+        return {"message": "Dataset deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/saved/{dataset_id}")
 async def get_saved_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
@@ -263,34 +347,49 @@ async def delete_saved_dataset(dataset_id: str, current_user: dict = Depends(get
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/upload")
-async def upload_datasets(files: list[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
+async def upload_datasets(
+    files: list[UploadFile] = File(...),
+    cat_constants: Optional[str] = Form(None),
+    num_constants: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user)
+):
     """
-    Upload multiple CSV or Excel datasets, parse them with Pandas,
-    concatenate them into a single dataframe, and detect columns.
+    Upload CSV or Excel datasets with only 4 optimizing parameters + target.
+    Constants are provided as JSON strings from dropdown selection.
+    Variable ranges are automatically calculated from the data.
     """
     dataframes = []
     datasets_collection = get_datasets_collection()
-    
+
     try:
+        # Parse constants from JSON strings
+        cat_constants_dict = {}
+        num_constants_dict = {}
+        if cat_constants:
+            import json
+            cat_constants_dict = json.loads(cat_constants)
+        if num_constants:
+            num_constants_dict = json.loads(num_constants)
+
         filenames = []
         for file in files:
             filenames.append(file.filename)
             contents = await file.read()
-            
+
             if file.filename.endswith('.csv'):
                 df = pd.read_csv(io.BytesIO(contents))
             elif file.filename.endswith(('.xls', '.xlsx')):
                 df = pd.read_excel(io.BytesIO(contents))
             else:
                 continue
-            
+
             # Rename 'PL FWHM' → 'PL_FWHM' (handle space vs underscore)
             if 'PL FWHM' in df.columns and 'PL_FWHM' not in df.columns:
                 df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
             if 'PL Peak Position' in df.columns and 'PL_Peak_Position' not in df.columns:
-                df = df.rename(columns={'PL Peak Position': 'PL_Peak_Position'})
+                df = df.rename(columns({'PL Peak Position': 'PL_Peak_Position'}))
 
-            # Replace 'NS' (not specified) with NaN — matches Colab notebook
+            # Replace 'NS' (not specified) with NaN
             df = df.replace('NS', np.nan)
 
             dataframes.append(df)
@@ -307,13 +406,49 @@ async def upload_datasets(files: list[UploadFile] = File(...), current_user: dic
         exp_numbers = [f"{dataset_id}_EXP_{i+1:03d}" for i in range(total_rows)]
         combined_df.insert(0, 'Exp Number', exp_numbers)
 
-        # Filter to ONLY Thermal CVD experiments (matches Colab notebook Step 2)
-        thermal_cvd_df = combined_df
-        if 'TOCVD' in combined_df.columns:
-            thermal_cvd_df = combined_df[combined_df['TOCVD'] == 'Thermal CVD'].copy().reset_index(drop=True)
+        # Check if this is a simplified upload (only variables + target)
+        required_vars = ['GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
+        has_all_vars = all(col in combined_df.columns for col in required_vars)
+
+        if has_all_vars:
+            # Simplified upload - add constants from form data
+            for col, val in cat_constants_dict.items():
+                combined_df[col] = val
+            for col, val in num_constants_dict.items():
+                combined_df[col] = val
+            combined_df['TOCVD'] = 'Thermal CVD'
+            thermal_cvd_df = combined_df
+
+            # Calculate automatic variable ranges from data
+            variable_ranges = {}
+            for var in ['GTE', 'GTI', 'FRA', 'Pressure']:
+                if var in combined_df.columns:
+                    values = pd.to_numeric(combined_df[var], errors='coerce').dropna()
+                    if len(values) > 0:
+                        avg = values.mean()
+                        std = values.std()
+                        min_val = values.min()
+                        max_val = values.max()
+                        # Use avg ± std or min/max as range
+                        lower = max(0, avg - std) if std > 0 else min_val
+                        upper = avg + std if std > 0 else max_val
+                        variable_ranges[var] = (float(lower), float(upper))
             n_thermal = len(thermal_cvd_df)
         else:
-            n_thermal = total_rows
+            # Full upload - filter to Thermal CVD
+            thermal_cvd_df = combined_df
+            if 'TOCVD' in combined_df.columns:
+                thermal_cvd_df = combined_df[combined_df['TOCVD'] == 'Thermal CVD'].copy().reset_index(drop=True)
+            n_thermal = len(thermal_cvd_df)
+            if len(thermal_cvd_df) == 0:
+                n_thermal = total_rows
+
+        # Ensure variable_ranges is always populated
+        if not variable_ranges or len(variable_ranges) == 0:
+            # Use encoder default ranges
+            from app.ml_models.thermal_cvd.data_encoder import ThermalCVDEncoder
+            encoder = ThermalCVDEncoder()
+            variable_ranges = encoder.VARIABLE_RANGES.copy()
 
         if len(thermal_cvd_df) == 0:
             raise HTTPException(
@@ -340,16 +475,25 @@ async def upload_datasets(files: list[UploadFile] = File(...), current_user: dic
             "dataset_id": dataset_id,
             "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
             "data": combined_df.to_dict(orient='records'),
-            "user_id": ObjectId(current_user["_id"])
+            "user_id": ObjectId(current_user["_id"]),
+            "status": "unlocked",
+            "cat_constants": cat_constants_dict,
+            "num_constants": num_constants_dict,
+            "variable_ranges": variable_ranges if has_all_vars else {}
         }
         await datasets_collection.insert_one(dataset_record)
 
         # Pass Thermal CVD data to the global optimizer to train
         if cvd_routes.optimizer_instance is not None:
             cvd_routes.optimizer_instance.load_training_data(thermal_cvd_df)
+            # Set constants from form data if provided
+            if cat_constants_dict or num_constants_dict:
+                cvd_routes.optimizer_instance.encoder.set_constants_from_dict(cat_constants_dict, num_constants_dict)
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
             best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+            # Store optimizer for this specific user
+            cvd_routes.set_optimizer(current_user["_id"], cvd_routes.optimizer_instance)
             await log_activity(
                 "Dataset Uploaded",
                 f"{', '.join(filenames)}: {len(thermal_cvd_df)} Thermal CVD rows used",
@@ -358,6 +502,19 @@ async def upload_datasets(files: list[UploadFile] = File(...), current_user: dic
             )
             await log_activity("GP Model Trained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", current_user["_id"])
 
+        # Get search space data
+        search_space_data = []
+        if cvd_routes.optimizer_instance is not None and hasattr(cvd_routes.optimizer_instance, 'X_search'):
+            X_search = cvd_routes.optimizer_instance.X_search
+            if X_search is not None and len(X_search) > 0:
+                # Inverse transform to get original variable values
+                X_raw = cvd_routes.optimizer_instance.encoder.scaler_X.inverse_transform(X_search)
+                var_names = ['GTE', 'GTI', 'FRA', 'Pressure']
+                search_space_data = []
+                for row in X_raw:
+                    var_dict = {var_names[i]: float(row[i]) for i in range(len(var_names))}
+                    search_space_data.append(var_dict)
+
         return {
             "total_files_processed": len(files),
             "filenames": filenames,
@@ -365,7 +522,9 @@ async def upload_datasets(files: list[UploadFile] = File(...), current_user: dic
             "thermal_cvd_rows_used": len(thermal_cvd_df),
             "columns": list(thermal_cvd_df.columns),
             "status": "success",
-            "message": f"Found {len(thermal_cvd_df)} Thermal CVD experiments (out of {total_rows} total rows). GP model trained successfully."
+            "message": f"Found {len(thermal_cvd_df)} Thermal CVD experiments (out of {total_rows} total rows). GP model trained successfully.",
+            "search_space": search_space_data,
+            "variable_ranges": variable_ranges if has_all_vars else {}
         }
 
     except HTTPException:
@@ -439,6 +598,8 @@ async def upload_json_data(payload: SpreadsheetData, current_user: dict = Depend
             cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
             cvd_routes.optimizer_instance.train_gp()
             best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+            # Store optimizer for this specific user
+            cvd_routes.set_optimizer(current_user["_id"], cvd_routes.optimizer_instance)
             await log_activity("Manual Data Submitted", f"{len(df)} Thermal CVD rows ingested", "bg-purple-500", current_user["_id"])
             await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", current_user["_id"])
 

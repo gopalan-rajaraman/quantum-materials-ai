@@ -19,6 +19,11 @@ from app.auth import get_current_user
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
 
+# ──────────────────────────────────────────────────────
+# IMPORTANT: Static GET routes MUST come BEFORE /{dataset_id}
+# to prevent FastAPI from matching them as a dataset_id parameter.
+# ──────────────────────────────────────────────────────
+
 @router.get("/list")
 async def list_datasets(current_user: dict = Depends(get_current_user)):
     """Get all datasets for a user."""
@@ -36,6 +41,77 @@ async def list_datasets(current_user: dict = Depends(get_current_user)):
     
     return {"datasets": datasets}
 
+
+@router.get("/dashboard-stats")
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    """Get dashboard statistics for the current user."""
+    datasets_collection = get_datasets_collection()
+    
+    user_filter = {"user_id": ObjectId(current_user["_id"])}
+    
+    total_datasets = await datasets_collection.count_documents(user_filter)
+    locked_datasets = await datasets_collection.count_documents({**user_filter, "status": "locked"})
+    in_progress_datasets = await datasets_collection.count_documents({**user_filter, "status": "in_progress"})
+    unlocked_datasets = total_datasets - locked_datasets - in_progress_datasets
+    
+    # Compute total experiments (sum of total_experiments across all datasets)
+    total_experiments = 0
+    n_training_samples = 0
+    cursor = datasets_collection.find(user_filter)
+    async for doc in cursor:
+        total_experiments += doc.get("total_experiments", 0)
+        data = doc.get("data", [])
+        n_training_samples += len(data) if isinstance(data, list) else 0
+    
+    # Get activity log
+    activities_collection = get_activity_log_collection()
+    log_cursor = activities_collection.find({"user_id": ObjectId(current_user["_id"])}).sort("timestamp", -1).limit(8)
+    activity_log = []
+    async for doc in log_cursor:
+        doc["_id"] = str(doc["_id"])
+        if "user_id" in doc and doc["user_id"]:
+            doc["user_id"] = str(doc["user_id"])
+        activity_log.append(doc)
+    
+    # Variable summary for the dashboard donut chart
+    variable_summary_data = [
+        {"name": "Numerical", "value": 7, "color": "#5D3EBC", "percentage": "58%"},
+        {"name": "Categorical", "value": 3, "color": "#3B82F6", "percentage": "25%"},
+        {"name": "Constants", "value": 2, "color": "#10B981", "percentage": "17%"},
+    ]
+    
+    return {
+        "total_datasets": total_datasets,
+        "locked_datasets": locked_datasets,
+        "in_progress_datasets": in_progress_datasets,
+        "unlocked_datasets": unlocked_datasets,
+        "active_experiments": total_experiments,
+        "n_training_samples": n_training_samples,
+        "activity_log": activity_log,
+        "variable_summary_data": variable_summary_data,
+    }
+
+
+@router.get("/activity-log")
+async def get_activity_log(limit: int = 20, current_user: dict = Depends(get_current_user)):
+    """Get recent activity log entries for the current user."""
+    collection = get_activity_log_collection()
+    
+    cursor = collection.find({"user_id": ObjectId(current_user["_id"])}).sort("timestamp", -1).limit(limit)
+    activities = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        if "user_id" in doc and doc["user_id"]:
+            doc["user_id"] = str(doc["user_id"])
+        activities.append(doc)
+    
+    return {"activities": activities}
+
+
+# ──────────────────────────────────────────────────────
+# Parameterized routes (/{dataset_id}) MUST come AFTER
+# all static GET routes above.
+# ──────────────────────────────────────────────────────
 
 @router.get("/{dataset_id}")
 async def get_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
@@ -238,22 +314,6 @@ async def unlock_dataset(dataset_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/activity-log")
-async def get_activity_log(limit: int = 20, current_user: dict = Depends(get_current_user)):
-    """Get recent activity log entries for the current user."""
-    collection = get_activity_log_collection()
-    
-    cursor = collection.find({"user_id": ObjectId(current_user["_id"])}).sort("timestamp", -1).limit(limit)
-    activities = []
-    async for doc in cursor:
-        doc["_id"] = str(doc["_id"])
-        if "user_id" in doc and doc["user_id"]:
-            doc["user_id"] = str(doc["user_id"])
-        activities.append(doc)
-    
-    return {"activities": activities}
-
-
 async def log_activity(title: str, description: str, color: str = "bg-cyan-500", user_id: Optional[str] = None):
     """Helper function to log activity."""
     collection = get_activity_log_collection()
@@ -269,31 +329,3 @@ async def log_activity(title: str, description: str, color: str = "bg-cyan-500",
         activity["user_id"] = ObjectId(user_id)
     
     await collection.insert_one(activity)
-
-
-@router.get("/dashboard-stats")
-async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
-    """Get dashboard statistics for the current user."""
-    datasets_collection = get_datasets_collection()
-    
-    total_datasets = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"])})
-    locked_datasets = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"]), "status": "locked"})
-    in_progress_datasets = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"]), "status": "in_progress"})
-    
-    # Get activity log
-    activities_collection = get_activity_log_collection()
-    cursor = activities_collection.find({"user_id": ObjectId(current_user["_id"])}).sort("timestamp", -1).limit(8)
-    activity_log = []
-    async for doc in cursor:
-        doc["_id"] = str(doc["_id"])
-        if "user_id" in doc and doc["user_id"]:
-            doc["user_id"] = str(doc["user_id"])
-        activity_log.append(doc)
-    
-    return {
-        "total_datasets": total_datasets,
-        "locked_datasets": locked_datasets,
-        "in_progress_datasets": in_progress_datasets,
-        "unlocked_datasets": total_datasets - locked_datasets - in_progress_datasets,
-        "activity_log": activity_log
-    }

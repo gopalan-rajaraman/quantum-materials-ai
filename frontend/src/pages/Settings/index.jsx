@@ -9,8 +9,15 @@ const Settings = () => {
   const [optGoal, setOptGoal] = useState('Minimize FWHM');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
+  // Get logged-in user from localStorage safely
   const userStr = localStorage.getItem('user');
-  const loggedInUser = userStr ? JSON.parse(userStr) : {};
+  let loggedInUser = {};
+  try {
+    loggedInUser = userStr ? JSON.parse(userStr) : {};
+  } catch (e) {
+    console.error('Error parsing user from localStorage:', e);
+    loggedInUser = {};
+  }
   const displayName = loggedInUser.username || loggedInUser.name || 'Khushboo';
   const displayEmail = loggedInUser.email || 'khushboo.research@boloop.com';
   const displayRole = loggedInUser.role || 'Researcher';

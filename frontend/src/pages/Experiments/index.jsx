@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Database, CheckCircle2, Clock, RefreshCw, Star, Eye, MoreVertical, ChevronLeft, ChevronRight, ChevronDown, Trash2, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../services/api';
 
 const Experiments = () => {
   const navigate = useNavigate();
@@ -13,13 +14,11 @@ const Experiments = () => {
   const fetchExperiments = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/datasets/saved');
-      if (res.ok) {
-        const data = await res.json();
-        setExperiments(data.datasets || []);
-      }
+      const data = await api.fetchSavedDatasets();
+      setExperiments(data.datasets || []);
     } catch (e) {
       console.error('Failed to fetch experiments', e);
+      setExperiments([]);
     } finally {
       setLoading(false);
     }
