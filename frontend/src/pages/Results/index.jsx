@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Target, Cpu, LineChart, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Plot from 'react-plotly.js';
 import { useNavigate } from 'react-router-dom';
+import api from '../../services/api';
 
 const Results = () => {
   const [results, setResults] = useState(null);
@@ -16,49 +17,33 @@ const Results = () => {
     const checkProgressAndFetch = async () => {
       try {
         // First check BO progress
-        const progressRes = await fetch('http://localhost:8000/thermal-cvd/bo-progress');
-        if (progressRes.ok) {
-          const progressData = await progressRes.json();
-          setBoProgress(progressData);
-          
-          if (!progressData.can_access_results) {
-            setError(`Complete ${progressData.min_required_steps} BO Loop iterations to access results. Current: ${progressData.total_steps} steps completed.`);
-            setLoading(false);
-            return;
-          }
+        const progressData = await api.getBoProgress();
+        setBoProgress(progressData);
+        
+        if (!progressData.can_access_results) {
+          setError(`Complete ${progressData.min_required_steps} BO Loop iterations to access results. Current: ${progressData.total_steps} steps completed.`);
+          setLoading(false);
+          return;
         }
         
         // If progress is sufficient, fetch optimization results
-        const res = await fetch('http://localhost:8000/thermal-cvd/optimize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ n_steps: 10 })
-        });
-        
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody.detail || `HTTP ${res.status} – Model not fitted. Upload data first.`);
-        }
-        
-        const data = await res.json();
+        const data = await api.runOptimization(10);
         setResults(data);
 
         // Fetch model info (for feature importances)
-        const infoRes = await fetch('http://localhost:8000/thermal-cvd/info');
-        if (infoRes.ok) {
-          const infoData = await infoRes.json();
+        try {
+          const infoData = await api.fetchModelInfo();
           setModelInfo(infoData);
+        } catch (e) {
+          console.error("Failed to fetch model info:", e);
         }
 
         // Fetch surface data (for contour plot)
-        const surfaceRes = await fetch('http://localhost:8000/thermal-cvd/surface-data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ var_x: 'GTE', var_y: 'GTI', grid_size: 20 })
-        });
-        if (surfaceRes.ok) {
-          const sData = await surfaceRes.json();
+        try {
+          const sData = await api.getSurfaceData({ var_x: 'GTE', var_y: 'GTI', grid_size: 20 });
           setSurfaceData(sData);
+        } catch (e) {
+          console.error("Failed to fetch surface data:", e);
         }
       } catch (err) {
         setError(err.message);
