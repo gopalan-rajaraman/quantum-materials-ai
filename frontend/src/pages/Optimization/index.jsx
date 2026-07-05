@@ -31,12 +31,12 @@ const Optimization = () => {
   const reportRef = useRef(null);
 
   const handleDownloadPDF = useReactToPrint({
-    content: () => reportRef.current,
+    contentRef: reportRef,
     documentTitle: 'Thermal_CVD_Optimization_Report',
-    onBeforeGetContent: () => setIsDownloading(true),
+    onBeforePrint: async () => setIsDownloading(true),
     onAfterPrint: () => setIsDownloading(false),
-    onPrintError: (error) => {
-      console.error('Print Error:', error);
+    onPrintError: (errorLocation, error) => {
+      console.error('Print Error:', errorLocation, error);
       alert(`Failed to generate PDF: ${String(error)}`);
       setIsDownloading(false);
     }
@@ -60,7 +60,8 @@ const Optimization = () => {
         expectedImprovement,
         timelineData,
         suggestion,
-        modelInfo
+        modelInfo,
+        plotData,
       });
     } finally {
       setIsExportingExcel(false);
@@ -432,7 +433,7 @@ const Optimization = () => {
         )}
       </div>
       
-      <div style={{ display: 'none' }}>
+      <div style={{ position: 'absolute', top: '-10000px', left: '-10000px', width: '794px' }}>
         <OptimizationReport 
           ref={reportRef}
           modelInfo={modelInfo}

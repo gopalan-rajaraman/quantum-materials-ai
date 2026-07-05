@@ -80,6 +80,41 @@ export const OptimizationReport = React.forwardRef(({
     </div>
   );
 
+  const pdfGpTraces = (gpTraces || []).map(trace => {
+    if (trace.mode === 'markers' && trace.name === 'Observations') {
+      return {
+        ...trace,
+        mode: 'markers+text',
+        text: trace.y.map(y => y.toFixed(1)),
+        textposition: 'top center',
+        textfont: { size: 9, color: '#475569' }
+      };
+    }
+    if (trace.mode === 'markers' && trace.name === 'Next Suggested Experiment') {
+      return {
+        ...trace,
+        mode: 'markers+text',
+        text: trace.y.map(y => y.toFixed(1)),
+        textposition: 'top right',
+        textfont: { size: 10, color: '#7C4DFF', family: 'sans-serif' }
+      };
+    }
+    return trace;
+  });
+
+  const pdfEiTraces = (eiTraces || []).map(trace => {
+    if (trace.mode === 'markers' && trace.name === 'Selected maximum EI point') {
+      return {
+        ...trace,
+        mode: 'markers+text',
+        text: trace.y.map(y => `${y.toFixed(1)}%`),
+        textposition: 'top right',
+        textfont: { size: 10, color: '#ef4444', family: 'sans-serif' }
+      };
+    }
+    return trace;
+  });
+
   return (
     <div ref={ref} className="flex flex-col gap-4 bg-gray-100 p-4">
       
@@ -138,7 +173,7 @@ export const OptimizationReport = React.forwardRef(({
         <h3 className="text-lg font-bold text-slate-900 mb-4">Gaussian Process Regression Visualization</h3>
         
         <div className="border border-slate-200 rounded-sm mb-6 flex justify-center bg-white">
-           <Plot data={gpTraces} layout={gpPlotLayout} config={{displayModeBar: false}} />
+           <Plot data={pdfGpTraces} layout={gpPlotLayout} config={{displayModeBar: false}} />
         </div>
 
         <div className="grid grid-cols-2 gap-8 text-[13px] text-slate-700 leading-relaxed mb-8">
@@ -153,7 +188,7 @@ export const OptimizationReport = React.forwardRef(({
         <h3 className="text-lg font-bold text-slate-900 mb-4">Expected Improvement Landscape</h3>
         
         <div className="border border-slate-200 rounded-sm flex justify-center bg-white mb-8">
-           <Plot data={eiTraces} layout={eiPlotLayout} config={{displayModeBar: false}} />
+           <Plot data={pdfEiTraces} layout={eiPlotLayout} config={{displayModeBar: false}} />
         </div>
 
         <h3 className="text-lg font-bold text-slate-900">Parameter Importance</h3>
