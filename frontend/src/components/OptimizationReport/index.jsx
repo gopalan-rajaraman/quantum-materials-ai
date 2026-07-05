@@ -81,7 +81,7 @@ export const OptimizationReport = React.forwardRef(({
   );
 
   return (
-    <div ref={ref} className="fixed top-[-9999px] left-[-9999px] flex flex-col gap-4 z-[-1] bg-gray-100 p-4">
+    <div ref={ref} className="absolute top-0 left-0 flex flex-col gap-4 z-[-10] opacity-0 pointer-events-none bg-gray-100 p-4">
       
       {/* PAGE 1 */}
       <PageContainer>

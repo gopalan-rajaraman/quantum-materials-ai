@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 
 export const generateExcelReport = async (data) => {
   try {
-    const { currentBestFWHM, bestExpName, nExperiments, boIterations, expectedImprovement, timelineData, suggestion } = data;
+    const { currentBestFWHM, bestExpName, nExperiments, boIterations, expectedImprovement, timelineData, suggestion, modelInfo } = data;
 
     // Fetch the template
     const response = await fetch('/Thermal_CVD_Optimization_Report_Template.xlsx');
@@ -84,6 +84,61 @@ export const generateExcelReport = async (data) => {
       boSheet.getCell('F4').value = parseFloat(suggestion.predicted_FWHM_meV);
       boSheet.getCell('G4').value = parseFloat(suggestion.uncertainty_meV);
       boSheet.getCell('H4').value = parseFloat(expectedImprovement);
+    }
+
+    // Update GP_Predictions Sheet
+    const gpSheet = workbook.getWorksheet('GP_Predictions');
+    if (gpSheet && modelInfo && modelInfo.prediction_data) {
+      let row = 3;
+      // Clear old data
+      while (gpSheet.getCell(`A${row}`).value !== null) {
+        ['A','B','C','D','E','F','G'].forEach(col => gpSheet.getCell(`${col}${row}`).value = null);
+        row++;
+      }
+      // Insert dynamic predictions
+      modelInfo.prediction_data.forEach((pred, index) => {
+        const r = 3 + index;
+        gpSheet.getCell(`A${r}`).value = `Experiment-${pred.iteration}`;
+        gpSheet.getCell(`B${r}`).value = parseFloat(pred.observed);
+        gpSheet.getCell(`C${r}`).value = parseFloat(pred.predicted);
+        gpSheet.getCell(`D${r}`).value = parseFloat(pred.lower);
+        gpSheet.getCell(`E${r}`).value = parseFloat(pred.upper);
+        const uncertainty = (pred.upper - pred.lower) / 2;
+        gpSheet.getCell(`F${r}`).value = parseFloat(uncertainty.toFixed(2));
+        gpSheet.getCell(`G${r}`).value = parseFloat(Math.abs(pred.observed - pred.predicted).toFixed(2));
+      });
+    }
+
+    // Update Importance Sheet
+    const impSheet = workbook.getWorksheet('Importance');
+    if (impSheet && modelInfo && modelInfo.feature_importances) {
+      let row = 3;
+      // Clear old
+      while (impSheet.getCell(`A${row}`).value !== null) {
+        ['A','B','C','D','E'].forEach(col => impSheet.getCell(`${col}${row}`).value = null);
+        row++;
+      }
+      // Insert dynamic importance
+      modelInfo.feature_importances.forEach((feat, index) => {
+        const r = 3 + index;
+        impSheet.getCell(`A${r}`).value = feat.name;
+        impSheet.getCell(`B${r}`).value = feat.value / 100; // if it's formatted as percentage in excel
+        
+        let action = 'Monitor';
+        if (feat.value > 40) action = 'Prioritize tight control';
+        else if (feat.value > 15) action = 'Validate nearby interactions';
+        impSheet.getCell(`C${r}`).value = action;
+      });
+    }
+
+    // Update Diagnostics Sheet
+    const diagSheet = workbook.getWorksheet('Diagnostics');
+    if (diagSheet && modelInfo) {
+      // Map standard metrics to rows
+      diagSheet.getCell('B5').value = modelInfo.R2_score !== undefined ? parseFloat(modelInfo.R2_score) : 0;
+      diagSheet.getCell('B6').value = modelInfo.RMSE_meV !== undefined ? parseFloat(modelInfo.RMSE_meV) : 0;
+      diagSheet.getCell('B7').value = modelInfo.MAE_meV !== undefined ? parseFloat(modelInfo.MAE_meV) : 0;
+      diagSheet.getCell('B11').value = modelInfo.n_train_samples !== undefined ? modelInfo.n_train_samples : 0;
     }
 
     // Save and download

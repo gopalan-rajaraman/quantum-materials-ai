@@ -3,7 +3,7 @@ import Plot from 'react-plotly.js';
 import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download } from 'lucide-react';
 import api from '../../services/api';
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import OptimizationReport from '../../components/OptimizationReport';
 import { generateExcelReport } from '../../utils/excelExport';
 
@@ -53,7 +53,7 @@ const Optimization = () => {
       pdf.save('Thermal_CVD_Optimization_Report.pdf');
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Check console for details.');
+      alert(`Failed to generate PDF: ${error.message || 'Unknown error'}`);
     } finally {
       setIsDownloading(false);
     }
@@ -76,7 +76,8 @@ const Optimization = () => {
         boIterations,
         expectedImprovement,
         timelineData,
-        suggestion
+        suggestion,
+        modelInfo
       });
     } finally {
       setIsExportingExcel(false);
