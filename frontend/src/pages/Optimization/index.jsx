@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download } from 'lucide-react';
 import api from '../../services/api';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { useReactToPrint } from 'react-to-print';
 import OptimizationReport from '../../components/OptimizationReport';
 import { generateExcelReport } from '../../utils/excelExport';
 
@@ -31,33 +30,17 @@ const Optimization = () => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const reportRef = useRef(null);
 
-  const handleDownloadPDF = async () => {
-    if (!reportRef.current) return;
-    setIsDownloading(true);
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pages = reportRef.current.querySelectorAll('.pdf-page');
-      
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        const canvas = await html2canvas(page, { scale: 2, useCORS: true });
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
-        
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      }
-      
-      pdf.save('Thermal_CVD_Optimization_Report.pdf');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert(`Failed to generate PDF: ${error.message || 'Unknown error'}`);
-    } finally {
+  const handleDownloadPDF = useReactToPrint({
+    content: () => reportRef.current,
+    documentTitle: 'Thermal_CVD_Optimization_Report',
+    onBeforeGetContent: () => setIsDownloading(true),
+    onAfterPrint: () => setIsDownloading(false),
+    onPrintError: (error) => {
+      console.error('Print Error:', error);
+      alert(`Failed to generate PDF: ${String(error)}`);
       setIsDownloading(false);
     }
-  };
+  });
 
   const handleDownloadExcel = async () => {
     setIsExportingExcel(true);
@@ -449,22 +432,24 @@ const Optimization = () => {
         )}
       </div>
       
-      <OptimizationReport
-        ref={reportRef}
-        modelInfo={modelInfo}
-        plotData={plotData}
-        timelineData={timelineData}
-        suggestions={suggestions}
-        gpTraces={gpTraces}
-        eiTraces={eiTraces}
-        sharedTickVals={sharedTickVals}
-        sharedTickText={sharedTickText}
-        sharedXRange={sharedXRange}
-        predictedFwhm={predictedFwhm}
-        predictedUncertainty={predictedUncertainty}
-        initialBestFWHM={initialBestFWHM}
-        currentBestFWHM={currentBestFWHM}
-      />
+      <div style={{ display: 'none' }}>
+        <OptimizationReport 
+          ref={reportRef}
+          modelInfo={modelInfo}
+          plotData={plotData}
+          timelineData={timelineData}
+          suggestions={suggestions}
+          gpTraces={gpTraces}
+          eiTraces={eiTraces}
+          sharedTickVals={sharedTickVals}
+          sharedTickText={sharedTickText}
+          sharedXRange={sharedXRange}
+          predictedFwhm={predictedFwhm}
+          predictedUncertainty={predictedUncertainty}
+          initialBestFWHM={initialBestFWHM}
+          currentBestFWHM={currentBestFWHM}
+        />
+      </div>
       
       {plotData?.is_unstable_regime && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm animate-fade-in">
