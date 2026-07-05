@@ -233,7 +233,6 @@ const Datasets = () => {
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Created On</th>
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Size</th>
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Created By</th>
-                <th className="text-center py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -255,50 +254,11 @@ const Datasets = () => {
                   <td className="py-4 px-6 text-[12px] text-slate-500 font-medium">{ds.date || '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{ds.rows ? (parseInt(ds.rows, 10) * 12).toFixed(1) + " KB" : '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || loggedInUsername}</td>
-                  <td className="py-4 px-6">
-                    <div className="flex justify-center relative">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === idx ? null : idx);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors border border-slate-200 bg-white shadow-sm"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                      
-                      {activeDropdown === idx && (
-                        <div className="absolute right-8 top-8 mt-1 w-40 bg-white rounded-lg shadow-lg border border-slate-100 z-10 py-1">
-                          {['locked', 'completed'].includes((ds.status || '').toLowerCase()) ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveDropdown(null);
-                                navigate('/datasets/upload');
-                              }}
-                              className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium"
-                            >
-                              <Plus className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Replace Dataset</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => handleToggleLock(ds, e)}
-                              className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium"
-                            >
-                              <Lock className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Lock Dataset</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
                 </tr>
               ))}
               {filteredDatasets.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-slate-400 font-medium">
+                  <td colSpan="7" className="text-center py-8 text-slate-400 font-medium">
                     No datasets found.
                   </td>
                 </tr>
