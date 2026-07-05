@@ -1,5 +1,15 @@
 import ExcelJS from 'exceljs';
 
+const resizeTable = (ws, tableName, newRef) => {
+  if (!ws) return;
+  const tables = ws.getTables();
+  const t = Object.values(tables).find(tbl => tbl.table && tbl.table.name === tableName);
+  if (t) {
+    t.table.tableRef = newRef;
+    if (t.table.autoFilterRef) t.table.autoFilterRef = newRef;
+  }
+};
+
 export const generateExcelReport = async (data) => {
   try {
     const { currentBestFWHM, bestExpName, nExperiments, boIterations, expectedImprovement, timelineData, suggestion, modelInfo } = data;
@@ -43,6 +53,9 @@ export const generateExcelReport = async (data) => {
         summarySheet.getCell(`D${r}`).value = parseFloat(item.fwhm);
         summarySheet.getCell(`E${r}`).value = parseFloat(item.bestSoFar || currentBestFWHM);
       });
+
+      const dataLength = Math.max(1, (timelineData || []).length);
+      resizeTable(summarySheet, 'ProgressOverview', `A12:E${12 + dataLength}`);
     }
 
     // Update Experiment_History Sheet
@@ -71,6 +84,9 @@ export const generateExcelReport = async (data) => {
         const isBest = parseFloat(item.fwhm) === currentBestFWHM;
         historySheet.getCell(`I${r}`).value = isBest ? 'Best observed' : item.type;
       });
+
+      const dataLength = Math.max(1, (timelineData || []).length);
+      resizeTable(historySheet, 'ExperimentHistory', `A3:I${3 + dataLength}`);
     }
 
     // Update BO_Recommendations Sheet
@@ -84,6 +100,7 @@ export const generateExcelReport = async (data) => {
       boSheet.getCell('F4').value = parseFloat(suggestion.predicted_FWHM_meV);
       boSheet.getCell('G4').value = parseFloat(suggestion.uncertainty_meV);
       boSheet.getCell('H4').value = parseFloat(expectedImprovement);
+      resizeTable(boSheet, 'BORecommendations', 'A3:H4');
     }
 
     // Update GP_Predictions Sheet
@@ -107,6 +124,9 @@ export const generateExcelReport = async (data) => {
         gpSheet.getCell(`F${r}`).value = parseFloat(uncertainty.toFixed(2));
         gpSheet.getCell(`G${r}`).value = parseFloat(Math.abs(pred.observed - pred.predicted).toFixed(2));
       });
+      
+      const gpLength = Math.max(1, modelInfo.prediction_data.length);
+      resizeTable(gpSheet, 'GPPredictions', `A2:G${2 + gpLength}`);
     }
 
     // Update Importance Sheet
@@ -129,6 +149,9 @@ export const generateExcelReport = async (data) => {
         else if (feat.value > 15) action = 'Validate nearby interactions';
         impSheet.getCell(`C${r}`).value = action;
       });
+
+      const impLength = Math.max(1, modelInfo.feature_importances.length);
+      resizeTable(impSheet, 'ParameterImportance', `A2:E${2 + impLength}`);
     }
 
     // Update Diagnostics Sheet
