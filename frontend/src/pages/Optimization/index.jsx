@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
-import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download } from 'lucide-react';
 import api from '../../services/api';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import OptimizationReport from '../../components/OptimizationReport';
+import { generateExcelReport } from '../../utils/excelExport';
 
 const Optimization = () => {
   const [modelInfo, setModelInfo] = useState(null);
@@ -23,6 +27,61 @@ const Optimization = () => {
   const [forceContinue, setForceContinue] = useState(false);
   
   const [submitting, setSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const reportRef = useRef(null);
+
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current) return;
+    setIsDownloading(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pages = reportRef.current.querySelectorAll('.pdf-page');
+      
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const canvas = await html2canvas(page, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+      
+      pdf.save('Thermal_CVD_Optimization_Report.pdf');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Check console for details.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setIsExportingExcel(true);
+    try {
+      const suggestion = suggestions && suggestions.length > 0 ? suggestions[0] : null;
+      const expectedImprovement = suggestion ? (currentBestFWHM - predictedFwhm).toFixed(1) : '0.0';
+      const nExperiments = timelineData ? timelineData.length : 0;
+      const boIterations = timelineData ? timelineData.filter(r => r.type === 'User').length : 0;
+      const bestExpIdx = timelineData ? timelineData.findIndex(r => parseFloat(r.fwhm) === currentBestFWHM) : -1;
+      const bestExpName = bestExpIdx !== -1 ? `Experiment-${bestExpIdx + 1}` : '--';
+
+      await generateExcelReport({
+        currentBestFWHM,
+        bestExpName,
+        nExperiments,
+        boIterations,
+        expectedImprovement,
+        timelineData,
+        suggestion
+      });
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
@@ -362,12 +421,49 @@ const Optimization = () => {
 
   return (
     <div className="p-6 bg-slate-50 min-h-full text-slate-800 animate-fade-in font-sans">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-1">Optimization Dashboard</h2>
           <p className="text-slate-500">Bayesian Optimization engine tracking FWHM minimization.</p>
         </div>
+        {boStarted && (
+          <div className="flex gap-2">
+            <button 
+              onClick={handleDownloadExcel} 
+              disabled={isExportingExcel || isDownloading}
+              className="flex items-center gap-2 bg-[#0ca678] hover:bg-[#099268] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50"
+            >
+              {isExportingExcel ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {isExportingExcel ? 'Exporting...' : 'Export Excel'}
+            </button>
+            <button 
+              onClick={handleDownloadPDF} 
+              disabled={isDownloading || isExportingExcel}
+              className="flex items-center gap-2 bg-[#2f277a] hover:bg-[#1f1a54] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50"
+            >
+              {isDownloading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+              {isDownloading ? 'Generating PDF...' : 'Download PDF'}
+            </button>
+          </div>
+        )}
       </div>
+      
+      <OptimizationReport
+        ref={reportRef}
+        modelInfo={modelInfo}
+        plotData={plotData}
+        timelineData={timelineData}
+        suggestions={suggestions}
+        gpTraces={gpTraces}
+        eiTraces={eiTraces}
+        sharedTickVals={sharedTickVals}
+        sharedTickText={sharedTickText}
+        sharedXRange={sharedXRange}
+        predictedFwhm={predictedFwhm}
+        predictedUncertainty={predictedUncertainty}
+        initialBestFWHM={initialBestFWHM}
+        currentBestFWHM={currentBestFWHM}
+      />
       
       {plotData?.is_unstable_regime && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm animate-fade-in">
