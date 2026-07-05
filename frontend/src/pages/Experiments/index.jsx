@@ -161,13 +161,12 @@ const Experiments = () => {
                 <th className="px-4 py-5 whitespace-nowrap">Best FWHM Found</th>
 
                 <th className="px-4 py-5 whitespace-nowrap">Created On</th>
-                <th className="px-6 py-5 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500 animate-pulse">
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-500 animate-pulse">
                     Loading experiments...
                   </td>
                 </tr>
@@ -213,21 +212,11 @@ const Experiments = () => {
                       <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '—'}</div>
                       <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || ''}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all" onClick={(e) => handleDownload(e, exp)} title="Download">
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-all" onClick={(e) => handleDelete(e, exp._id)} title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center">
+                  <td colSpan="7" className="px-6 py-12 text-center">
                     <div className="text-slate-500 text-[14px]">No experiments found. Upload a dataset to get started.</div>
                   </td>
                 </tr>
