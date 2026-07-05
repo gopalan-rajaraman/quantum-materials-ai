@@ -35,7 +35,7 @@ export const generateExcelReport = async (data) => {
       }
 
       // Insert new data
-      timelineData.forEach((item, index) => {
+      (timelineData || []).forEach((item, index) => {
         const r = 13 + index;
         summarySheet.getCell(`A${r}`).value = index + 1;
         summarySheet.getCell(`B${r}`).value = `Experiment-${index + 1}`;
@@ -60,7 +60,7 @@ export const generateExcelReport = async (data) => {
         row++;
       }
 
-      timelineData.forEach((item, index) => {
+      (timelineData || []).forEach((item, index) => {
         const r = 4 + index;
         historySheet.getCell(`A${r}`).value = `Experiment-${index + 1}`;
         historySheet.getCell(`B${r}`).value = parseFloat(item.gte);
@@ -153,6 +153,6 @@ export const generateExcelReport = async (data) => {
     
   } catch (error) {
     console.error('Error exporting Excel:', error);
-    alert('Failed to generate Excel report.');
+    alert(`Failed to generate Excel report: ${error.message || String(error)}`);
   }
 };
