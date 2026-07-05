@@ -38,6 +38,7 @@ async def log_activity(title: str, desc: str, color: str = "bg-cyan-500", user_i
     })
 
 @router.get("/dashboard")
+@router.get("/dashboard-stats")
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     """Returns live stats for the Dashboard page."""
     opt = cvd_routes.optimizer_instance
@@ -216,6 +217,8 @@ async def get_saved_datasets(current_user: dict = Depends(get_current_user)):
 @router.post("/{dataset_id}/lock")
 async def lock_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Lock a dataset to prevent modifications."""
+    if not ObjectId.is_valid(dataset_id):
+        raise HTTPException(status_code=404, detail="Dataset not found")
     collection = get_datasets_collection()
     try:
         result = await collection.update_one(
@@ -232,6 +235,8 @@ async def lock_dataset(dataset_id: str, current_user: dict = Depends(get_current
 @router.post("/{dataset_id}/unlock")
 async def unlock_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Unlock a dataset to allow modifications."""
+    if not ObjectId.is_valid(dataset_id):
+        raise HTTPException(status_code=404, detail="Dataset not found")
     collection = get_datasets_collection()
     try:
         result = await collection.update_one(
@@ -248,6 +253,8 @@ async def unlock_dataset(dataset_id: str, current_user: dict = Depends(get_curre
 @router.get("/{dataset_id}")
 async def get_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Get a specific saved dataset by ID."""
+    if not ObjectId.is_valid(dataset_id):
+        raise HTTPException(status_code=404, detail="Dataset not found")
     collection = get_datasets_collection()
     try:
         doc = await collection.find_one({"_id": ObjectId(dataset_id)})
@@ -275,6 +282,8 @@ async def get_dataset(dataset_id: str, current_user: dict = Depends(get_current_
 @router.delete("/{dataset_id}")
 async def delete_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Deletes a dataset from MongoDB by its ObjectId."""
+    if not ObjectId.is_valid(dataset_id):
+        raise HTTPException(status_code=404, detail="Dataset not found")
     collection = get_datasets_collection()
     try:
         # Check ownership first
@@ -387,7 +396,7 @@ async def upload_datasets(
             if 'PL FWHM' in df.columns and 'PL_FWHM' not in df.columns:
                 df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
             if 'PL Peak Position' in df.columns and 'PL_Peak_Position' not in df.columns:
-                df = df.rename(columns({'PL Peak Position': 'PL_Peak_Position'}))
+                df = df.rename(columns={'PL Peak Position': 'PL_Peak_Position'})
 
             # Replace 'NS' (not specified) with NaN
             df = df.replace('NS', np.nan)
@@ -429,9 +438,9 @@ async def upload_datasets(
                         std = values.std()
                         min_val = values.min()
                         max_val = values.max()
-                        # Use avg ± std or min/max as range
-                        lower = max(0, avg - std) if std > 0 else min_val
-                        upper = avg + std if std > 0 else max_val
+                        # Use user requested avg - min and avg + max as range
+                        lower = max(0, avg - min_val)
+                        upper = avg + max_val
                         variable_ranges[var] = (float(lower), float(upper))
             n_thermal = len(thermal_cvd_df)
         else:
@@ -481,7 +490,7 @@ async def upload_datasets(
             "num_constants": num_constants_dict,
             "variable_ranges": variable_ranges if has_all_vars else {}
         }
-        await datasets_collection.insert_one(dataset_record)
+        insert_result = await datasets_collection.insert_one(dataset_record)
 
         # Pass Thermal CVD data to the global optimizer to train
         if cvd_routes.optimizer_instance is not None:
@@ -516,6 +525,7 @@ async def upload_datasets(
                     search_space_data.append(var_dict)
 
         return {
+            "inserted_id": str(insert_result.inserted_id),
             "total_files_processed": len(files),
             "filenames": filenames,
             "total_rows_in_file": total_rows,

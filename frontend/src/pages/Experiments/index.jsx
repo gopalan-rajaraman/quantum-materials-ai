@@ -78,7 +78,13 @@ const Experiments = () => {
   const filteredExperiments = experiments.filter(exp => {
     const matchesSearch = (exp.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (exp.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || exp.status === statusFilter;
+    const expStatus = (exp.status || '').toLowerCase();
+    const isCompletedOrLocked = expStatus === 'completed' || expStatus === 'locked';
+    
+    let matchesStatus = true;
+    if (statusFilter === 'Completed') matchesStatus = isCompletedOrLocked;
+    else if (statusFilter === 'In Progress') matchesStatus = !isCompletedOrLocked;
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -187,10 +193,10 @@ const Experiments = () => {
                     </td>
                     <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.target || '—'}</td>
                     <td className="px-4 py-4">
-                      {exp.status === 'Completed' ? (
+                      {['completed', 'locked'].includes((exp.status || '').toLowerCase()) ? (
                         <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-[#E8FFF3] text-[#00B050] text-[12px] font-bold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Completed</span>
+                          <span>{exp.status.toLowerCase() === 'locked' ? 'Locked' : 'Completed'}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-[#F0F2FF] text-[#4C3BDE] text-[12px] font-bold">
@@ -199,7 +205,7 @@ const Experiments = () => {
                         </span>
                       )}
                     </td>
-                    <td className={`px-4 py-4 font-bold text-[13px] ${exp.status === 'Completed' ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
+                    <td className={`px-4 py-4 font-bold text-[13px] ${['completed', 'locked'].includes((exp.status || '').toLowerCase()) ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
                       {exp.bestValue || '—'}
                     </td>
 

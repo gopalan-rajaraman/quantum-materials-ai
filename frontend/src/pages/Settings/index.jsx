@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, Briefcase, Building2, Calendar, Lock,
-  FlaskConical, Info, ChevronDown
+  FlaskConical, Info, ChevronDown, LogOut
 } from 'lucide-react';
-import { getStoredUser, getUserDisplayName } from '../../utils/auth';
+import { getStoredUser, getUserDisplayName, logout } from '../../utils/auth';
  
 const Settings = () => {
+  const navigate = useNavigate();
   const [boIterations, setBoIterations] = useState('10');
   const [optGoal, setOptGoal] = useState('Minimize FWHM');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -101,6 +103,14 @@ const Settings = () => {
           >
             <Lock className="w-4 h-4" />
             <span>Change Password</span>
+          </button>
+
+          <button
+            onClick={() => logout(navigate)}
+            className="mt-3 w-full flex items-center justify-center space-x-3 py-3.5 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 transition-all font-bold text-[13px]"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Log Out</span>
           </button>
         </div>
  

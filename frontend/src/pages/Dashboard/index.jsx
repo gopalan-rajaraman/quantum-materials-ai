@@ -43,6 +43,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
  
+  const statsLoaded = stats !== null;
+ 
   // Get logged-in display name from localStorage
   const loggedInUser = getStoredUser();
   const displayName = getUserDisplayName(loggedInUser);
@@ -73,10 +75,13 @@ const Dashboard = () => {
   }, []);
  
   // Stats Card data
-  const totalDatasets = stats?.total_datasets ?? 0;
-  const activeExperiments = stats?.active_experiments ?? 0;
-  const completedRuns = stats?.n_training_samples ?? 0;
-  const inProgressCount = savedDatasets.filter(ds => ds.status !== 'Completed').length;
+  const totalDatasets = statsLoaded ? (stats?.total_datasets ?? 0) : '--';
+  const activeExperiments = statsLoaded ? (stats?.active_experiments ?? 0) : '--';
+  const completedRuns = statsLoaded ? (stats?.n_training_samples ?? 0) : '--';
+  const inProgressCount = savedDatasets.filter(ds => {
+    const status = (ds.status || '').toString().toLowerCase();
+    return status !== 'locked' && status !== 'completed';
+  }).length;
  
   const statCardsData = [
     {
@@ -117,13 +122,17 @@ const Dashboard = () => {
     },
   ];
  
-  const loadedDatasets = savedDatasets.map((ds, idx) => ({
-    name: ds.name?.replace(' (auto-loaded)', '') || 'dataset_' + (idx + 1),
-    description: ds.target ? `Target: ${ds.target}` : 'Uploaded dataset',
-    range: ds.id || `EXP-${101 + idx}`,
-    status: ds.status === 'Completed' ? 'Locked' : 'In Progress',
-    updated: ds.date ? ds.date.split(' ')[0].split('-').reverse().join('/') : '20/05/2026'
-  }));
+  const loadedDatasets = savedDatasets.map((ds, idx) => {
+    const rawStatus = (ds.status || '').toString().toLowerCase();
+    const status = rawStatus === 'locked' || rawStatus === 'completed' ? 'Locked' : 'In Progress';
+    return {
+      name: ds.name?.replace(' (auto-loaded)', '') || 'dataset_' + (idx + 1),
+      description: ds.target ? `Target: ${ds.target}` : 'Uploaded dataset',
+      range: ds.id || `EXP-${101 + idx}`,
+      status,
+      updated: ds.date ? ds.date.split(' ')[0].split('-').reverse().join('/') : '20/05/2026'
+    };
+  });
  
   const allDatasets = loadedDatasets;
   const filteredDatasets = allDatasets.filter(ds => 
@@ -278,9 +287,9 @@ const Dashboard = () => {
                       <td className="py-3.5 text-[#8C8CA1] font-medium">{row.range}</td>
                       <td className="py-3.5">
                         <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                          row.status === 'Locked' 
+                          row.status.toLowerCase() === 'locked' 
                             ? 'bg-[#E6F4EA] text-[#10B981]' 
-                            : row.status === 'In Progress' 
+                            : row.status.toLowerCase() === 'in progress' 
                               ? 'bg-[#E8F0FE] text-[#3B82F6]' 
                               : 'bg-[#FEF3C7] text-[#F59E0B]'
                         }`}>

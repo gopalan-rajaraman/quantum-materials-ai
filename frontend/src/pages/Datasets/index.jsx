@@ -16,6 +16,32 @@ const Datasets = () => {
   const [datasetsList, setDatasetsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setActiveDropdown(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const handleToggleLock = async (dataset, e) => {
+    e.stopPropagation();
+    setActiveDropdown(null);
+    try {
+      const isLocked = ['locked', 'completed'].includes((dataset.status || '').toLowerCase());
+      const datasetId = dataset._id || dataset.id;
+      if (isLocked) {
+        await api.unlockDataset(datasetId);
+      } else {
+        await api.lockDataset(datasetId);
+      }
+      fetchDatasets();
+    } catch (err) {
+      console.error('Failed to toggle lock status:', err);
+      alert('Failed to update dataset status.');
+    }
+  };
  
   const fetchDatasets = async () => {
     setLoading(true);
@@ -39,7 +65,10 @@ const Datasets = () => {
   }, []);
  
   const totalDatasets = datasetsList.length;
-  const lockedDatasets = datasetsList.filter(ds => ds.status === 'Completed').length;
+  const lockedDatasets = datasetsList.filter(ds => {
+    const status = (ds.status || '').toString().toLowerCase();
+    return status === 'locked' || status === 'completed';
+  }).length;
   const unlockedDatasets = totalDatasets - lockedDatasets;
   
   const totalRuns = datasetsList.reduce((acc, curr) => {
@@ -67,7 +96,8 @@ const Datasets = () => {
     : '—';
  
   const StatusBadge = ({ status }) => {
-    if (status === 'Completed' || status === 'Locked') {
+    const normalized = (status || '').toString().toLowerCase();
+    if (normalized === 'completed' || normalized === 'locked') {
       return (
         <span className="px-2.5 py-1 bg-[#E8FFF3] text-[#00B050] text-[11px] font-bold rounded-md flex items-center space-x-1.5 w-fit border border-[#00B050]/20">
           <Lock className="w-3 h-3" />
@@ -225,10 +255,37 @@ const Datasets = () => {
                   <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{ds.rows ? (parseInt(ds.rows, 10) * 12).toFixed(1) + " KB" : '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || loggedInUsername}</td>
                   <td className="py-4 px-6">
-                    <div className="flex justify-center">
-                      <button className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors border border-slate-200 bg-white shadow-sm">
+                    <div className="flex justify-center relative">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdown(activeDropdown === idx ? null : idx);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors border border-slate-200 bg-white shadow-sm"
+                      >
                         <MoreVertical className="w-4 h-4" />
                       </button>
+                      
+                      {activeDropdown === idx && (
+                        <div className="absolute right-8 top-8 mt-1 w-36 bg-white rounded-lg shadow-lg border border-slate-100 z-10 py-1">
+                          <button
+                            onClick={(e) => handleToggleLock(ds, e)}
+                            className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium"
+                          >
+                            {['locked', 'completed'].includes((ds.status || '').toLowerCase()) ? (
+                              <>
+                                <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Unlock Dataset</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Lock Dataset</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>
