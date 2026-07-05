@@ -32,7 +32,8 @@ const Datasets = () => {
       const isLocked = ['locked', 'completed'].includes((dataset.status || '').toLowerCase());
       const datasetId = dataset._id || dataset.id;
       if (isLocked) {
-        await api.unlockDataset(datasetId);
+        alert('Locked datasets cannot be unlocked. Please upload a new dataset if you want to work with different data.');
+        return;
       } else {
         await api.lockDataset(datasetId);
       }
@@ -267,23 +268,28 @@ const Datasets = () => {
                       </button>
                       
                       {activeDropdown === idx && (
-                        <div className="absolute right-8 top-8 mt-1 w-36 bg-white rounded-lg shadow-lg border border-slate-100 z-10 py-1">
-                          <button
-                            onClick={(e) => handleToggleLock(ds, e)}
-                            className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium"
-                          >
-                            {['locked', 'completed'].includes((ds.status || '').toLowerCase()) ? (
-                              <>
-                                <Unlock className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Unlock Dataset</span>
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Lock Dataset</span>
-                              </>
-                            )}
-                          </button>
+                        <div className="absolute right-8 top-8 mt-1 w-40 bg-white rounded-lg shadow-lg border border-slate-100 z-10 py-1">
+                          {['locked', 'completed'].includes((ds.status || '').toLowerCase()) ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdown(null);
+                                navigate('/datasets/upload');
+                              }}
+                              className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Replace Dataset</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => handleToggleLock(ds, e)}
+                              className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium"
+                            >
+                              <Lock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Lock Dataset</span>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
