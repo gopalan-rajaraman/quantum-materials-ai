@@ -194,7 +194,12 @@ async def get_saved_datasets(current_user: dict = Depends(get_current_user)):
         entry['_id'] = str(entry['_id'])
         if 'user_id' in entry and entry['user_id'] is not None:
             entry['user_id'] = str(entry['user_id'])
-        entry['id'] = f'EXP-{100 + i + 1}'
+        d_id = entry.get('dataset_id', '')
+        if d_id.startswith('DS_'):
+            d_id = d_id.replace('DS_', 'EXP_')
+        elif not d_id:
+            d_id = f'EXP_{100 + i + 1}'
+        entry['id'] = d_id
         entry['target'] = 'PL_FWHM (meV)'
         entry.pop('data', None)
 
@@ -410,9 +415,9 @@ async def upload_datasets(
         total_rows = len(combined_df)
 
         # Generate unique Dataset ID and Experiment Numbers
-        dataset_count = await datasets_collection.count_documents({})
-        dataset_id = f"DS_{dataset_count + 1:03d}"
-        exp_numbers = [f"{dataset_id}_EXP_{i+1:03d}" for i in range(total_rows)]
+        dataset_count = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"])})
+        dataset_id = f"EXP_{dataset_count + 1:03d}"
+        exp_numbers = [f"{dataset_id}_{i+1:03d}" for i in range(total_rows)]
         combined_df.insert(0, 'Exp Number', exp_numbers)
 
         # Check if this is a simplified upload (only variables + target)
@@ -485,7 +490,7 @@ async def upload_datasets(
             "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
             "data": combined_df.to_dict(orient='records'),
             "user_id": ObjectId(current_user["_id"]),
-            "status": "unlocked",
+            "status": "Locked",
             "cat_constants": cat_constants_dict,
             "num_constants": num_constants_dict,
             "variable_ranges": variable_ranges if has_all_vars else {}
@@ -559,9 +564,9 @@ async def upload_json_data(payload: SpreadsheetData, current_user: dict = Depend
         total_rows = len(df)
         
         # Generate unique Dataset ID and Experiment Numbers
-        dataset_count = await datasets_collection.count_documents({})
-        dataset_id = f"DS_{dataset_count + 1:03d}"
-        exp_numbers = [f"{dataset_id}_EXP_{i+1:03d}" for i in range(total_rows)]
+        dataset_count = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"])})
+        dataset_id = f"EXP_{dataset_count + 1:03d}"
+        exp_numbers = [f"{dataset_id}_{i+1:03d}" for i in range(total_rows)]
         df.insert(0, 'Exp Number', exp_numbers)
         
         # Clean column names

@@ -13,6 +13,9 @@ const Upload = () => {
   
   const [file, setFile] = useState(null);
   const [datasetId, setDatasetId] = useState('');
+  // Track if we've already reserved a counter slot this session to avoid
+  // double-incrementing when the user re-uploads or changes the file.
+  const sessionDatasetCountRef = useRef(null);
   const [uploadDate, setUploadDate] = useState(null);
   const [parsedData, setParsedData] = useState([]);
   const [columnsInfo, setColumnsInfo] = useState({ numerical: [], categorical: [] });
@@ -51,6 +54,19 @@ const Upload = () => {
 
   const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#2dd4bf', '#fb923c', '#f472b6'];
 
+  React.useEffect(() => {
+    const initDatasetCount = async () => {
+      if (sessionDatasetCountRef.current !== null) return;
+      try {
+        const data = await api.fetchSavedDatasets();
+        sessionDatasetCountRef.current = (data?.datasets?.length || 0) + 1;
+      } catch (e) {
+        console.error("Failed to fetch dataset count:", e);
+      }
+    };
+    initDatasetCount();
+  }, []);
+
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -61,7 +77,7 @@ const Upload = () => {
   const parseFile = async (selectedFile) => {
     setFile(selectedFile);
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
@@ -75,7 +91,16 @@ const Upload = () => {
             setFile(null);
             return;
           }
-          const currentDatasetCount = parseInt(localStorage.getItem('datasetCount') || '0') + 1;
+          if (sessionDatasetCountRef.current === null) {
+            try {
+              const res = await api.fetchSavedDatasets();
+              sessionDatasetCountRef.current = (res?.datasets?.length || 0) + 1;
+            } catch (e) {
+              const lastSavedCount = parseInt(localStorage.getItem('datasetCount') || '0');
+              sessionDatasetCountRef.current = lastSavedCount + 1;
+            }
+          }
+          const currentDatasetCount = sessionDatasetCountRef.current;
           localStorage.setItem('datasetCount', currentDatasetCount);
           const dsId = `EXP_${currentDatasetCount.toString().padStart(3, '0')}`;
           
@@ -98,6 +123,25 @@ const Upload = () => {
           setUploadDate(new Date());
           setParsedData(dataWithIds);
           analyzeColumns(dataWithIds);
+
+          // Save a draft entry to localStorage immediately so the Experiments
+          // page can show this dataset with "Unlocked" status even if the user
+          // doesn't proceed to lock it yet.
+          const draftEntry = {
+            id: dsId,
+            name: selectedFile.name.replace(/\.[^/.]+$/, ''),
+            status: 'Unlocked',
+            date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            samples: data.length,
+            sourceFile: selectedFile.name,
+            _isDraft: true,
+          };
+          const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
+          // Replace any existing draft with the same session ID
+          const filtered = drafts.filter(d => d.id !== dsId);
+          filtered.unshift(draftEntry);
+          localStorage.setItem('draftDatasets', JSON.stringify(filtered));
         }
       } catch (err) {
         console.error("Error parsing Excel:", err);
@@ -334,6 +378,10 @@ const Upload = () => {
       }
 
       setIsLocked(true);
+
+      // Remove the draft entry now that the dataset is properly locked on backend
+      const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
+      localStorage.setItem('draftDatasets', JSON.stringify(drafts.filter(d => d.id !== datasetId)));
     } catch (err) {
       console.error(err);
       setLockError(err.message);
@@ -1140,8 +1188,8 @@ const Upload = () => {
                                   <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div> Selected
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[11px] font-bold shadow-sm">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready to Lock
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-full text-[11px] font-bold shadow-sm">
+                                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div> Unlocked
                                 </div>
                               )}
                             </div>
@@ -1201,7 +1249,10 @@ const Upload = () => {
                        <p className="text-slate-600 text-[13px] mb-5 leading-relaxed font-medium">Once locked, the uploaded data cannot be modified.</p>
                        <div className="flex space-x-3">
                           <button 
-                            onClick={() => setShowFinalLockModal(false)} 
+                            onClick={() => {
+                              setShowFinalLockModal(false);
+                              setConfirmedExpIds(new Set());
+                            }} 
                             className="flex-1 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-[13px] font-bold hover:bg-slate-50 transition-all"
                           >
                             Cancel
