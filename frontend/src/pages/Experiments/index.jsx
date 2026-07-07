@@ -15,7 +15,14 @@ const Experiments = () => {
     setLoading(true);
     try {
       const data = await api.fetchSavedDatasets();
-      setExperiments(data.datasets || []);
+      const backendDatasets = data.datasets || [];
+      const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
+      
+      // Merge drafts that aren't already in backend datasets
+      const backendIds = new Set(backendDatasets.map(d => d.dataset_id || d.id));
+      const newDrafts = drafts.filter(d => !backendIds.has(d.id));
+      
+      setExperiments([...newDrafts, ...backendDatasets]);
     } catch (e) {
       console.error('Failed to fetch experiments', e);
       setExperiments([]);
@@ -210,7 +217,7 @@ const Experiments = () => {
 
                     <td className="px-4 py-4">
                       <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '—'}</div>
-                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || ''}</div>
+                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || (exp.date?.includes(' ') ? exp.date.split(' ')[1] : '')}</div>
                     </td>
                   </tr>
                 ))

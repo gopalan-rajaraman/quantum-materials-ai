@@ -127,16 +127,20 @@ const Upload = () => {
           // Save a draft entry to localStorage immediately so the Experiments
           // page can show this dataset with "Unlocked" status even if the user
           // doesn't proceed to lock it yet.
-          const draftEntry = {
-            id: dsId,
-            name: selectedFile.name.replace(/\.[^/.]+$/, ''),
-            status: 'Unlocked',
-            date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            samples: data.length,
-            sourceFile: selectedFile.name,
-            _isDraft: true,
-          };
+            const now = new Date();
+            const pad = (n) => n.toString().padStart(2, '0');
+            const formattedDate = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            
+            const draftEntry = {
+              id: dsId,
+              name: selectedFile.name.replace(/\.[^/.]+$/, ''),
+              status: 'Unlocked',
+              date: formattedDate,
+              time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+              samples: data.length,
+              sourceFile: selectedFile.name,
+              _isDraft: true,
+            };
           const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
           // Replace any existing draft with the same session ID
           const filtered = drafts.filter(d => d.id !== dsId);

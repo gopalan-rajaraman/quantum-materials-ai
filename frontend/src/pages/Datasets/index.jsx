@@ -48,7 +48,14 @@ const Datasets = () => {
     setLoading(true);
     try {
       const data = await api.fetchSavedDatasets();
-      setDatasetsList(data.datasets || []);
+      const backendDatasets = data.datasets || [];
+      const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
+      
+      // Merge drafts that aren't already in backend datasets
+      const backendIds = new Set(backendDatasets.map(d => d.dataset_id || d.id));
+      const newDrafts = drafts.filter(d => !backendIds.has(d.id));
+      
+      setDatasetsList([...newDrafts, ...backendDatasets]);
     } catch (e) {
       console.error('Error fetching datasets:', e);
     } finally {
@@ -73,11 +80,11 @@ const Datasets = () => {
   const unlockedDatasets = totalDatasets - lockedDatasets;
   
   const totalRuns = datasetsList.reduce((acc, curr) => {
-    const rows = parseInt(curr.rows || '0', 10);
+    const rows = parseInt(curr.rows || curr.samples || '0', 10);
     return acc + (isNaN(rows) ? 0 : rows);
   }, 0);
  
-  const csvSizeMB = datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || '0', 10) * 12), 0) / 1024;
+  const csvSizeMB = datasetsList.reduce((acc, curr) => acc + (parseInt(curr.rows || curr.samples || '0', 10) * 12), 0) / 1024;
   const metadataSizeMB = datasetsList.length * 0.05;
   const modelCacheSizeMB = datasetsList.length > 0 ? 0.8 : 0;
   const othersSizeMB = datasetsList.length > 0 ? 0.15 : 0;
@@ -251,8 +258,8 @@ const Datasets = () => {
                   <td className="py-4 px-6">
                     <StatusBadge status={ds.status} />
                   </td>
-                  <td className="py-4 px-6 text-[12px] text-slate-500 font-medium">{ds.date || '—'}</td>
-                  <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{ds.rows ? (parseInt(ds.rows, 10) * 12).toFixed(1) + " KB" : '—'}</td>
+                  <td className="py-4 px-6 text-[12px] text-slate-500 font-medium">{ds.date ? (ds.time ? `${ds.date} ${ds.time}` : ds.date) : '—'}</td>
+                  <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{(ds.rows || ds.samples) ? (parseInt(ds.rows || ds.samples, 10) * 12).toFixed(1) + " KB" : '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || loggedInUsername}</td>
                 </tr>
               ))}

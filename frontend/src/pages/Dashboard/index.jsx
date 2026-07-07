@@ -61,7 +61,14 @@ const Dashboard = () => {
         setStats(statsData);
       }
       if (savedData) {
-        setSavedDatasets(savedData.datasets || []);
+        const backendDatasets = savedData.datasets || [];
+        const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
+        
+        // Merge drafts that aren't already in backend datasets
+        const backendIds = new Set(backendDatasets.map(d => d.dataset_id || d.id));
+        const newDrafts = drafts.filter(d => !backendIds.has(d.id));
+        
+        setSavedDatasets([...newDrafts, ...backendDatasets]);
       }
     } catch (e) {
       console.error("Error fetching dashboard data:", e);
@@ -125,12 +132,21 @@ const Dashboard = () => {
   const loadedDatasets = savedDatasets.map((ds, idx) => {
     const rawStatus = (ds.status || '').toString().toLowerCase();
     const status = rawStatus === 'locked' || rawStatus === 'completed' ? 'Locked' : 'In Progress';
+    let formattedDate = '20/05/2026';
+    if (ds.date) {
+      if (ds.date.includes('-') && ds.date.includes(':')) {
+        formattedDate = ds.date.split(' ')[0].split('-').reverse().join('/');
+      } else {
+        formattedDate = ds.date;
+      }
+    }
+    
     return {
       name: ds.name?.replace(' (auto-loaded)', '') || 'dataset_' + (idx + 1),
       description: ds.target ? `Target: ${ds.target}` : 'Uploaded dataset',
       range: ds.id || `EXP-${101 + idx}`,
       status,
-      updated: ds.date ? ds.date.split(' ')[0].split('-').reverse().join('/') : '20/05/2026'
+      updated: formattedDate
     };
   });
  
