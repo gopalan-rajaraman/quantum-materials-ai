@@ -33,6 +33,8 @@ export function getUserDisplayName(user, fallback = 'Researcher') {
 export function clearAuth() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('datasetCount');
+  localStorage.removeItem('draftDatasets');
 }
 
 export function logout(navigate) {

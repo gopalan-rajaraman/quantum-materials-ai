@@ -23,6 +23,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
+from dotenv import load_dotenv
+import os
+load_dotenv(override=True)
+print(f"GOOGLE_CLIENT_ID ON STARTUP: {os.getenv('GOOGLE_CLIENT_ID')}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""

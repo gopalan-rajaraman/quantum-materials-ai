@@ -47,7 +47,7 @@ export const api = {
     }),
 
   // Datasets
- fetchDashboardStats: () => request('/api/datasets/dashboard-stats'),
+  fetchDashboardStats: () => request('/api/datasets/dashboard'),
 fetchSavedDatasets: () => request('/api/datasets/list'),
   
   uploadDataset: async (files, catConstants = {}, numConstants = {}) => {

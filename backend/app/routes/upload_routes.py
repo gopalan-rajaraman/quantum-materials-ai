@@ -41,15 +41,16 @@ async def log_activity(title: str, desc: str, color: str = "bg-cyan-500", user_i
 @router.get("/dashboard-stats")
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     """Returns live stats for the Dashboard page."""
-    opt = cvd_routes.optimizer_instance
+    user_id = str(current_user["_id"])
+    opt = cvd_routes.get_optimizer(user_id)
 
     datasets_collection = get_datasets_collection()
     activity_collection = get_activity_log_collection()
 
-    query = {"user_id": ObjectId(current_user["_id"])}
+    query = {"user_id": ObjectId(user_id)}
     saved_datasets_count = await datasets_collection.count_documents(query)
 
-    fitted = opt is not None and opt._fitted
+    fitted = opt is not None and opt._fitted and saved_datasets_count > 0
     total_datasets = saved_datasets_count
 
     best_fwhm = None
@@ -131,25 +132,13 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
             ]
     else:
         variable_summary_data = [
-            {"name": "Numerical", "value": 12, "percentage": "66.7%", "color": "#5D3EBC"},
-            {"name": "Categorical", "value": 6, "percentage": "33.3%", "color": "#3B82F6"},
+            {"name": "Numerical", "value": 0, "percentage": "0%", "color": "#5D3EBC"},
+            {"name": "Categorical", "value": 0, "percentage": "0%", "color": "#3B82F6"},
             {"name": "Discrete", "value": 0, "percentage": "0%", "color": "#F59E0B"},
             {"name": "Boolean", "value": 0, "percentage": "0%", "color": "#EF4444"}
         ]
-        overview_chart_data = [
-            {"name": "Apr 18", "value": 25},
-            {"name": "Apr 25", "value": 42},
-            {"name": "May 2", "value": 48},
-            {"name": "May 9", "value": 68},
-            {"name": "May 16", "value": 84}
-        ]
-        model_performance_data = [
-            {"name": "Apr 18", "R2": 0.75, "MAE": 0.50, "RMSE": 0.40},
-            {"name": "Apr 25", "R2": 0.82, "MAE": 0.48, "RMSE": 0.38},
-            {"name": "May 2", "R2": 0.85, "MAE": 0.45, "RMSE": 0.35},
-            {"name": "May 9", "R2": 0.80, "MAE": 0.49, "RMSE": 0.37},
-            {"name": "May 16", "R2": 0.88, "MAE": 0.42, "RMSE": 0.33}
-        ]
+        overview_chart_data = []
+        model_performance_data = []
 
     # Fetch recent activity from MongoDB for user
     activity_log = []
