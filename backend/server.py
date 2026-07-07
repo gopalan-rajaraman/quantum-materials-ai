@@ -1,3 +1,12 @@
+import os
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded from the backend/.env file
+# regardless of the directory from which the server is started.
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(backend_dir, ".env")
+load_dotenv(dotenv_path=env_path, override=True)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
+import Plotly from 'plotly.js-dist-min';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell
 } from 'recharts';
 
 export const OptimizationReport = React.forwardRef(({
@@ -43,25 +44,25 @@ export const OptimizationReport = React.forwardRef(({
 
   // Re-use Plot data without toolbar and non-responsive so it fits exactly
   const gpPlotLayout = {
-    autosize: false, width: 680, height: 350, margin: {l: 50, r: 20, b: 40, t: 30},
+    autosize: false, width: 680, height: 350, margin: {l: 50, r: 20, b: 40, t: 80},
     paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-    xaxis: { title: 'Design Space Index (Sequential)', gridcolor: '#f1f5f9', color: '#64748b', tickmode: 'array', tickvals: sharedTickVals, ticktext: sharedTickText, range: sharedXRange },
+    xaxis: { title: '', gridcolor: '#f1f5f9', color: '#64748b', tickmode: 'array', tickvals: sharedTickVals, ticktext: sharedTickText, range: sharedXRange },
     yaxis: { title: 'Predicted FWHM (meV)', gridcolor: '#f1f5f9', color: '#64748b' },
     legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.15, yanchor: 'bottom', font: {size: 10} },
     shapes: plotData?.maxEITemp ? [{ type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper', line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' } }] : []
   };
 
   const eiPlotLayout = {
-    autosize: false, width: 680, height: 350, margin: {l: 50, r: 20, b: 40, t: 30},
+    autosize: false, width: 680, height: 350, margin: {l: 50, r: 20, b: 40, t: 80},
     paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-    xaxis: { title: 'Search-space candidate index', gridcolor: '#f1f5f9', color: '#64748b', tickmode: 'array', tickvals: sharedTickVals, ticktext: sharedTickText, range: sharedXRange },
-    yaxis: { title: 'Normalized EI ( )', gridcolor: '#f1f5f9', color: '#64748b' },
+    xaxis: { title: 'Search-space candidate index', gridcolor: '#f1f5f9', color: '#64748b' },
+    yaxis: { title: 'Normalized EI', gridcolor: '#f1f5f9', color: '#64748b', range: [0, 110] },
     legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.1, yanchor: 'bottom', font: {size: 10} },
     shapes: plotData?.maxEITemp ? [{ type: 'line', x0: plotData.maxEITemp, y0: 0, x1: plotData.maxEITemp, y1: 1, yref: 'paper', line: { color: 'rgba(124, 77, 255, 0.45)', width: 1, dash: 'dash' } }] : []
   };
 
   const PageContainer = ({ children }) => (
-    <div className="w-[794px] h-[1123px] bg-white p-[50px] flex flex-col font-sans shrink-0 pdf-page" style={{ boxSizing: 'border-box' }}>
+    <div className="w-[794px] h-[1123px] bg-white p-[50px] flex flex-col font-sans shrink-0 pdf-page" style={{ boxSizing: 'border-box', overflow: 'hidden' }}>
       {children}
     </div>
   );
@@ -81,22 +82,22 @@ export const OptimizationReport = React.forwardRef(({
   );
 
   const pdfGpTraces = (gpTraces || []).map(trace => {
-    if (trace.mode === 'markers' && trace.name === 'Observations') {
+    if (trace.mode === 'markers' && trace.name === 'Best Historical Experiment') {
       return {
         ...trace,
         mode: 'markers+text',
-        text: trace.y.map(y => y.toFixed(1)),
-        textposition: 'top center',
-        textfont: { size: 9, color: '#475569' }
+        text: trace.y.map(y => `Best: ${y.toFixed(1)}`),
+        textposition: 'bottom center',
+        textfont: { size: 12, color: '#16a34a', family: 'sans-serif' }
       };
     }
     if (trace.mode === 'markers' && trace.name === 'Next Suggested Experiment') {
       return {
         ...trace,
         mode: 'markers+text',
-        text: trace.y.map(y => y.toFixed(1)),
-        textposition: 'top right',
-        textfont: { size: 10, color: '#7C4DFF', family: 'sans-serif' }
+        text: trace.y.map(y => `Suggested: ${y.toFixed(1)}`),
+        textposition: 'top center',
+        textfont: { size: 12, color: '#7C4DFF', family: 'sans-serif' }
       };
     }
     return trace;
@@ -115,8 +116,24 @@ export const OptimizationReport = React.forwardRef(({
     return trace;
   });
 
+  const [gpImgUrl, setGpImgUrl] = useState(null);
+  const [eiImgUrl, setEiImgUrl] = useState(null);
+
+  useEffect(() => {
+    if (pdfGpTraces && pdfGpTraces.length > 0) {
+      Plotly.toImage({data: pdfGpTraces, layout: gpPlotLayout}, {format: 'png', width: 680, height: 350})
+        .then(setGpImgUrl)
+        .catch(console.error);
+    }
+    if (pdfEiTraces && pdfEiTraces.length > 0) {
+      Plotly.toImage({data: pdfEiTraces, layout: eiPlotLayout}, {format: 'png', width: 680, height: 350})
+        .then(setEiImgUrl)
+        .catch(console.error);
+    }
+  }, [pdfGpTraces, pdfEiTraces, gpPlotLayout, eiPlotLayout]);
+
   return (
-    <div ref={ref} className="flex flex-col gap-4 bg-gray-100 p-4">
+    <div ref={ref} className="flex flex-col bg-white">
       
       {/* PAGE 1 */}
       <PageContainer>
@@ -172,8 +189,8 @@ export const OptimizationReport = React.forwardRef(({
 
         <h3 className="text-lg font-bold text-slate-900 mb-4">Gaussian Process Regression Visualization</h3>
         
-        <div className="border border-slate-200 rounded-sm mb-6 flex justify-center bg-white">
-           <Plot data={pdfGpTraces} layout={gpPlotLayout} config={{displayModeBar: false}} />
+        <div className="border border-slate-200 rounded-sm mb-6 flex justify-center bg-white min-h-[350px]">
+           {gpImgUrl ? <img src={gpImgUrl} alt="Gaussian Process Regression" style={{ width: 680, height: 350 }} /> : <div className="text-slate-400 mt-20">Generating plot...</div>}
         </div>
 
         <div className="grid grid-cols-2 gap-8 text-[13px] text-slate-700 leading-relaxed mb-8">
@@ -184,35 +201,37 @@ export const OptimizationReport = React.forwardRef(({
             The selected BO point maximized Expected Improvement by balancing low predicted FWHM and model uncertainty. This means the recommendation is valuable either because it is predicted to improve the current best result, because it explores an uncertain region, or because it offers both.
           </div>
         </div>
-
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Expected Improvement Landscape</h3>
-        
-        <div className="border border-slate-200 rounded-sm flex justify-center bg-white mb-8">
-           <Plot data={pdfEiTraces} layout={eiPlotLayout} config={{displayModeBar: false}} />
-        </div>
-
-        <h3 className="text-lg font-bold text-slate-900">Parameter Importance</h3>
       </PageContainer>
 
       {/* PAGE 3 */}
       <PageContainer>
-        <div className="border border-slate-200 rounded-sm mt-4 p-8 flex justify-center h-[300px] mb-8">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-              <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} ticks={[0, 25, 50, 75, 100]} />
-              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 12}} width={100} />
-              <Bar dataKey="value" barSize={24}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill="#4030a5" />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <Header left="MODEL ANALYSIS (CONTINUED)" right="EXPECTED IMPROVEMENT & PARAMETERS" />
+        
+        <h3 className="text-lg font-bold text-slate-900 mb-4 mt-4">Expected Improvement Landscape</h3>
+        
+        <div className="border border-slate-200 rounded-sm flex justify-center bg-white mb-10 min-h-[350px]">
+           {eiImgUrl ? <img src={eiImgUrl} alt="Expected Improvement" style={{ width: 680, height: 350 }} /> : <div className="text-slate-400 mt-20">Generating plot...</div>}
+        </div>
+
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Parameter Importance</h3>
+        
+        <div className="border border-slate-200 rounded-sm p-8 flex justify-center h-[300px] mb-8">
+          <BarChart
+            width={680}
+            height={240}
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+            <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} ticks={[0, 25, 50, 75, 100]} />
+            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 12}} width={100} />
+            <Bar dataKey="value" barSize={24} isAnimationActive={false}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill="#4030a5" />
+              ))}
+            </Bar>
+          </BarChart>
           <div className="text-center text-[12px] text-slate-500 mt-[-20px] font-semibold w-full absolute bottom-4">Relative importance (%)</div>
         </div>
 

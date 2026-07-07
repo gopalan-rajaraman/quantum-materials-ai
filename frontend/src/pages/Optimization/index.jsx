@@ -210,7 +210,7 @@ const Optimization = () => {
       {
         x: plotData.x.concat(plotData.x.slice().reverse()),
         y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()),
-        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.85)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
+        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.2)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
       },
       {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: '#2C3E50', width: 2, dash: 'dash'}, hoverinfo: 'skip'
@@ -538,7 +538,7 @@ const Optimization = () => {
           
           <div className="space-y-5 flex-1 opacity-90">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-sm" style={{backgroundColor: 'rgba(241, 196, 15, 0.85)'}}></div>
+              <div className="w-4 h-4 rounded-sm border border-amber-400" style={{backgroundColor: 'rgba(241, 196, 15, 0.2)'}}></div>
               <div className="text-sm"><span className="text-amber-600 font-bold">Soft Gold:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
             </div>
             <div className="flex items-center gap-3">
