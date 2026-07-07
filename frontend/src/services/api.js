@@ -134,6 +134,11 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
   getPlotData: (sliceMode = 'suggestion') => request(`/thermal-cvd/plot-data?slice_mode=${sliceMode}`),
   getBoProgress: () => request('/thermal-cvd/bo-progress'),
   fetchVariablesDistribution: () => request('/thermal-cvd/variables-distribution'),
+  getSurfaceData: (payload) => 
+    request('/thermal-cvd/surface-data', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
 };
 
 export default api;

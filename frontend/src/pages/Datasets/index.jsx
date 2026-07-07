@@ -16,6 +16,33 @@ const Datasets = () => {
   const [datasetsList, setDatasetsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setActiveDropdown(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const handleToggleLock = async (dataset, e) => {
+    e.stopPropagation();
+    setActiveDropdown(null);
+    try {
+      const isLocked = ['locked', 'completed'].includes((dataset.status || '').toLowerCase());
+      const datasetId = dataset._id || dataset.id;
+      if (isLocked) {
+        alert('Locked datasets cannot be unlocked. Please upload a new dataset if you want to work with different data.');
+        return;
+      } else {
+        await api.lockDataset(datasetId);
+      }
+      fetchDatasets();
+    } catch (err) {
+      console.error('Failed to toggle lock status:', err);
+      alert('Failed to update dataset status.');
+    }
+  };
  
   const fetchDatasets = async () => {
     setLoading(true);
@@ -39,7 +66,10 @@ const Datasets = () => {
   }, []);
  
   const totalDatasets = datasetsList.length;
-  const lockedDatasets = datasetsList.filter(ds => ds.status === 'Completed').length;
+  const lockedDatasets = datasetsList.filter(ds => {
+    const status = (ds.status || '').toString().toLowerCase();
+    return status === 'locked' || status === 'completed';
+  }).length;
   const unlockedDatasets = totalDatasets - lockedDatasets;
   
   const totalRuns = datasetsList.reduce((acc, curr) => {
@@ -67,7 +97,8 @@ const Datasets = () => {
     : '—';
  
   const StatusBadge = ({ status }) => {
-    if (status === 'Completed' || status === 'Locked') {
+    const normalized = (status || '').toString().toLowerCase();
+    if (normalized === 'completed' || normalized === 'locked') {
       return (
         <span className="px-2.5 py-1 bg-[#E8FFF3] text-[#00B050] text-[11px] font-bold rounded-md flex items-center space-x-1.5 w-fit border border-[#00B050]/20">
           <Lock className="w-3 h-3" />
@@ -202,7 +233,6 @@ const Datasets = () => {
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Created On</th>
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Size</th>
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Created By</th>
-                <th className="text-center py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -224,18 +254,11 @@ const Datasets = () => {
                   <td className="py-4 px-6 text-[12px] text-slate-500 font-medium">{ds.date || '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{ds.rows ? (parseInt(ds.rows, 10) * 12).toFixed(1) + " KB" : '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || loggedInUsername}</td>
-                  <td className="py-4 px-6">
-                    <div className="flex justify-center">
-                      <button className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-[#F4F0FF] rounded-md transition-colors border border-slate-200 bg-white shadow-sm">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))}
               {filteredDatasets.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-slate-400 font-medium">
+                  <td colSpan="7" className="text-center py-8 text-slate-400 font-medium">
                     No datasets found.
                   </td>
                 </tr>

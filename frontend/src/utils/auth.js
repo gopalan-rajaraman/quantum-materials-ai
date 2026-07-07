@@ -34,4 +34,13 @@ export function clearAuth() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
 }
+
+export function logout(navigate) {
+  clearAuth();
+  if (typeof navigate === 'function') {
+    navigate('/login');
+  } else {
+    window.location.href = '/login';
+  }
+}
  

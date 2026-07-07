@@ -22,6 +22,7 @@ const Upload = () => {
   const [variableUnits, setVariableUnits] = useState({});
   const [datasetName, setDatasetName] = useState('');
   const [autoGenFileName, setAutoGenFileName] = useState('');
+  const [datasetObjectId, setDatasetObjectId] = useState('');
   const [boConstants, setBoConstants] = useState({
     P1: 'W(CO)6',
     P2: 'H2S',
@@ -46,6 +47,7 @@ const Upload = () => {
   const [showFinalLockModal, setShowFinalLockModal] = useState(false);
   const [searchSpace, setSearchSpace] = useState([]);
   const [variableRanges, setVariableRanges] = useState({});
+  const [dynamicRanges, setDynamicRanges] = useState(null);
 
   const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#2dd4bf', '#fb923c', '#f472b6'];
 
@@ -203,6 +205,30 @@ const Upload = () => {
       };
     });
     setSelectedVariables(initialVars);
+
+    // Calculate dynamic ranges for Optimization Variables (matches backend logic)
+    const calcDynamicRanges = {};
+    ['GTE', 'GTI', 'FRA', 'Pressure'].forEach(v => {
+      let vals = [];
+      for (let i = 0; i < data.length; i++) {
+        let val = data[i][v];
+        if (val !== undefined && val !== null && val !== 'NS' && val !== '') {
+          let num = Number(val);
+          if (!isNaN(num)) vals.push(num);
+        }
+      }
+      if (vals.length > 0) {
+        const sum = vals.reduce((a, b) => a + b, 0);
+        const avg = sum / vals.length;
+        const minVal = Math.min(...vals);
+        const maxVal = Math.max(...vals);
+        calcDynamicRanges[v] = {
+          min: Math.max(0, avg - minVal),
+          max: avg + maxVal
+        };
+      }
+    });
+    setDynamicRanges(calcDynamicRanges);
   };
 
   const toggleVariable = (col) => {
@@ -292,6 +318,12 @@ const Upload = () => {
       };
 
       const response = await api.uploadDataset([file], catConstants, numConstants);
+
+      // Store the Mongo document ID for the uploaded dataset so lock can be persisted.
+      if (response.inserted_id) {
+        setDatasetObjectId(response.inserted_id);
+        await api.lockDataset(response.inserted_id);
+      }
 
       // Store search space and variable ranges
       if (response.search_space) {
@@ -593,7 +625,9 @@ const Upload = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">550 - 1100</p>
+                          <p className="font-bold text-[14px] text-slate-900">
+                            {dynamicRanges?.GTE ? `${dynamicRanges.GTE.min.toFixed(1)} - ${dynamicRanges.GTE.max.toFixed(1)}` : '550 - 1100'}
+                          </p>
                           <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">°C</span>
                         </div>
                       </div>
@@ -609,7 +643,9 @@ const Upload = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">10 - 60</p>
+                          <p className="font-bold text-[14px] text-slate-900">
+                            {dynamicRanges?.GTI ? `${dynamicRanges.GTI.min.toFixed(1)} - ${dynamicRanges.GTI.max.toFixed(1)}` : '10 - 60'}
+                          </p>
                           <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">min</span>
                         </div>
                       </div>
@@ -625,7 +661,9 @@ const Upload = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">0 - 300</p>
+                          <p className="font-bold text-[14px] text-slate-900">
+                            {dynamicRanges?.FRA ? `${dynamicRanges.FRA.min.toFixed(1)} - ${dynamicRanges.FRA.max.toFixed(1)}` : '0 - 300'}
+                          </p>
                           <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">sccm</span>
                         </div>
                       </div>
@@ -641,7 +679,9 @@ const Upload = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">1 - 760</p>
+                          <p className="font-bold text-[14px] text-slate-900">
+                            {dynamicRanges?.Pressure ? `${dynamicRanges.Pressure.min.toFixed(1)} - ${dynamicRanges.Pressure.max.toFixed(1)}` : '1 - 760'}
+                          </p>
                           <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">Torr</span>
                         </div>
                       </div>

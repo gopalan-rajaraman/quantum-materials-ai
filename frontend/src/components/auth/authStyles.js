@@ -56,6 +56,66 @@ export const AUTH_STYLES = `
   }
   .form-panel { animation: fadeSlideIn 0.3s ease forwards; }
 
+  .google-btn-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .google-btn-wrap > div {
+    width: 100% !important;
+  }
+  .google-btn-wrap iframe {
+    width: 100% !important;
+    margin: 0 auto;
+  }
+
+  .google-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: white;
+    color: #1e293b;
+    font-size: 14.5px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .google-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .google-btn--disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .auth-divider::before,
+  .auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+  .auth-divider span {
+    padding: 0 10px;
+  }
+
   .pw-strength-bar {
     height: 4px;
     border-radius: 4px;

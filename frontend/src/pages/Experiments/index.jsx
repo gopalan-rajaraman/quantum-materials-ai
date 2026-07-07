@@ -78,7 +78,13 @@ const Experiments = () => {
   const filteredExperiments = experiments.filter(exp => {
     const matchesSearch = (exp.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (exp.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || exp.status === statusFilter;
+    const expStatus = (exp.status || '').toLowerCase();
+    const isCompletedOrLocked = expStatus === 'completed' || expStatus === 'locked';
+    
+    let matchesStatus = true;
+    if (statusFilter === 'Completed') matchesStatus = isCompletedOrLocked;
+    else if (statusFilter === 'In Progress') matchesStatus = !isCompletedOrLocked;
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -155,13 +161,12 @@ const Experiments = () => {
                 <th className="px-4 py-5 whitespace-nowrap">Best FWHM Found</th>
 
                 <th className="px-4 py-5 whitespace-nowrap">Created On</th>
-                <th className="px-6 py-5 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500 animate-pulse">
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-500 animate-pulse">
                     Loading experiments...
                   </td>
                 </tr>
@@ -187,10 +192,10 @@ const Experiments = () => {
                     </td>
                     <td className="px-4 py-4 text-slate-700 font-semibold text-[13px]">{exp.target || '—'}</td>
                     <td className="px-4 py-4">
-                      {exp.status === 'Completed' ? (
+                      {['completed', 'locked'].includes((exp.status || '').toLowerCase()) ? (
                         <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-[#E8FFF3] text-[#00B050] text-[12px] font-bold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Completed</span>
+                          <span>{exp.status.toLowerCase() === 'locked' ? 'Locked' : 'Completed'}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-[#F0F2FF] text-[#4C3BDE] text-[12px] font-bold">
@@ -199,7 +204,7 @@ const Experiments = () => {
                         </span>
                       )}
                     </td>
-                    <td className={`px-4 py-4 font-bold text-[13px] ${exp.status === 'Completed' ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
+                    <td className={`px-4 py-4 font-bold text-[13px] ${['completed', 'locked'].includes((exp.status || '').toLowerCase()) ? 'text-[#00B050]' : 'text-[#4C3BDE]'}`}>
                       {exp.bestValue || '—'}
                     </td>
 
@@ -207,21 +212,11 @@ const Experiments = () => {
                       <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '—'}</div>
                       <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || ''}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all" onClick={(e) => handleDownload(e, exp)} title="Download">
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-all" onClick={(e) => handleDelete(e, exp._id)} title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center">
+                  <td colSpan="7" className="px-6 py-12 text-center">
                     <div className="text-slate-500 text-[14px]">No experiments found. Upload a dataset to get started.</div>
                   </td>
                 </tr>

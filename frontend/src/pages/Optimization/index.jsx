@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
-import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download } from 'lucide-react';
 import api from '../../services/api';
+import { useReactToPrint } from 'react-to-print';
+import OptimizationReport from '../../components/OptimizationReport';
+import { generateExcelReport } from '../../utils/excelExport';
 
 const Optimization = () => {
   const [modelInfo, setModelInfo] = useState(null);
@@ -23,6 +26,47 @@ const Optimization = () => {
   const [forceContinue, setForceContinue] = useState(false);
   
   const [submitting, setSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const reportRef = useRef(null);
+
+  const handleDownloadPDF = useReactToPrint({
+    contentRef: reportRef,
+    documentTitle: 'Thermal_CVD_Optimization_Report',
+    onBeforePrint: async () => setIsDownloading(true),
+    onAfterPrint: () => setIsDownloading(false),
+    onPrintError: (errorLocation, error) => {
+      console.error('Print Error:', errorLocation, error);
+      alert(`Failed to generate PDF: ${String(error)}`);
+      setIsDownloading(false);
+    }
+  });
+
+  const handleDownloadExcel = async () => {
+    setIsExportingExcel(true);
+    try {
+      const suggestion = suggestions && suggestions.length > 0 ? suggestions[0] : null;
+      const expectedImprovement = suggestion ? (currentBestFWHM - predictedFwhm).toFixed(1) : '0.0';
+      const nExperiments = timelineData ? timelineData.length : 0;
+      const boIterations = timelineData ? timelineData.filter(r => r.type === 'User').length : 0;
+      const bestExpIdx = timelineData ? timelineData.findIndex(r => parseFloat(r.fwhm) === currentBestFWHM) : -1;
+      const bestExpName = bestExpIdx !== -1 ? `Experiment-${bestExpIdx + 1}` : '--';
+
+      await generateExcelReport({
+        currentBestFWHM,
+        bestExpName,
+        nExperiments,
+        boIterations,
+        expectedImprovement,
+        timelineData,
+        suggestion,
+        modelInfo,
+        plotData,
+      });
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
@@ -166,7 +210,7 @@ const Optimization = () => {
       {
         x: plotData.x.concat(plotData.x.slice().reverse()),
         y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()),
-        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.85)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
+        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.2)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
       },
       {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: '#2C3E50', width: 2, dash: 'dash'}, hoverinfo: 'skip'
@@ -362,11 +406,50 @@ const Optimization = () => {
 
   return (
     <div className="p-6 bg-slate-50 min-h-full text-slate-800 animate-fade-in font-sans">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-1">Optimization Dashboard</h2>
           <p className="text-slate-500">Bayesian Optimization engine tracking FWHM minimization.</p>
         </div>
+        {boStarted && (
+          <div className="flex gap-2">
+            <button 
+              onClick={handleDownloadExcel} 
+              disabled={isExportingExcel || isDownloading}
+              className="flex items-center gap-2 bg-[#0ca678] hover:bg-[#099268] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50"
+            >
+              {isExportingExcel ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {isExportingExcel ? 'Exporting...' : 'Export Excel'}
+            </button>
+            <button 
+              onClick={handleDownloadPDF} 
+              disabled={isDownloading || isExportingExcel}
+              className="flex items-center gap-2 bg-[#2f277a] hover:bg-[#1f1a54] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50"
+            >
+              {isDownloading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+              {isDownloading ? 'Generating PDF...' : 'Download PDF'}
+            </button>
+          </div>
+        )}
+      </div>
+      
+      <div style={{ position: 'absolute', top: '-10000px', left: '-10000px', width: '794px' }}>
+        <OptimizationReport 
+          ref={reportRef}
+          modelInfo={modelInfo}
+          plotData={plotData}
+          timelineData={timelineData}
+          suggestions={suggestions}
+          gpTraces={gpTraces}
+          eiTraces={eiTraces}
+          sharedTickVals={sharedTickVals}
+          sharedTickText={sharedTickText}
+          sharedXRange={sharedXRange}
+          predictedFwhm={predictedFwhm}
+          predictedUncertainty={predictedUncertainty}
+          initialBestFWHM={initialBestFWHM}
+          currentBestFWHM={currentBestFWHM}
+        />
       </div>
       
       {plotData?.is_unstable_regime && (
@@ -455,7 +538,7 @@ const Optimization = () => {
           
           <div className="space-y-5 flex-1 opacity-90">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-sm" style={{backgroundColor: 'rgba(241, 196, 15, 0.85)'}}></div>
+              <div className="w-4 h-4 rounded-sm border border-amber-400" style={{backgroundColor: 'rgba(241, 196, 15, 0.2)'}}></div>
               <div className="text-sm"><span className="text-amber-600 font-bold">Soft Gold:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
             </div>
             <div className="flex items-center gap-3">
