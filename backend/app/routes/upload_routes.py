@@ -1,3 +1,8 @@
+from app.database.mongodb_config import MongoDB
+from app.services.matching_engine import MatchingEngine
+import uuid
+import asyncio
+import os
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Form
 import io
 from pydantic import BaseModel
@@ -344,197 +349,227 @@ async def delete_saved_dataset(dataset_id: str, current_user: dict = Depends(get
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Dataset not found")
             
-        await log_activity("Dataset Deleted", f"Deleted dataset with ID {dataset_id}", "bg-red-500")
+        await log_activity("Dataset Deleted", f"Deleted dataset with ID {dataset_id}", "bg-red-500", current_user["_id"])
         return {"message": "Dataset deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/upload")
-async def upload_datasets(
+@router.post("/upload/parse")
+async def parse_dataset(
     files: list[UploadFile] = File(...),
-    cat_constants: Optional[str] = Form(None),
-    num_constants: Optional[str] = Form(None),
+    experiment_id: str = Form("Thermal CVD"),
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Upload CSV or Excel datasets with only 4 optimizing parameters + target.
-    Constants are provided as JSON strings from dropdown selection.
-    Variable ranges are automatically calculated from the data.
+    Phase 1: Parse the uploaded file, extract columns, and return a preview.
+    Saves the file to a temporary location and creates an ImportSession.
     """
-    dataframes = []
-    datasets_collection = get_datasets_collection()
-
     try:
-        # Parse constants from JSON strings
-        cat_constants_dict = {}
-        num_constants_dict = {}
-        if cat_constants:
-            import json
-            cat_constants_dict = json.loads(cat_constants)
-        if num_constants:
-            num_constants_dict = json.loads(num_constants)
+        import os
+        import uuid
+        
+        # Save files temporarily
+        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        session_id = str(uuid.uuid4())
+        
+        file = files[0] # Handle one file for simplicity in parsing
+        contents = await file.read()
+        
+        file_path = os.path.join(temp_dir, f"{session_id}_{file.filename}")
+        with open(file_path, "wb") as f:
+            f.write(contents)
+            
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        elif file.filename.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(io.BytesIO(contents))
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+            
+        columns = list(df.columns)
+        
+        # Generate preview
+        preview = df.head(5).replace({np.nan: None}).to_dict(orient='records')
+        
+        # Detect duplicates
+        from collections import Counter
+        col_counts = Counter(columns)
+        duplicate_headers = [col for col, count in col_counts.items() if count > 1]
+        
+        # Save session to MongoDB
+        session_doc = {
+            "session_id": session_id,
+            "user_id": ObjectId(current_user["_id"]),
+            "experiment_id": experiment_id,
+            "file_path": file_path,
+            "original_filename": file.filename,
+            "columns": columns,
+            "preview": preview,
+            "duplicate_headers": duplicate_headers,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        db = MongoDB.get_database()
+        await db["import_sessions"].insert_one(session_doc)
+        
+        return {
+            "import_session_id": session_id,
+            "columns": columns,
+            "preview": preview,
+            "duplicate_headers": duplicate_headers
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-        filenames = []
-        for file in files:
-            filenames.append(file.filename)
-            contents = await file.read()
+class ConfirmImportPayload(BaseModel):
+    import_session_id: str
+    mapping: Dict[str, str]
+    optimization_variables: List[str]
+    template_id: Optional[str] = None
+    save_as_template: Optional[bool] = False
+    template_name: Optional[str] = None
+    cat_constants: Optional[Dict[str, str]] = None
+    num_constants: Optional[Dict[str, float]] = None
 
-            if file.filename.endswith('.csv'):
-                df = pd.read_csv(io.BytesIO(contents))
-            elif file.filename.endswith(('.xls', '.xlsx')):
-                df = pd.read_excel(io.BytesIO(contents))
-            else:
-                continue
-
-            # Rename 'PL FWHM' → 'PL_FWHM' (handle space vs underscore)
-            if 'PL FWHM' in df.columns and 'PL_FWHM' not in df.columns:
-                df = df.rename(columns={'PL FWHM': 'PL_FWHM'})
-            if 'PL Peak Position' in df.columns and 'PL_Peak_Position' not in df.columns:
-                df = df.rename(columns={'PL Peak Position': 'PL_Peak_Position'})
-
-            # Replace 'NS' (not specified) with NaN
-            df = df.replace('NS', np.nan)
-
-            dataframes.append(df)
-
-        if not dataframes:
-            raise HTTPException(status_code=400, detail="No valid CSV/Excel files provided.")
-
-        combined_df = pd.concat(dataframes, ignore_index=True)
-        total_rows = len(combined_df)
-
-        # Generate unique Dataset ID and Experiment Numbers
+@router.post("/upload/confirm")
+async def confirm_import(
+    payload: ConfirmImportPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Phase 2: Confirm mapping, rename columns, create dataset, trigger GP asynchronously.
+    """
+    try:
+        db = MongoDB.get_database()
+        datasets_collection = get_datasets_collection()
+        
+        # 1. Fetch Session
+        session = await db["import_sessions"].find_one({"session_id": payload.import_session_id})
+        if not session:
+            raise HTTPException(status_code=404, detail="Import session not found or expired")
+            
+        file_path = session["file_path"]
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Uploaded file no longer available")
+            
+        # 2. Load dataframe
+        if session["original_filename"].endswith('.csv'):
+            df = pd.read_csv(file_path)
+        else:
+            df = pd.read_excel(file_path)
+            
+        total_rows = len(df)
+        
+        # 3. Apply Mapping
+        # mapping is { internal_name: excel_column }
+        # We need to rename dataframe columns from excel_column -> internal_name
+        inverted_mapping = {v: k for k, v in payload.mapping.items()}
+        df = df.rename(columns=inverted_mapping)
+        
+        # Default target handling
+        if 'PL_FWHM' in df.columns:
+            df = df.dropna(subset=['PL_FWHM']).reset_index(drop=True)
+            
+        if payload.cat_constants:
+            for col, val in payload.cat_constants.items():
+                df[col] = val
+        if payload.num_constants:
+            for col, val in payload.num_constants.items():
+                df[col] = float(val)
+                
+        df['TOCVD'] = 'Thermal CVD'
+        thermal_cvd_df = df
+        
+        # 4. Save template if requested
+        if payload.save_as_template and payload.template_name:
+            template_doc = {
+                "name": payload.template_name,
+                "experiment_id": session["experiment_id"],
+                "user_id": ObjectId(current_user["_id"]),
+                "mapping_json": payload.mapping,
+                "version": 1,
+                "is_default": False,
+                "created_by": str(current_user["_id"]),
+                "last_used_at": datetime.utcnow().isoformat(),
+                "times_used": 1,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await db["import_templates"].insert_one(template_doc)
+            
+        # 5. Create Dataset Record
         dataset_count = await datasets_collection.count_documents({"user_id": ObjectId(current_user["_id"])})
         dataset_id = f"EXP_{dataset_count + 1:03d}"
-        exp_numbers = [f"{dataset_id}_{i+1:03d}" for i in range(total_rows)]
-        combined_df.insert(0, 'Exp Number', exp_numbers)
-
-        # Check if this is a simplified upload (only variables + target)
-        required_vars = ['GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
-        has_all_vars = all(col in combined_df.columns for col in required_vars)
-
-        if has_all_vars:
-            # Simplified upload - add constants from form data
-            for col, val in cat_constants_dict.items():
-                combined_df[col] = val
-            for col, val in num_constants_dict.items():
-                combined_df[col] = val
-            combined_df['TOCVD'] = 'Thermal CVD'
-            thermal_cvd_df = combined_df
-
-            # Calculate automatic variable ranges from data
-            variable_ranges = {}
-            for var in ['GTE', 'GTI', 'FRA', 'Pressure']:
-                if var in combined_df.columns:
-                    values = pd.to_numeric(combined_df[var], errors='coerce').dropna()
-                    if len(values) > 0:
-                        avg = values.mean()
-                        std = values.std()
-                        min_val = values.min()
-                        max_val = values.max()
-                        # Use user requested avg - min and avg + max as range
-                        lower = max(0, avg - min_val)
-                        upper = avg + max_val
-                        variable_ranges[var] = (float(lower), float(upper))
-            n_thermal = len(thermal_cvd_df)
-        else:
-            # Full upload - filter to Thermal CVD
-            thermal_cvd_df = combined_df
-            if 'TOCVD' in combined_df.columns:
-                thermal_cvd_df = combined_df[combined_df['TOCVD'] == 'Thermal CVD'].copy().reset_index(drop=True)
-            n_thermal = len(thermal_cvd_df)
-            if len(thermal_cvd_df) == 0:
-                n_thermal = total_rows
-
-        # Ensure variable_ranges is always populated
-        if not variable_ranges or len(variable_ranges) == 0:
-            # Use encoder default ranges
-            from app.ml_models.thermal_cvd.data_encoder import ThermalCVDEncoder
-            encoder = ThermalCVDEncoder()
-            variable_ranges = encoder.VARIABLE_RANGES.copy()
-
-        if len(thermal_cvd_df) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No Thermal CVD rows found. Make sure the 'TOCVD' column contains 'Thermal CVD' entries. Found {total_rows} total rows."
-            )
-
-        # Coerce known numeric columns to float (handles 'NS' or empty strings)
-        num_cols = ['FRH', 'HR', 'FRP1', 'FRP2', 'CP1', 'CP2', 'GTE', 'GTI', 'FRA', 'Pressure', 'PL_FWHM']
-        for col in num_cols:
-            if col in thermal_cvd_df.columns:
-                thermal_cvd_df[col] = pd.to_numeric(thermal_cvd_df[col], errors='coerce')
-
-        # Drop rows where the target (PL_FWHM) is missing
-        if 'PL_FWHM' in thermal_cvd_df.columns:
-            thermal_cvd_df = thermal_cvd_df.dropna(subset=['PL_FWHM']).reset_index(drop=True)
-
-        # Store metadata into MongoDB
+        
+        exp_numbers = [f"{dataset_id}_{i+1:03d}" for i in range(len(thermal_cvd_df))]
+        if 'Exp Number' not in thermal_cvd_df.columns:
+            thermal_cvd_df.insert(0, 'Exp Number', exp_numbers)
+        
         dataset_record = {
-            "name": ", ".join(filenames),
+            "name": session["original_filename"],
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "created_at": datetime.utcnow().isoformat(),
-            "rows": f"{len(thermal_cvd_df):,} Thermal CVD ({total_rows:,} total)",
+            "rows": f"{len(thermal_cvd_df):,} rows",
             "dataset_id": dataset_id,
-            "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{total_rows:03d}",
-            "data": combined_df.to_dict(orient='records'),
+            "experiment_id_range": f"{dataset_id}_EXP_001 to {dataset_id}_EXP_{len(thermal_cvd_df):03d}",
+            "data": thermal_cvd_df.replace({np.nan: None}).to_dict(orient='records'),
             "user_id": ObjectId(current_user["_id"]),
-            "status": "Locked",
-            "cat_constants": cat_constants_dict,
-            "num_constants": num_constants_dict,
-            "variable_ranges": variable_ranges if has_all_vars else {}
+            "status": "unlocked",
+            "column_mapping": payload.mapping,
+            "optimization_variables": payload.optimization_variables
         }
+        
         insert_result = await datasets_collection.insert_one(dataset_record)
-
-        # Pass Thermal CVD data to the global optimizer to train
-        if cvd_routes.optimizer_instance is not None:
-            cvd_routes.optimizer_instance.load_training_data(thermal_cvd_df)
-            # Set constants from form data if provided
-            if cat_constants_dict or num_constants_dict:
-                cvd_routes.optimizer_instance.encoder.set_constants_from_dict(cat_constants_dict, num_constants_dict)
-            cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
-            cvd_routes.optimizer_instance.train_gp()
-            best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
-            # Store optimizer for this specific user
-            cvd_routes.set_optimizer(current_user["_id"], cvd_routes.optimizer_instance)
-            await log_activity(
-                "Dataset Uploaded",
-                f"{', '.join(filenames)}: {len(thermal_cvd_df)} Thermal CVD rows used",
-                "bg-purple-500",
-                current_user["_id"]
-            )
-            await log_activity("GP Model Trained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", current_user["_id"])
-
-        # Get search space data
-        search_space_data = []
-        if cvd_routes.optimizer_instance is not None and hasattr(cvd_routes.optimizer_instance, 'X_search'):
-            X_search = cvd_routes.optimizer_instance.X_search
-            if X_search is not None and len(X_search) > 0:
-                # Inverse transform to get original variable values
-                X_raw = cvd_routes.optimizer_instance.encoder.scaler_X.inverse_transform(X_search)
-                var_names = ['GTE', 'GTI', 'FRA', 'Pressure']
-                search_space_data = []
-                for row in X_raw:
-                    var_dict = {var_names[i]: float(row[i]) for i in range(len(var_names))}
-                    search_space_data.append(var_dict)
-
+        
+        # 6. Trigger GP Asynchronously
+        import asyncio
+        asyncio.create_task(run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables))
+        
+        # Cleanup
+        try:
+            os.remove(file_path)
+            await db["import_sessions"].delete_one({"session_id": payload.import_session_id})
+        except:
+            pass
+            
         return {
-            "inserted_id": str(insert_result.inserted_id),
-            "total_files_processed": len(files),
-            "filenames": filenames,
-            "total_rows_in_file": total_rows,
-            "thermal_cvd_rows_used": len(thermal_cvd_df),
-            "columns": list(thermal_cvd_df.columns),
             "status": "success",
-            "message": f"Found {len(thermal_cvd_df)} Thermal CVD experiments (out of {total_rows} total rows). GP model trained successfully.",
-            "search_space": search_space_data,
-            "variable_ranges": variable_ranges if has_all_vars else {}
+            "inserted_id": str(insert_result.inserted_id),
+            "message": "Dataset imported successfully",
+            "report": {
+                "rows_processed": total_rows,
+                "variables_mapped": len(payload.mapping),
+                "extra_columns_ignored": len(session["columns"]) - len(payload.mapping)
+            }
         }
-
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def run_gp_training_async(df, user_id, optimization_variables):
+    """Background task to train GP."""
+    try:
+        if cvd_routes.optimizer_instance is not None:
+            cvd_routes.optimizer_instance.encoder.set_variables(optimization_variables)
+            # Drop NaN rows in required num columns for training
+            num_cols = optimization_variables + ['PL_FWHM']
+            for col in num_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            train_df = df.dropna(subset=['PL_FWHM']).reset_index(drop=True)
+            
+            if len(train_df) > 0:
+                cvd_routes.optimizer_instance.load_training_data(train_df)
+                cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
+                cvd_routes.optimizer_instance.train_gp()
+                cvd_routes.set_optimizer(user_id, cvd_routes.optimizer_instance)
+                best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+                await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
+    except Exception as e:
+        print(f"Async GP Training Error: {e}")
+
+
 
 @router.post("/upload-json")
 async def upload_json_data(payload: SpreadsheetData, current_user: dict = Depends(get_current_user)):

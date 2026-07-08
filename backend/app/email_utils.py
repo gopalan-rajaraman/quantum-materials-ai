@@ -88,7 +88,7 @@ async def send_password_reset_email(to_email: str, reset_token: str) -> None:
             <tr>
               <td style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:36px 40px;text-align:center;">
                 <div style="display:inline-flex;align-items:center;gap:10px;">
-                  <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;display:inline-block;line-height:36px;text-align:center;font-size:18px;">⬡</div>
+                  <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;display:inline-block;line-height:36px;text-align:center;font-size:18px;">â¬¡</div>
                   <span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-0.02em;">Quantum Materials AI</span>
                 </div>
               </td>
@@ -97,7 +97,7 @@ async def send_password_reset_email(to_email: str, reset_token: str) -> None:
             <tr>
               <td style="padding:44px 40px 36px;">
                 <div style="text-align:center;margin-bottom:28px;">
-                  <div style="width:68px;height:68px;background:#eef2ff;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:32px;">🔐</div>
+                  <div style="width:68px;height:68px;background:#eef2ff;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:32px;">ð</div>
                   <h1 style="margin:0 0 10px;font-size:24px;font-weight:800;color:#1e1b4b;letter-spacing:-0.02em;">Reset your password</h1>
                   <p style="margin:0;font-size:15px;color:#64748b;line-height:1.6;">
                     We received a request to reset the password for your account associated with <strong>{to_email}</strong>.
@@ -127,7 +127,7 @@ async def send_password_reset_email(to_email: str, reset_token: str) -> None:
             <tr>
               <td style="background:#f8faff;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
                 <p style="margin:0;font-size:12px;color:#94a3b8;">
-                  © 2026 Quantum Materials AI · This is an automated email, please do not reply.
+                  Â© 2026 Quantum Materials AI Â· This is an automated email, please do not reply.
                 </p>
               </td>
             </tr>
@@ -139,7 +139,7 @@ async def send_password_reset_email(to_email: str, reset_token: str) -> None:
     </html>
     """
 
-    await _send(to_email, "Reset Your Password — Quantum Materials AI", html)
+    await _send(to_email, "Reset Your Password â Quantum Materials AI", html)
 
 
 async def send_verification_email(to_email: str, full_name: str, verify_token: str) -> None:
@@ -160,7 +160,7 @@ async def send_verification_email(to_email: str, full_name: str, verify_token: s
             </tr>
             <tr>
               <td style="padding:44px 40px 36px;text-align:center;">
-                <div style="font-size:48px;margin-bottom:16px;">👋</div>
+                <div style="font-size:48px;margin-bottom:16px;">ð</div>
                 <h1 style="margin:0 0 10px;font-size:22px;font-weight:800;color:#1e1b4b;">Welcome, {full_name}!</h1>
                 <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.6;">
                   Thanks for signing up. Please verify your email address to get started.
@@ -174,7 +174,7 @@ async def send_verification_email(to_email: str, full_name: str, verify_token: s
             </tr>
             <tr>
               <td style="background:#f8faff;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:12px;color:#94a3b8;">© 2026 Quantum Materials AI</p>
+                <p style="margin:0;font-size:12px;color:#94a3b8;">Â© 2026 Quantum Materials AI</p>
               </td>
             </tr>
           </table>
@@ -184,4 +184,76 @@ async def send_verification_email(to_email: str, full_name: str, verify_token: s
     </html>
     """
 
-    await _send(to_email, "Verify your email — Quantum Materials AI", html)
+    await _send(to_email, "Verify your email â Quantum Materials AI", html)
+
+
+async def send_auth_email(event: str, to_email: str, user: dict = None, ip_address: str = 'Unknown', user_agent: str = 'Unknown') -> None:
+    if event == "signup":
+        subject = "Welcome to Quantum Materials AI"
+        icon = "🎉"
+        title = "Welcome Aboard!"
+        message_body = f"""
+            <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.6;">
+              Hi {user.get('full_name', 'there') if user else 'there'},<br><br>
+              Welcome to Quantum Materials AI! We're thrilled to have you join us.
+            </p>
+            <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
+              Dive into our platform and explore the tools to advance your materials research.
+            </p>
+        """
+    elif event == "login":
+        from datetime import datetime
+        login_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        subject = "New login to your account - Quantum Materials AI"
+        icon = "🚨"
+        title = "New Login Alert"
+        message_body = f"""
+            <p style="margin:0 0 28px;font-size:15px;color:#64748b;line-height:1.6;">
+              We noticed a new login to your Quantum Materials AI account.
+            </p>
+            <ul style="text-align:left;font-size:14px;color:#64748b;line-height:1.6;background:#f8faff;padding:16px 16px 16px 36px;border-radius:12px;margin-bottom:28px;">
+              <li><strong>Time:</strong> {login_time}</li>
+              <li><strong>IP Address:</strong> {ip_address}</li>
+              <li><strong>Device/Browser:</strong> {user_agent}</li>
+            </ul>
+            <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
+              If this was you, you can safely ignore this email.<br>
+              If you don't recognize this activity, please <a href="{FRONTEND_URL}/reset-password" style="color:#4f46e5;text-decoration:underline;">secure your account immediately</a>.
+            </p>
+        """
+    else:
+        return
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8"></head>
+    <body style="margin:0;padding:0;background:#f5f3ff;font-family:'Inter',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ff;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(99,102,241,0.12);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:36px 40px;text-align:center;">
+                <span style="color:#ffffff;font-size:20px;font-weight:800;">Quantum Materials AI</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:44px 40px 36px;text-align:center;">
+                <div style="font-size:48px;margin-bottom:16px;">{icon}</div>
+                <h1 style="margin:0 0 20px;font-size:22px;font-weight:800;color:#1e1b4b;">{title}</h1>
+                {message_body}
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#f8faff;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+                <p style="margin:0;font-size:12px;color:#94a3b8;">&copy; 2026 Quantum Materials AI</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+    """
+
+    await _send(to_email, subject, html)

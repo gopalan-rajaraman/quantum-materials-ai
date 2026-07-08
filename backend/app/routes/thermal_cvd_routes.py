@@ -54,10 +54,7 @@ router = APIRouter(prefix="/thermal-cvd", tags=["thermal-cvd"])
 
 
 class PredictionRequest(BaseModel):
-    GTE: float
-    GTI: float
-    FRA: float
-    Pressure: float
+    variables: Dict[str, float]
 
 
 class SuggestRequest(BaseModel):
@@ -198,7 +195,7 @@ def get_model_info(current_user: dict = Depends(get_current_user)):
         # 1. Feature Importances
         feature_importances = []
         if opt.X_train is not None and opt.y_train is not None:
-            var_names = ['Growth Temp', 'Growth Time', 'Ar Flow', 'Pressure']
+            var_names = opt.encoder.VARIABLES
             importances = []
             n_cols = opt.X_train.shape[1]
             # Variables are the last 4 columns of X_train (indices 8, 9, 10, 11)
@@ -354,20 +351,10 @@ def predict_fwhm(request: PredictionRequest, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=503, detail="Model not fitted")
 
     try:
-        result = opt.predict_fwhm(
-            GTE=request.GTE,
-            GTI=request.GTI,
-            FRA=request.FRA,
-            Pressure=request.Pressure,
-        )
+        result = opt.predict_fwhm(**request.variables)
 
         return {
-            'variables': {
-                'GTE': request.GTE,
-                'GTI': request.GTI,
-                'FRA': request.FRA,
-                'Pressure': request.Pressure,
-            },
+            'variables': request.variables,
             'prediction': result,
         }
     except Exception as e:
@@ -436,10 +423,7 @@ async def simulate_run(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 class AddExperimentRequest(BaseModel):
-    GTE: float
-    GTI: float
-    FRA: float
-    Pressure: float
+    variables: Dict[str, float]
     PL_FWHM: float
 
 @router.post("/add-experiment")
@@ -450,12 +434,7 @@ async def add_experiment(request: AddExperimentRequest, current_user: dict = Dep
         raise HTTPException(status_code=503, detail="Model not fitted")
         
     try:
-        var_dict = {
-            'GTE': request.GTE,
-            'GTI': request.GTI,
-            'FRA': request.FRA,
-            'Pressure': request.Pressure,
-        }
+        var_dict = request.variables
         import asyncio
         result = await asyncio.to_thread(opt.add_experiment, var_dict, request.PL_FWHM)
         
@@ -523,11 +502,9 @@ def get_plot_data(slice_mode: str = "suggestion", current_user: dict = Depends(g
                 ei_vals = (ei_vals / max_ei) ** 0.5 * max_ei
             
         unscaled_X = opt.encoder.scaler_X.inverse_transform(opt.X_train)
-        var_map = {var: i for i, var in enumerate(opt.encoder.VARIABLES)}
-        gte_train = unscaled_X[:, var_map['GTE']].tolist()
-        gti_train = unscaled_X[:, var_map['GTI']].tolist()
-        fra_train = unscaled_X[:, var_map['FRA']].tolist()
-        pressure_train = unscaled_X[:, var_map['Pressure']].tolist()
+        train_X_dict = {}
+        for i, var in enumerate(opt.encoder.VARIABLES):
+            train_X_dict[var] = unscaled_X[:, i].tolist()
 
         search_ei = []
         if (
@@ -585,10 +562,7 @@ def get_plot_data(slice_mode: str = "suggestion", current_user: dict = Depends(g
             'training_points': {
                 'x': x_1d_train.flatten().tolist(),
                 'y': y_train.tolist(),
-                'gte': gte_train,
-                'gti': gti_train,
-                'fra': fra_train,
-                'pressure': pressure_train,
+                'variables': train_X_dict,
                 'initial_count': initial_count,
                 'slice_distances': [0] * n_points
             }
@@ -626,10 +600,7 @@ def get_timeline(current_user: dict = Depends(get_current_user)):
                 'experiment_id': f"BO-{i+1 - initial_count}" if not is_initial else f"Init-{i+1}",
                 'type': "Initial" if is_initial else "User",
                 'step': i - initial_count + 1 if not is_initial else 0,
-                'gte': safe_float(row['GTE']),
-                'gti': safe_float(row['GTI']),
-                'fra': safe_float(row['FRA']),
-                'pressure': safe_float(row['Pressure']),
+                'variables': {v: safe_float(row.get(v)) for v in opt.encoder.VARIABLES},
                 'fwhm': safe_float(row.get('PL_FWHM', row.get('PL FWHM', 0)))
             })
         return {'timeline': timeline}
@@ -785,12 +756,7 @@ def get_surface_data(request: SurfaceDataRequest, current_user: dict = Depends(g
         for y_val in y_vals:
             row = []
             for x_val in x_vals:
-                var_dict = {
-                    'GTE': best_rec['GTE_celsius'],
-                    'GTI': best_rec['GTI_minutes'],
-                    'FRA': best_rec['FRA_sccm'],
-                    'Pressure': best_rec['Pressure_Torr']
-                }
+                var_dict = dict(best_rec['variables'])
                 var_dict[var_x] = float(x_val)
                 var_dict[var_y] = float(y_val)
                 

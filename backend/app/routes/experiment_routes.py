@@ -106,3 +106,102 @@ async def delete_experiment(experiment_id: str, current_user: dict = Depends(get
         return {"message": "Experiment deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{experiment_id}/variables")
+async def get_experiment_variables(experiment_id: str, current_user: dict = Depends(get_current_user)):
+    """Get required variables schema for an experiment."""
+    # For now, hardcode Thermal CVD variables, later fetch from DB based on experiment_id
+    from app.services.alias_registry import AliasRegistry
+    
+    if experiment_id == "Thermal CVD" or "Thermal CVD" in experiment_id:
+        return {
+            "inputs": [],
+            "outputs": [
+                {"name": "PL_FWHM", "desc": "Photoluminescence FWHM", "type": "numeric", "aliases": AliasRegistry.get_aliases("PL_FWHM")}
+            ],
+            "sample_identifier": {
+                "name": "Exp Number", "desc": "Experiment Number", "type": "string|numeric", "aliases": AliasRegistry.get_aliases("Exp Number")
+            },
+            "constants": [
+                {
+                    "name": "P1",
+                    "label": "Precursor 1",
+                    "type": "categorical",
+                    "options": ["W(CO)6", "WO3", "WCl6", "WF6", "MoO3"]
+                },
+                {
+                    "name": "P2",
+                    "label": "Precursor 2",
+                    "type": "categorical",
+                    "options": ["H2S", "Sulfur", "DTBS", "Se"]
+                },
+                {
+                    "name": "Substrate",
+                    "label": "Substrate",
+                    "type": "categorical",
+                    "options": ["SiO2/Si", "Sapphire (C-plane)", "graphite", "Graphene", "Quartz"]
+                },
+                {
+                    "name": "CG",
+                    "label": "Carrier Gas",
+                    "type": "categorical",
+                    "options": ["Ar", "H2", "H2/Ar", "He"]
+                },
+                {
+                    "name": "COM",
+                    "label": "Cooling Method",
+                    "type": "categorical",
+                    "options": ["Natural", "Rapid", "NS"]
+                },
+                {
+                    "name": "PC",
+                    "label": "Precursor Container",
+                    "type": "categorical",
+                    "options": ["Bubbler", "Quartz boat", "Al2O3 crucible", "Sulfur boat", "Ceramic boat", "Gas cylinders"]
+                },
+                {
+                    "name": "SA",
+                    "label": "Sample Additive",
+                    "type": "categorical",
+                    "options": ["NaCl", "SnCl4"]
+                },
+                {
+                    "name": "Class",
+                    "label": "Morphology Class",
+                    "type": "categorical",
+                    "options": ["Monolayer", "Nanosheets"]
+                },
+                {
+                    "name": "FRH",
+                    "label": "Hydrogen Flow Rate (sccm)",
+                    "type": "numeric"
+                },
+                {
+                    "name": "HR",
+                    "label": "Heating Rate (°C/min)",
+                    "type": "numeric"
+                },
+                {
+                    "name": "FRP1",
+                    "label": "Flow Rate P1 (sccm)",
+                    "type": "numeric"
+                },
+                {
+                    "name": "FRP2",
+                    "label": "Flow Rate P2 (sccm)",
+                    "type": "numeric"
+                },
+                {
+                    "name": "CP1",
+                    "label": "Carrier Pressure 1 (Torr)",
+                    "type": "numeric"
+                },
+                {
+                    "name": "CP2",
+                    "label": "Carrier Pressure 2 (Torr)",
+                    "type": "numeric"
+                }
+            ]
+        }
+    
+    raise HTTPException(status_code=404, detail="Experiment variables not configured")

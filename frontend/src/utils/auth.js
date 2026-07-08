@@ -37,7 +37,20 @@ export function clearAuth() {
   localStorage.removeItem('draftDatasets');
 }
 
-export function logout(navigate) {
+export async function logout(navigate) {
+  const token = localStorage.getItem('token');
+  if (token) {
+    try {
+      await fetch('/api/users/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  }
   clearAuth();
   if (typeof navigate === 'function') {
     navigate('/login');

@@ -70,6 +70,7 @@ class DatasetModel(BaseModel):
     minimum_runs_required: int = 0
     total_planned_runs: int = 0
     data: List[Dict[str, Any]] = []  # Actual experiment data
+    column_mapping: Dict[str, str] = {}  # Store the mapping that was actually used
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
@@ -124,6 +125,48 @@ class BORecommendationModel(BaseModel):
     executed: bool = False
     experiment_id: Optional[PyObjectId] = None
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
+
+
+class ImportTemplateModel(BaseModel):
+    """Reusable import templates for dataset uploads."""
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    name: str
+    experiment_id: str
+    user_id: Optional[PyObjectId] = None
+    mapping_json: Dict[str, str] = {}
+    version: int = 1
+    is_default: bool = False
+    created_by: Optional[str] = None
+    last_used_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    times_used: int = 0
+    notes: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
+
+
+class ImportSessionModel(BaseModel):
+    """Session for tracking a dataset import process between parse and confirm phases."""
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    user_id: Optional[PyObjectId] = None
+    experiment_id: Optional[str] = None
+    file_path: str  # Path to the temporarily saved file
+    original_filename: str
+    columns: List[str] = []
+    preview: List[Dict[str, Any]] = []
+    duplicate_headers: List[str] = []
+    detected_types: Dict[str, str] = {}
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    expires_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat()) # Should be set to future
 
     model_config = {
         "populate_by_name": True,

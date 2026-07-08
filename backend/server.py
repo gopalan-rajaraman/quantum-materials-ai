@@ -75,6 +75,12 @@ def read_root():
 app.include_router(upload_router)
 app.include_router(thermal_cvd_router)
 app.include_router(user_router)
+from app.routes.template_routes import router as template_router
+app.include_router(template_router)
+from app.routes.experiment_routes import router as experiment_router
+app.include_router(experiment_router)
+from app.routes.dataset_routes import router as dataset_router
+app.include_router(dataset_router)
 
 if __name__ == "__main__":
     import uvicorn

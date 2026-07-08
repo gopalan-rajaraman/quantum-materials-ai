@@ -34,21 +34,12 @@ class ThermalCVDEncoder:
     # Numerical constants — stored for reference, NOT in feature matrix (matches notebook)
     NUM_CONSTANTS = ['FRH', 'HR', 'FRP1', 'FRP2', 'CP1', 'CP2']
 
-    # Variables — swept by Bayesian Optimization (4, matches notebook)
-    VARIABLES = ['GTE', 'GTI', 'FRA', 'Pressure']
-
+    # Variables — swept by Bayesian Optimization (exactly 4, dynamic per dataset)
+    # Target features will be stored per-instance.
+    
     # Targets
     TARGET_FWHM = 'PL_FWHM'
     TARGET_PEAK = 'PL Peak Pc'
-
-
-    # Variable ranges — exactly as in notebook Step 3
-    VARIABLE_RANGES = {
-        'GTE':      (500, 1100),   # Growth Temperature [°C]
-        'GTI':      (5, 60),       # Growth Time [min]
-        'FRA':      (0, 100),      # Ar Flow Rate [sccm] - restricted to realistic window
-        'Pressure': (1, 760),      # Chamber Pressure [Torr]
-    }
 
     def __init__(self, fill_unknown: str = 'Unknown'):
         self.fill_unknown = fill_unknown
@@ -59,7 +50,15 @@ class ThermalCVDEncoder:
         # SimpleImputer for missing variable values — matches notebook
         self.imputer = SimpleImputer(strategy='mean')
         self.feature_cols: List[str] = []
+        self.VARIABLES: List[str] = []
+        self.VARIABLE_RANGES: Dict[str, Tuple[float, float]] = {}
         self._fitted = False
+
+    def set_variables(self, variables: List[str]) -> None:
+        """Set the numerical optimization variables."""
+        if len(variables) != 4:
+            raise ValueError(f"Exactly 4 optimization variables required, got {len(variables)}: {variables}")
+        self.VARIABLES = variables
 
     def fit_on_data(self, df: pd.DataFrame) -> None:
         """
@@ -71,12 +70,15 @@ class ThermalCVDEncoder:
         """
         # Step 4: Fit categorical LabelEncoders (fill NaN with 'Unknown')
         for col in self.CAT_CONSTANTS:
-            series = df[col].fillna(self.fill_unknown).astype(str)
+            if col in df.columns:
+                series = df[col].fillna(self.fill_unknown).astype(str)
+            else:
+                series = pd.Series([self.fill_unknown] * len(df))
             le = LabelEncoder()
             le.fit(series.unique())
             self.label_encoders[col] = le
             # Store mode as fixed constant value
-            self.constant_values[col] = series.mode()[0]
+            self.constant_values[col] = series.mode()[0] if not series.empty else self.fill_unknown
 
         # Store numerical constant medians for reference
         for col in self.NUM_CONSTANTS:
@@ -85,6 +87,24 @@ class ThermalCVDEncoder:
                 self.constant_values[col] = float(val.median()) if len(val) > 0 else 0.0
             else:
                 self.constant_values[col] = 0.0
+
+        # Compute dynamic ranges for optimization variables
+        if not self.VARIABLES:
+            self.VARIABLES = ['GTE', 'GTI', 'FRA', 'Pressure']  # Fallback if not set
+            
+        for var in self.VARIABLES:
+            if var in df.columns:
+                series = pd.to_numeric(df[var], errors='coerce').dropna()
+                if len(series) > 0:
+                    v_min = float(series.min())
+                    v_max = float(series.max())
+                    # Add a 20% margin to the search space range
+                    margin = max((v_max - v_min) * 0.2, 1.0)
+                    self.VARIABLE_RANGES[var] = (max(0.0, v_min - margin), v_max + margin)
+                else:
+                    self.VARIABLE_RANGES[var] = (0.0, 1000.0) # Default fallback
+            else:
+                self.VARIABLE_RANGES[var] = (0.0, 1000.0)
 
         # Step 6: Build raw feature matrix and fit imputer + scaler
         X_raw = self._build_raw_feature_matrix(df)

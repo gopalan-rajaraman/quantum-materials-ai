@@ -251,17 +251,14 @@ function buildExecutiveSummary(wb, {
 // ═══════════════════════════════════════════════════════════════════════════
 // SHEET 2 — Experiment History
 // ═══════════════════════════════════════════════════════════════════════════
-function buildExperimentHistory(wb, { timelineData, currentBestFWHM }) {
+function buildExperimentHistory(wb, { timelineData, currentBestFWHM, optVars }) {
   const ws = wb.addWorksheet('Experiment_History');
   ws.properties.tabColor = { argb: BLUE_KPI };
 
   ws.columns = [
     { width: 18 }, // A Experiment ID
     { width: 12 }, // B Type
-    { width: 12 }, // C GTE (C)
-    { width: 12 }, // D GTI (min)
-    { width: 14 }, // E FRA (sccm)
-    { width: 16 }, // F Pressure (Torr)
+    ...optVars.map(() => ({ width: 14 })),
     { width: 20 }, // G Actual FWHM (meV)
     { width: 20 }, // H Predicted FWHM (meV)
     { width: 18 }, // I Status
@@ -271,11 +268,10 @@ function buildExperimentHistory(wb, { timelineData, currentBestFWHM }) {
   subtitle(ws, `${(timelineData ?? []).length} experiments with filters and highlighted best row`, 9);
   ws.getRow(3).height = 10;
 
-  const hdrs = ['Experiment ID','Type','GTE (C)','GTI (min)','FRA (sccm)',
-                 'Pressure (Torr)','Actual FWHM (meV)','Predicted FWHM (meV)','Status'];
+  const hdrs = ['Experiment ID','Type',...optVars,'Actual FWHM (meV)','Predicted FWHM (meV)','Status'];
   hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
-  styleHdr(ws, 4, 9, 1, HDR_BLUE);
-  ws.autoFilter = 'A4:I4';
+  styleHdr(ws, 4, 5 + optVars.length, 1, HDR_BLUE);
+  ws.autoFilter = `A4:${colLetter(5 + optVars.length)}4`;
 
   (timelineData ?? []).forEach((item, idx) => {
     const r    = 5 + idx;
@@ -288,17 +284,14 @@ function buildExperimentHistory(wb, { timelineData, currentBestFWHM }) {
     dataRow(ws, r, [
       `Experiment-${idx + 1}`,
       item.type ?? 'Initial',
-      parseFloat(item.gte)  || '',
-      parseFloat(item.gti)  || '',
-      parseFloat(item.fra)  || '',
-      parseFloat(item.pressure) || '',
+      ...optVars.map(v => parseFloat((item.variables || {})[v]) || ''),
       isNaN(fwh) ? '' : parseFloat(fwh.toFixed(2)),
       isNaN(fwh) ? '' : parseFloat(fwh.toFixed(2)),
       status,
     ], 1, fill, isBest ? { bold: true, color: PURPLE_KPI } : {});
 
     // right-align numeric cols
-    [3,4,5,6,7,8].forEach(c => {
+    Array.from({length: optVars.length + 2}, (_, i) => i + 3).forEach(c => {
       ws.getCell(r, c).alignment = aln('right', 'middle');
     });
   });
@@ -368,16 +361,13 @@ function buildGPPredictions(wb, { modelInfo, timelineData }) {
 // ═══════════════════════════════════════════════════════════════════════════
 // SHEET 4 — BO Recommendations
 // ═══════════════════════════════════════════════════════════════════════════
-function buildBORecommendations(wb, { suggestion, boIterations, expectedImprovement, currentBestFWHM }) {
+function buildBORecommendations(wb, { suggestion, boIterations, expectedImprovement, currentBestFWHM, optVars }) {
   const ws = wb.addWorksheet('BO_Recommendations');
   ws.properties.tabColor = { argb: YELLOW_TAB };
 
   ws.columns = [
     { width: 12 }, // A Round
-    { width: 12 }, // B GTE
-    { width: 12 }, // C GTI
-    { width: 14 }, // D FRA
-    { width: 16 }, // E Pressure
+    ...optVars.map(() => ({ width: 14 })),
     { width: 22 }, // F Predicted FWHM
     { width: 18 }, // G Uncertainty
     { width: 24 }, // H Expected Improvement
@@ -387,20 +377,16 @@ function buildBORecommendations(wb, { suggestion, boIterations, expectedImprovem
   subtitle(ws, 'Recommended next experiment and expected improvement', 8);
   ws.getRow(3).height = 10;
 
-  const hdrs = ['Round','GTE (C)','GTI (min)','FRA (sccm)','Pressure (Torr)',
-                 'Predicted FWHM (meV)','Uncertainty (meV)','Expected Improvement (meV)'];
+  const hdrs = ['Round',...optVars,'Predicted FWHM (meV)','Uncertainty (meV)','Expected Improvement (meV)'];
   hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
-  styleHdr(ws, 4, 8, 1, HDR_ORANGE);
-  ws.autoFilter = 'A4:H4';
+  styleHdr(ws, 4, 4 + optVars.length, 1, HDR_ORANGE);
+  ws.autoFilter = `A4:${colLetter(4 + optVars.length)}4`;
 
   if (suggestion) {
     const ei = parseFloat(expectedImprovement) || 0;
     const values = [
       `BO-${(boIterations || 0) + 1}`,
-      parseFloat(suggestion.GTE_celsius)      || '',
-      parseFloat(suggestion.GTI_minutes)      || '',
-      parseFloat(suggestion.FRA_sccm)         || '',
-      parseFloat(suggestion.Pressure_Torr)    || '',
+      ...optVars.map(v => parseFloat((suggestion.variables || {})[v]) || ''),
       parseFloat(parseFloat(suggestion.predicted_FWHM_meV).toFixed(3)),
       parseFloat(parseFloat(suggestion.uncertainty_meV).toFixed(3)),
       parseFloat(ei.toFixed(3)),
@@ -408,28 +394,25 @@ function buildBORecommendations(wb, { suggestion, boIterations, expectedImprovem
     dataRow(ws, 5, values, 1, ROW_SALMON);
 
     // EI column green
-    ws.getCell(5, 8).fill = sf(GREEN_KPI);
-    ws.getCell(5, 8).font = fnt({ bold: true, size: 10, color: WHITE });
-    ws.getCell(5, 8).alignment = aln('right', 'middle');
+    ws.getCell(5, 4 + optVars.length).fill = sf(GREEN_KPI);
+    ws.getCell(5, 4 + optVars.length).font = fnt({ bold: true, size: 10, color: WHITE });
+    ws.getCell(5, 4 + optVars.length).alignment = aln('right', 'middle');
 
-    [2,3,4,5,6,7].forEach(c => { ws.getCell(5, c).alignment = aln('right', 'middle'); });
+    Array.from({length: optVars.length + 2}, (_, i) => i + 2).forEach(c => { ws.getCell(5, c).alignment = aln('right', 'middle'); });
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SHEET 5 — Candidate Ranking (Top 20 by EI)
 // ═══════════════════════════════════════════════════════════════════════════
-function buildCandidateRanking(wb, { plotData }) {
+function buildCandidateRanking(wb, { plotData, optVars }) {
   const ws = wb.addWorksheet('Candidate_Ranking');
   ws.properties.tabColor = { argb: '00B0F0' };
 
   ws.columns = [
     { width: 8  }, // A Rank
     { width: 16 }, // B Candidate Index
-    { width: 12 }, // C GTE
-    { width: 12 }, // D GTI
-    { width: 14 }, // E FRA
-    { width: 16 }, // F Pressure
+    ...optVars.map(() => ({ width: 14 })),
     { width: 22 }, // G Predicted FWHM
     { width: 20 }, // H Uncertainty
     { width: 22 }, // I Expected Improvement
@@ -439,11 +422,10 @@ function buildCandidateRanking(wb, { plotData }) {
   subtitle(ws, 'Candidates ranked by expected improvement', 9);
   ws.getRow(3).height = 10;
 
-  const hdrs = ['Rank','Candidate Index','GTE (C)','GTI (min)','FRA (sccm)',
-                 'Pressure (Torr)','Predicted FWHM (meV)','Uncertainty (meV)','Expected Improvement'];
+  const hdrs = ['Rank','Candidate Index',...optVars,'Predicted FWHM (meV)','Uncertainty (meV)','Expected Improvement'];
   hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
-  styleHdr(ws, 4, 9, 1, HDR_GREEN);
-  ws.autoFilter = 'A4:I4';
+  styleHdr(ws, 4, 5 + optVars.length, 1, HDR_GREEN);
+  ws.autoFilter = `A4:${colLetter(5 + optVars.length)}4`;
 
   // Sort search_ei by EI descending, take top 20
   const allCandidates = (plotData?.search_ei ?? [])
@@ -457,15 +439,15 @@ function buildCandidateRanking(wb, { plotData }) {
     dataRow(ws, r, [
       idx + 1,
       cand.candidate_index,
-      0, 0, 0, 0,
+      ...optVars.map(v => parseFloat((cand.variables || {})[v] || 0)),
       parseFloat(cand.predicted_FWHM_meV.toFixed(8)),
       parseFloat(cand.uncertainty_meV.toFixed(8)),
       parseFloat(cand.ei.toFixed(8)),
     ], 1, fill);
 
     // EI column bold orange
-    ws.getCell(r, 9).font = fnt({ bold: true, size: 10, color: ORANGE_KPI });
-    [3,4,5,6,7,8,9].forEach(c => { ws.getCell(r, c).alignment = aln('right', 'middle'); });
+    ws.getCell(r, 5 + optVars.length).font = fnt({ bold: true, size: 10, color: ORANGE_KPI });
+    Array.from({length: optVars.length + 3}, (_, i) => i + 3).forEach(c => { ws.getCell(r, c).alignment = aln('right', 'middle'); });
     ws.getCell(r, 1).alignment = aln('center', 'middle');
     ws.getCell(r, 2).alignment = aln('center', 'middle');
   });
@@ -599,16 +581,13 @@ function buildDiagnostics(wb, { modelInfo }) {
 // ═══════════════════════════════════════════════════════════════════════════
 // SHEET 8 — Raw Candidate Space
 // ═══════════════════════════════════════════════════════════════════════════
-function buildRawCandidateSpace(wb, { plotData }) {
+function buildRawCandidateSpace(wb, { plotData, optVars }) {
   const ws = wb.addWorksheet('Raw_Candidate');
   ws.properties.tabColor = { argb: TEAL_TAB };
 
   ws.columns = [
     { width: 18 }, // A Candidate Index
-    { width: 12 }, // B GTE
-    { width: 12 }, // C GTI
-    { width: 14 }, // D FRA
-    { width: 16 }, // E Pressure
+    ...optVars.map(() => ({ width: 14 })),
     { width: 22 }, // F Predicted FWHM
     { width: 20 }, // G Uncertainty
     { width: 22 }, // H Expected Improvement
@@ -620,11 +599,10 @@ function buildRawCandidateSpace(wb, { plotData }) {
   subtitle(ws, `${all.length} generated candidate points available`, 9);
   ws.getRow(3).height = 10;
 
-  const hdrs = ['Candidate Index','GTE (C)','GTI (min)','FRA (sccm)','Pressure (Torr)',
-                 'Predicted FWHM (meV)','Uncertainty (meV)','Expected Improvement','Selected'];
+  const hdrs = ['Candidate Index',...optVars,'Predicted FWHM (meV)','Uncertainty (meV)','Expected Improvement','Selected'];
   hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
-  styleHdr(ws, 4, 9, 1, HDR_TEAL);
-  ws.autoFilter = 'A4:I4';
+  styleHdr(ws, 4, 5 + optVars.length, 1, HDR_TEAL);
+  ws.autoFilter = `A4:${colLetter(5 + optVars.length)}4`;
 
   all.forEach((cand, idx) => {
     const r      = 5 + idx;
@@ -633,7 +611,7 @@ function buildRawCandidateSpace(wb, { plotData }) {
 
     dataRow(ws, r, [
       cand.candidate_index,
-      0, 0, 0, 0,
+      ...optVars.map(v => parseFloat((cand.variables || {})[v] || 0)),
       parseFloat(cand.predicted_FWHM_meV.toFixed(8)),
       parseFloat(cand.uncertainty_meV.toFixed(8)),
       parseFloat(cand.ei.toFixed(8)),
@@ -641,10 +619,10 @@ function buildRawCandidateSpace(wb, { plotData }) {
     ], 1, fill);
 
     if (isSel) {
-      ws.getCell(r, 9).font = fnt({ bold: true, size: 10, color: GREEN_KPI });
+      ws.getCell(r, 5 + optVars.length).font = fnt({ bold: true, size: 10, color: GREEN_KPI });
     }
-    [2,3,4,5,6,7,8].forEach(c => { ws.getCell(r, c).alignment = aln('right', 'middle'); });
-    ws.getCell(r, 9).alignment = aln('center', 'middle');
+    Array.from({length: optVars.length + 3}, (_, i) => i + 2).forEach(c => { ws.getCell(r, c).alignment = aln('right', 'middle'); });
+    ws.getCell(r, 5 + optVars.length).alignment = aln('center', 'middle');
   });
 }
 
@@ -657,6 +635,7 @@ export const generateExcelReport = async (data) => {
       currentBestFWHM, bestExpName, nExperiments, boIterations,
       expectedImprovement, timelineData, suggestion, modelInfo, plotData,
     } = data;
+    const optVars = Object.keys((timelineData && timelineData[0] && timelineData[0].variables) || (suggestion && suggestion.variables) || {});
 
     const wb = new ExcelJS.Workbook();
     wb.creator  = 'Quantum Materials AI';
@@ -664,13 +643,13 @@ export const generateExcelReport = async (data) => {
     wb.modified = new Date();
 
     buildExecutiveSummary  (wb, { currentBestFWHM, bestExpName, nExperiments, boIterations, expectedImprovement, timelineData, modelInfo });
-    buildExperimentHistory (wb, { timelineData, currentBestFWHM });
+    buildExperimentHistory (wb, { timelineData, currentBestFWHM, optVars });
     buildGPPredictions     (wb, { modelInfo, timelineData });
-    buildBORecommendations (wb, { suggestion, boIterations, expectedImprovement, currentBestFWHM });
-    buildCandidateRanking  (wb, { plotData });
+    buildBORecommendations (wb, { suggestion, boIterations, expectedImprovement, currentBestFWHM, optVars });
+    buildCandidateRanking  (wb, { plotData, optVars });
     buildImportance        (wb, { modelInfo });
     buildDiagnostics       (wb, { modelInfo });
-    buildRawCandidateSpace (wb, { plotData });
+    buildRawCandidateSpace (wb, { plotData, optVars });
 
     // Trigger browser download
     const buffer = await wb.xlsx.writeBuffer();

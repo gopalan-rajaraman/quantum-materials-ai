@@ -84,6 +84,53 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
     return response.json();
   },
 
+  parseDataset: async (files, experimentId = "Thermal CVD") => {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('files', file);
+    }
+    formData.append('experiment_id', experimentId);
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const url = `${API_BASE_URL}/api/datasets/upload/parse`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!response.ok) {
+      let errDetail = 'Failed to parse dataset';
+      try {
+        const errJson = await response.json();
+        errDetail = errJson.detail || errDetail;
+      } catch (_) {}
+      throw new Error(errDetail);
+    }
+    return response.json();
+  },
+
+  confirmImport: (payload) => 
+    request('/api/datasets/upload/confirm', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
+  getImportTemplates: (experimentId) => 
+    request(`/api/datasets/import-templates?experiment_id=${encodeURIComponent(experimentId)}`),
+
+  saveImportTemplate: (payload) => 
+    request('/api/datasets/import-templates', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
+  getExperimentVariables: (experimentId) => 
+    request(`/api/experiments/${encodeURIComponent(experimentId)}/variables`),
+
+
   uploadJsonDataset: (data, name) =>
     request('/api/datasets/upload-json', {
       method: 'POST',

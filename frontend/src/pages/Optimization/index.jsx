@@ -19,10 +19,7 @@ const Optimization = () => {
   const [fwhmResult, setFwhmResult] = useState('');
   const predictedFwhm = suggestions.length > 0 ? Number(suggestions[0].predicted_FWHM_meV) : NaN;
   const predictedUncertainty = suggestions.length > 0 ? Number(suggestions[0].uncertainty_meV) : NaN;
-  const [actualGte, setActualGte] = useState('');
-  const [actualGti, setActualGti] = useState('');
-  const [actualFra, setActualFra] = useState('');
-  const [actualPressure, setActualPressure] = useState('');
+  const [actualVariables, setActualVariables] = useState({});
   const [forceContinue, setForceContinue] = useState(false);
   
   const [submitting, setSubmitting] = useState(false);
@@ -70,10 +67,7 @@ const Optimization = () => {
 
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
-      setActualGte(suggestions[0].GTE_celsius);
-      setActualGti(suggestions[0].GTI_minutes);
-      setActualFra(suggestions[0].FRA_sccm);
-      setActualPressure(suggestions[0].Pressure_Torr);
+      setActualVariables(suggestions[0].variables || {});
     }
   }, [suggestions]);
 
@@ -120,8 +114,7 @@ const Optimization = () => {
     setSubmitting(true);
     try {
       await api.addManualExperiment({
-        GTE: parseFloat(actualGte), GTI: parseFloat(actualGti),
-        FRA: parseFloat(actualFra), Pressure: parseFloat(actualPressure),
+        variables: Object.fromEntries(Object.entries(actualVariables).map(([k, v]) => [k, parseFloat(v)])),
         PL_FWHM: parseFloat(fwhmResult)
       });
       setFwhmResult('');
@@ -159,13 +152,16 @@ const Optimization = () => {
           if (dist > 0.15) distText = 'Moderate Mismatch';
           if (dist > 0.4) distText = 'High Mismatch';
           
+          const vars = plotData.training_points.variables || {};
+          const rowVars = Object.keys(vars).reduce((acc, key) => {
+            acc[key] = sliceData(vars[key], start, end)[i];
+            return acc;
+          }, {});
+          
           return [
-            start + i + 1,
-            sliceData(plotData.training_points.gti, start, end)[i],
-            sliceData(plotData.training_points.fra, start, end)[i],
-            sliceData(plotData.training_points.pressure, start, end)[i],
-            distText,
-            sliceData(plotData.training_points.gte, start, end)[i]
+            start + i + 1, // index
+            distText,      // dist text
+            rowVars        // variables
           ];
         })
       };
@@ -191,7 +187,13 @@ const Optimization = () => {
     histCustom = zipped.map(z => z.custom);
     histOpacities = zipped.map(z => z.op);
 
-    const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>GTE: %{customdata[5]} °C<br>GTI: %{customdata[1]} min<br>FRA: %{customdata[2]} sccm<br>Pressure: %{customdata[3]} Torr<br><br><b>4D Mismatch to Slice:</b> %{customdata[4]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
+    const hoverTemplate = `<b>Experiment %{customdata[0]}</b><br><br>%{customdata[2]}<br><br><b>4D Mismatch to Slice:</b> %{customdata[1]}<br><br><b>Measured FWHM: %{y} meV</b><extra></extra>`;
+    
+    // Process histCustom to stringify variables
+    histCustom = histCustom.map(c => {
+      const varsStr = Object.entries(c[2]).map(([k, v]) => `${k}: ${v}`).join('<br>');
+      return [c[0], c[1], varsStr];
+    });
 
     const visibleHistory = plotData.ei_history || [];
     if (visibleHistory.length > 0) {
@@ -232,14 +234,11 @@ const Optimization = () => {
       const sug = suggestions && suggestions.length > 0 ? suggestions[0] : null;
       let starHover = '<b>Suggested Experiment</b><extra></extra>';
       if (sug) {
-        const gte = sug.GTE_celsius || sug.GTE || 0;
-        const gti = sug.GTI_minutes || sug.GTI || 0;
-        const fra = sug.FRA_sccm || sug.FRA || 0;
-        const pressure = sug.Pressure_Torr || sug.Pressure || 0;
+        const varsStr = Object.entries(sug.variables || {}).map(([k, v]) => `${k}: ${v}`).join('<br>');
         const predFWHM = Number(sug.predicted_FWHM_meV || 0).toFixed(1);
         const predSigma = Number(sug.uncertainty_meV || 0).toFixed(1);
         
-        starHover = `<b>Suggested Experiment</b><br><br>GTE: ${gte} °C<br>GTI: ${gti} min<br>FRA: ${fra} sccm<br>Pressure: ${pressure} Torr<br><br><b>Predicted FWHM: ${predFWHM} ± ${predSigma} meV</b><extra></extra>`;
+        starHover = `<b>Suggested Experiment</b><br><br>${varsStr}<br><br><b>Predicted FWHM: ${predFWHM} ± ${predSigma} meV</b><extra></extra>`;
       }
       gpTraces.push({
         x: [plotData.maxEITemp], y: [plotData.maxEIMu], type: 'scatter', mode: 'markers', name: 'Next Suggested Experiment',
@@ -497,10 +496,9 @@ const Optimization = () => {
                 <li><strong>Purpose:</strong> Visualize surrogate learning and uncertainty contraction.</li>
               </ul>
               <p className="text-blue-800/80 italic">
-                All Bayesian Optimization decisions and Expected Improvement calculations are computed using the full 4D GP over: [GTE, GTI, FRA, Pressure].
+                All Bayesian Optimization decisions and Expected Improvement calculations are computed using the full 4D GP over your selected optimization variables.
               </p>
             </div>
-          </div>
           <div className="h-[400px] w-full bg-slate-50/50 rounded-xl border border-slate-100 overflow-hidden relative">
              {loading && !plotData ? (
                <div className="flex h-full items-center justify-center text-slate-400">Loading model...</div>
@@ -680,22 +678,15 @@ const Optimization = () => {
               
               {suggestions.length > 0 ? (
                 <div className="space-y-4 flex-1">
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Growth Temp (GTE)</span>
-                    <span className="text-slate-900 font-bold">{suggestions[0].GTE_celsius} °C</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Growth Time (GTI)</span>
-                    <span className="text-slate-900 font-bold">{suggestions[0].GTI_minutes} min</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Ar Flow (FRA)</span>
-                    <span className="text-slate-900 font-bold">{suggestions[0].FRA_sccm} sccm</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Pressure</span>
-                    <span className="text-slate-900 font-bold">{suggestions[0].Pressure_Torr} Torr</span>
-                  </div>
+                  {Object.entries(suggestions[0].variables || {}).map(([varName, varVal]) => {
+                    const formattedVal = (typeof varVal === 'number' || !isNaN(varVal)) ? Number(varVal).toFixed(2) : varVal;
+                    return (
+                      <div key={varName} className="flex justify-between items-center border-b border-slate-100 pb-2">
+                        <span className="text-slate-500">{varName}</span>
+                        <span className="text-slate-900 font-bold">{formattedVal}</span>
+                      </div>
+                    );
+                  })}
                   
                   <div className="mt-6 pt-4 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
                     <div className="flex justify-between items-end">
@@ -780,10 +771,9 @@ const Optimization = () => {
                   <thead className="text-xs text-slate-600 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                     <tr>
                       <th className="px-4 py-3">Iter</th>
-                      <th className="px-4 py-3">GTE</th>
-                      <th className="px-4 py-3">GTI</th>
-                      <th className="px-4 py-3">FRA</th>
-                      <th className="px-4 py-3">Press</th>
+                      {boData.length > 0 && Object.keys(boData[0].variables || {}).map(key => (
+                        <th key={key} className="px-4 py-3 truncate max-w-[80px]" title={key}>{key}</th>
+                      ))}
                       <th className="px-4 py-3 text-emerald-600">FWHM</th>
                       <th className="px-4 py-3 text-[#7C4DFF]">Best So Far</th>
                     </tr>
@@ -792,10 +782,9 @@ const Optimization = () => {
                     {boData.map((row) => (
                       <tr key={`experiment-${row.step}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-900">{row.step}</td>
-                        <td className="px-4 py-3 text-slate-500">{row.gte}</td>
-                        <td className="px-4 py-3 text-slate-500">{row.gti}</td>
-                        <td className="px-4 py-3 text-slate-500">{row.fra}</td>
-                        <td className="px-4 py-3 text-slate-500">{row.pressure}</td>
+                        {Object.values(row.variables || {}).map((val, i) => (
+                          <td key={i} className="px-4 py-3 text-slate-500">{val}</td>
+                        ))}
                         <td className="px-4 py-3 font-bold text-emerald-600">{row.fwhm}</td>
                         <td className="px-4 py-3 font-bold text-[#7C4DFF]">{row.bestSoFar?.toFixed(2)}</td>
                       </tr>
@@ -820,21 +809,19 @@ const Optimization = () => {
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0">
                       <tr>
                         <th className="px-4 py-2">Sample ID</th>
-                        <th className="px-4 py-2">GTE</th>
-                        <th className="px-4 py-2">GTI</th>
-                        <th className="px-4 py-2">FRA</th>
-                        <th className="px-4 py-2">Pressure</th>
-                        <th className="px-4 py-2">FWHM</th>
+                        {initialData.length > 0 && Object.keys(initialData[0].variables || {}).map(key => (
+                          <th key={key} className="px-4 py-2 truncate max-w-[80px]" title={key}>{key}</th>
+                        ))}
+                        <th className="px-4 py-2 text-slate-700">FWHM</th>
                       </tr>
                     </thead>
                     <tbody>
                       {initialData.map((row, idx) => (
                         <tr key={`experiment-${idx + 1}`} className="border-b border-slate-100">
                           <td className="px-4 py-2 font-medium text-slate-700">{`Experiment-${idx + 1}`}</td>
-                          <td className="px-4 py-2 text-slate-500">{row.gte}</td>
-                          <td className="px-4 py-2 text-slate-500">{row.gti}</td>
-                          <td className="px-4 py-2 text-slate-500">{row.fra}</td>
-                          <td className="px-4 py-2 text-slate-500">{row.pressure}</td>
+                          {Object.values(row.variables || {}).map((val, i) => (
+                            <td key={i} className="px-4 py-2 text-slate-500">{val}</td>
+                          ))}
                           <td className="px-4 py-2 text-slate-700 font-semibold">{row.fwhm}</td>
                         </tr>
                       ))}

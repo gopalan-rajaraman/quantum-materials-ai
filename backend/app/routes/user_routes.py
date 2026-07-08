@@ -10,14 +10,14 @@ from datetime import datetime, timedelta
 from typing import Optional
  
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from pydantic import BaseModel, field_validator
  
 from app.auth import create_access_token, get_current_user
 from app.database.mongodb_config import get_activity_log_collection, get_users_collection
-from app.email_utils import send_password_reset_email, send_verification_email
+from app.email_utils import send_password_reset_email, send_verification_email, send_auth_email
  
 logger = logging.getLogger(__name__)
  
@@ -75,7 +75,7 @@ def build_auth_response(user: dict) -> dict:
  
  
 @router.post("/register")
-async def register_user(user_data: UserCreate):
+async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks):
     """Register a new user."""
     collection = get_users_collection()
     
@@ -210,7 +210,7 @@ async def reset_password(request: ResetPasswordRequest):
  
  
 @router.post("/login")
-async def login_user(login_data: UserLogin):
+async def login_user(login_data: UserLogin, request: Request, background_tasks: BackgroundTasks):
     """Login user and return user data."""
     collection = get_users_collection()
     
@@ -246,7 +246,7 @@ class GoogleLoginRequest(BaseModel):
  
  
 @router.post("/google-login")
-async def google_login(request: GoogleLoginRequest):
+async def google_login(google_req: GoogleLoginRequest, request: Request, background_tasks: BackgroundTasks):
     """Login or register user using Google OAuth."""
     try:
         # Verify the Google token
@@ -384,3 +384,24 @@ async def update_user(user_id: str, user_data: dict, current_user: dict = Depend
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
  
+
+@router.post("/logout")
+async def logout_user(request: Request, current_user: dict = Depends(get_current_user)):
+    """Log out user (records the event)."""
+    try:
+        activity_collection = get_activity_log_collection()
+        if activity_collection is not None:
+            ip_address = request.headers.get("X-Forwarded-For", request.client.host if request.client else "Unknown")
+            log_entry = {
+                "user_id": str(current_user["_id"]),
+                "action": "logout",
+                "title": "User Logout",
+                "details": f"Logged out from {ip_address}",
+                "ip_address": ip_address,
+                "timestamp": datetime.utcnow()
+            }
+            await activity_collection.insert_one(log_entry)
+    except Exception as e:
+        logger.error(f"Error logging logout: {e}")
+        
+    return {"message": "Logged out successfully"}

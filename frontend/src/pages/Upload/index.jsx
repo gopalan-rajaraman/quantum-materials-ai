@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText, Layers, Users, Shield, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText, Layers, Users, Shield, AlertCircle, ExternalLink, Zap } from 'lucide-react';
+import MapColumns from './MapColumns';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -16,30 +17,60 @@ const Upload = () => {
   // Track if we've already reserved a counter slot this session to avoid
   // double-incrementing when the user re-uploads or changes the file.
   const sessionDatasetCountRef = useRef(null);
-  const [uploadDate, setUploadDate] = useState(null);
   const [parsedData, setParsedData] = useState([]);
   const [columnsInfo, setColumnsInfo] = useState({ numerical: [], categorical: [] });
+  const [optimizationVariables, setOptimizationVariables] = useState([]);
+  
+  const [isParsing, setIsParsing] = useState(false);
+  const [uploadDate, setUploadDate] = useState(null);
   const [distributions, setDistributions] = useState({});
   const [selectedVariables, setSelectedVariables] = useState({});
   const [activeTab, setActiveTab] = useState('numerical');
   const [variableUnits, setVariableUnits] = useState({});
   const [datasetName, setDatasetName] = useState('');
+  const [datasetDescription, setDatasetDescription] = useState('');
   const [autoGenFileName, setAutoGenFileName] = useState('');
   const [datasetObjectId, setDatasetObjectId] = useState('');
-  const [boConstants, setBoConstants] = useState({
-    P1: 'W(CO)6',
-    P2: 'H2S',
-    Substrate: 'SiO2/Si',
-    CG: 'Ar',
-    COM: 'Natural',
-    PC: 'Bubbler',
-    SA: 'NaCl',
-    Class: 'Monolayer',
-    FRH: 0
-  });
+  const [constantsSchema, setConstantsSchema] = useState([]);
+  const [boConstants, setBoConstants] = useState({});
+  const [customConstants, setCustomConstants] = useState({});
+
+  React.useEffect(() => {
+    const fetchConstantsSchema = async () => {
+      try {
+        const varsRes = await api.getExperimentVariables("Thermal CVD");
+        if (varsRes.constants) {
+          setConstantsSchema(varsRes.constants);
+          const initialConstants = {};
+          varsRes.constants.forEach(c => {
+            if (c.type === 'categorical' && c.options && c.options.length > 0) {
+              initialConstants[c.name] = c.options[0];
+            } else if (c.type === 'numeric') {
+              initialConstants[c.name] = 0;
+            }
+          });
+          setBoConstants(prev => Object.keys(prev).length === 0 ? initialConstants : prev);
+        }
+      } catch (e) {
+        console.error("Failed to fetch constants schema:", e);
+      }
+    };
+    fetchConstantsSchema();
+  }, []);
 
   const updateBoConstant = (field, value) => {
     setBoConstants(prev => ({ ...prev, [field]: value }));
+    if (value !== 'Other') {
+      setCustomConstants(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const updateCustomConstant = (field, value) => {
+    setCustomConstants(prev => ({ ...prev, [field]: value }));
   };
 
   
@@ -314,6 +345,8 @@ const Upload = () => {
   };
 
   const [samplesPerExperiment, setSamplesPerExperiment] = useState(10);
+  const [importSessionId, setImportSessionId] = useState(null);
+  const [columnMapping, setColumnMapping] = useState({});
 
   const getExperimentalIds = () => {
     if (parsedData.length === 0) return [];
@@ -350,22 +383,25 @@ const Upload = () => {
     setIsLocking(true);
     setLockError(null);
     try {
-      // Separate categorical and numerical constants
-      const catConstants = {
-        P1: boConstants.P1,
-        P2: boConstants.P2,
-        Substrate: boConstants.Substrate,
-        CG: boConstants.CG,
-        COM: boConstants.COM,
-        PC: boConstants.PC,
-        SA: boConstants.SA,
-        Class: boConstants.Class
-      };
-      const numConstants = {
-        FRH: parseFloat(boConstants.FRH) || 0
-      };
+      // Separate categorical and numerical constants based on schema
+      const catConstants = {};
+      const numConstants = {};
+      
+      constantsSchema.forEach(c => {
+        if (c.type === 'categorical') {
+          catConstants[c.name] = boConstants[c.name] === 'Other' ? customConstants[c.name] : boConstants[c.name];
+        } else if (c.type === 'numeric') {
+          numConstants[c.name] = parseFloat(boConstants[c.name]) || 0;
+        }
+      });
 
-      const response = await api.uploadDataset([file], catConstants, numConstants);
+      const response = await api.confirmImport({ 
+        import_session_id: importSessionId, 
+        mapping: columnMapping, 
+        cat_constants: catConstants, 
+        num_constants: numConstants,
+        optimization_variables: optimizationVariables
+      });
 
       // Store the Mongo document ID for the uploaded dataset so lock can be persisted.
       if (response.inserted_id) {
@@ -404,69 +440,70 @@ const Upload = () => {
   };
 
   const StepsSidebar = () => {
-    const steps = [
-      { id: 1, name: 'Upload Template' },
-      { id: 2, name: 'Extract Variables' },
-      { id: 3, name: 'Dataset Details' },
-      { id: 4, name: 'Confirm & Lock' }
+    const stepsList = [
+      { id: 1, name: '1. Upload File', desc: file ? file.name : '' },
+      { id: 2, name: '2. Select Columns', desc: 'Identify target & variables' },
+      { id: 3, name: '3. Dataset Details', desc: 'Configure experiment settings' },
+      { id: 4, name: '4. Confirm & Preview', desc: 'Review before import' },
+      { id: 5, name: '5. Import & Train', desc: 'Create dataset & train GP' }
     ];
 
+    const isStep2Complete = columnMapping['PL_FWHM'] && optimizationVariables.length === 4;
+
     return (
-      <div className="w-[250px] flex-shrink-0 pr-6 border-r border-slate-100 hidden md:block">
-        <div className="space-y-10 relative mt-2">
+      <div className="w-[280px] flex-shrink-0 pr-6 border-r border-slate-100 hidden md:block">
+        <h2 className="text-lg font-bold text-slate-900 mb-8">Dataset Upload</h2>
+        
+        <div className="space-y-6 relative mb-12">
           {/* Vertical line connecting steps */}
-          <div className="absolute left-[13px] top-4 bottom-4 w-px bg-slate-200 z-0"></div>
+          <div className="absolute left-[11px] top-4 bottom-4 w-px bg-slate-100 z-0"></div>
           
-          {steps.map((s) => (
-            <div key={s.id} className="flex items-center relative z-10 bg-white">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[12px] transition-colors
-                ${step === s.id ? 'bg-[#4C3BDE] text-white' : 
-                  step > s.id ? 'bg-white border border-slate-300 text-slate-400' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                {step > s.id ? <Check className="w-3 h-3" /> : s.id}
+          {stepsList.map((s) => (
+            <div key={s.id} className={`flex relative z-10 ${step === s.id ? 'opacity-100' : 'opacity-60'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] mt-0.5 flex-shrink-0 transition-colors
+                ${step === s.id ? 'bg-[#4C3BDE] text-white ring-4 ring-indigo-50' : 
+                  step > s.id ? 'bg-[#10b981] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                {step > s.id ? <Check className="w-3.5 h-3.5" /> : s.id}
               </div>
-              <span className={`ml-4 text-[13px] font-semibold transition-colors ${step === s.id ? 'text-[#4C3BDE]' : 'text-slate-500'}`}>
-                {s.name}
-              </span>
+              <div className="ml-4">
+                <div className={`text-[13px] font-bold ${step === s.id ? 'text-[#4C3BDE]' : 'text-slate-700'}`}>
+                  {s.name}
+                </div>
+                {s.desc && (
+                  <div className={`text-[11px] mt-0.5 ${step === s.id ? 'text-indigo-500 font-medium' : 'text-slate-500'}`}>
+                    {s.desc}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
 
-        {step >= 2 && datasetId && (
-          <div className="mt-12 bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50 animate-fade-in">
-            <div className="flex items-center space-x-2 mb-4">
-              <FileSpreadsheet className="w-4 h-4 text-[#4C3BDE]" />
-              <h4 className="text-[13px] font-bold text-[#4C3BDE]">Dataset Information</h4>
-            </div>
-            
+        {/* Upload Summary Box */}
+        {file && step > 1 && (
+          <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 animate-fade-in">
+            <h4 className="text-[13px] font-bold text-slate-900 mb-4">Upload Summary</h4>
             <div className="space-y-4">
               <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Dataset ID</p>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[13px] font-semibold text-[#4C3BDE] bg-indigo-100/50 px-2 py-0.5 rounded">{datasetId}</span>
-                  <Copy className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-slate-600" />
-                </div>
+                <p className="text-[10px] font-bold text-slate-500 mb-1">File Name</p>
+                <p className="text-[12px] font-medium text-slate-800 truncate" title={file.name}>{file.name}</p>
               </div>
-
               <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Uploaded On</p>
-                <p className="text-[12px] font-medium text-slate-700">
-                  {uploadDate ? uploadDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + uploadDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}
-                </p>
+                <p className="text-[10px] font-bold text-slate-500 mb-1">Sheet</p>
+                <p className="text-[12px] font-medium text-slate-800">Sheet1</p>
               </div>
-
-
-
               <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Source File</p>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[12px] font-medium text-slate-700 truncate max-w-[150px]">{file?.name}</span>
-                  <Copy className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-slate-600" />
-                </div>
+                <p className="text-[10px] font-bold text-slate-500 mb-1">Rows (after mapping)</p>
+                <p className="text-[12px] font-medium text-slate-800">{parsedData.length || 0}</p>
               </div>
-
-              <div className="mt-4 bg-green-50 rounded-lg p-3 border border-green-100">
-                <p className="text-[11px] font-bold text-green-700 mb-0.5">Status: Active</p>
-                <p className="text-[10px] text-green-600">This dataset is ready for BO.</p>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 mb-1">Selected Variables</p>
+                <p className="text-[12px] font-medium text-slate-800">{optimizationVariables.length} / 4</p>
+              </div>
+              <div className="pt-2">
+                <button onClick={() => setStep(2)} className="text-[#4C3BDE] text-[12px] font-bold hover:underline flex items-center gap-1">
+                  View Selection <ExternalLink className="w-3 h-3" />
+                </button>
               </div>
             </div>
           </div>
@@ -635,378 +672,193 @@ const Upload = () => {
             )}
 
             {step === 2 && (
-              <div className="animate-fade-in flex flex-col h-full text-slate-800">
-                
-                {/* Header Area */}
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <div className="flex items-center gap-4 mb-3">
-                      <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{datasetId}</h2>
-                      <span className="text-[11px] font-bold text-[#4C3BDE] bg-[#F4F0FF] border border-[#E5E0FF] px-2.5 py-1 rounded-full flex items-center gap-1.5"><FlaskConical className="w-3 h-3" /> New Dataset</span>
-                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Ready</span>
-                    </div>
-                    <p className="text-slate-500 text-[14px] font-medium">Bayesian Optimization for FWHM Minimization</p>
-                  </div>
-                  <button className="px-5 py-2.5 bg-white border border-[#E5E0FF] text-[#4C3BDE] text-[13px] font-bold rounded-xl hover:bg-[#F4F0FF] transition-colors shadow-sm flex items-center gap-2">
-                    <PieChart className="w-4 h-4" /> Preview Setup
-                  </button>
-                </div>
-                
-                {/* Main Middle Panels */}
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                  
-                  {/* Left: Optimization Variables */}
-                  <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-col">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                        <Activity className="w-4 h-4 text-[#4C3BDE]" />
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-[16px]">Optimization Variables</h3>
-                    </div>
-                    <p className="text-[13px] text-slate-500 mb-6">These variables will be optimized by the BO model.</p>
-                    
-                    <div className="space-y-3 flex-1">
-                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-500">
-                            <Thermometer className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[14px] text-slate-900">GTE</p>
-                            <p className="text-[12px] text-slate-500 mt-0.5">Growth Temperature</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">
-                            {dynamicRanges?.GTE ? `${dynamicRanges.GTE.min.toFixed(1)} - ${dynamicRanges.GTE.max.toFixed(1)}` : '550 - 1100'}
-                          </p>
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">°C</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center text-green-600">
-                            <Clock className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[14px] text-slate-900">GTI</p>
-                            <p className="text-[12px] text-slate-500 mt-0.5">Growth Time</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">
-                            {dynamicRanges?.GTI ? `${dynamicRanges.GTI.min.toFixed(1)} - ${dynamicRanges.GTI.max.toFixed(1)}` : '10 - 60'}
-                          </p>
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">min</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-500">
-                            <Wind className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[14px] text-slate-900">FRA</p>
-                            <p className="text-[12px] text-slate-500 mt-0.5">Ar Flow Rate</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">
-                            {dynamicRanges?.FRA ? `${dynamicRanges.FRA.min.toFixed(1)} - ${dynamicRanges.FRA.max.toFixed(1)}` : '0 - 300'}
-                          </p>
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">sccm</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:border-slate-200 hover:shadow-sm transition-all bg-white">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-500">
-                            <Gauge className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-[14px] text-slate-900">Pressure</p>
-                            <p className="text-[12px] text-slate-500 mt-0.5">Chamber Pressure</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[14px] text-slate-900">
-                            {dynamicRanges?.Pressure ? `${dynamicRanges.Pressure.min.toFixed(1)} - ${dynamicRanges.Pressure.max.toFixed(1)}` : '1 - 760'}
-                          </p>
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">Torr</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 bg-[#F8F6FF] border border-[#F0EBFF] rounded-xl p-4 flex gap-3">
-                      <Info className="w-5 h-5 text-[#4C3BDE] flex-shrink-0" />
-                      <div>
-                        <p className="text-[12px] text-[#4C3BDE] font-semibold">These variables will vary across experiments.</p>
-                        <p className="text-[12px] text-indigo-700/80 mt-0.5 font-medium">All other parameters remain constant.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Experiment Constants */}
-                  <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-col">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                        <FlaskConical className="w-4 h-4 text-[#4C3BDE]" />
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-[16px]">Experiment Constants</h3>
-                    </div>
-                    <p className="text-[13px] text-slate-500 mb-6">These parameters remain constant throughout the optimization.</p>
-                    
-                    <div className="grid grid-cols-2 gap-x-5 gap-y-4 flex-1">
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Precursor 1 (P1)</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.P1} onChange={(e) => updateBoConstant('P1', e.target.value)}>
-                            {['WO3', 'WCl6', 'W(CO)6', 'WF6'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Precursor 2 (P2)</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.P2} onChange={(e) => updateBoConstant('P2', e.target.value)}>
-                            {['Sulfur', 'H2S', 'DTBS'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Substrate</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.Substrate} onChange={(e) => updateBoConstant('Substrate', e.target.value)}>
-                            {['graphite', 'SiO2/Si', 'Sapphire (C-plane)', 'Graphene'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Carrier Gas (CG)</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.CG} onChange={(e) => updateBoConstant('CG', e.target.value)}>
-                            {['Ar', 'H2', 'H2/Ar', 'He'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Cooling Method (COM)</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.COM} onChange={(e) => updateBoConstant('COM', e.target.value)}>
-                            {['Rapid', 'Natural'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Container (PC)</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.PC} onChange={(e) => updateBoConstant('PC', e.target.value)}>
-                            {['Quartz boat', 'Al2O3 crucible', 'Bubbler', 'Sulfur boat', 'Ceramic boat', 'Gas cylinders'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Seed Additive (SA)</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.SA} onChange={(e) => updateBoConstant('SA', e.target.value)}>
-                            {['NaCl', 'SnCl4', 'None'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Class</label>
-                        <div className="relative">
-                          <select className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none cursor-pointer" value={boConstants.Class} onChange={(e) => updateBoConstant('Class', e.target.value)}>
-                            {['Monolayer', 'Nanosheets'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 col-span-2">
-                        <label className="text-[10px] text-slate-500 mb-1 block font-bold uppercase tracking-wide">Fixed Parameter (e.g., FRH)</label>
-                        <div className="relative">
-                          <input type="number" className="w-full bg-transparent text-[13px] text-slate-900 font-bold outline-none appearance-none" value={boConstants.FRH} onChange={(e) => updateBoConstant('FRH', e.target.value)} />
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 bg-[#FFF9ED] border border-[#FFEDD5] rounded-xl p-4 flex gap-3">
-                      <div className="w-5 h-5 text-orange-500 flex-shrink-0 flex items-center justify-center">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1.45.62 2.8 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg>
-                      </div>
-                      <div>
-                        <p className="text-[12px] text-orange-800 font-semibold">These constants define your experiment environment.</p>
-                        <p className="text-[12px] text-orange-600/80 mt-0.5 font-medium">You can change them for a new experiment series.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Numbering Works */}
-                <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] mb-8 flex flex-col xl:flex-row items-center gap-10">
-                  <div className="xl:w-1/3">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                        <List className="w-4 h-4 text-[#4C3BDE]" />
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-[15px]">How Experiment Numbering Works</h3>
-                    </div>
-                    <p className="text-[12px] text-slate-500 font-medium leading-relaxed">For each new dataset you upload, a new Experiment ID is assigned. Samples in the dataset are automatically numbered in sequence.</p>
-                  </div>
-                  
-                  <div className="xl:w-2/3 flex items-center justify-between text-center text-[12px] w-full gap-2">
-                    <div className="flex-1 flex flex-col items-center min-w-0">
-                      <p className="text-[#4C3BDE] font-semibold mb-3 truncate w-full">Upload Dataset</p>
-                      <div className="bg-white border border-slate-200 rounded-lg p-2.5 px-3 inline-flex items-center gap-2 shadow-sm max-w-full overflow-hidden">
-                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" /> <span className="text-slate-700 font-medium truncate">{file?.name || 'dataset.xlsx'}</span>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0 mx-1" />
-                    <div className="flex-1 flex flex-col items-center min-w-0">
-                      <p className="text-[#4C3BDE] font-bold mb-3 truncate w-full">Assigned ID</p>
-                      <div className="text-lg lg:text-xl font-extrabold text-[#4C3BDE] truncate w-full">{datasetId}</div>
-                      <p className="text-indigo-400 font-bold mt-1.5">(New)</p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0 mx-1" />
-                    <div className="flex-1 flex flex-col items-center min-w-0">
-                      <p className="text-green-600 font-bold mb-3 truncate w-full">Experiment Numbers</p>
-                      <div className="bg-green-50 border border-green-200 rounded-xl py-2.5 px-3 flex flex-wrap justify-center items-center gap-2 font-mono font-bold text-green-700 text-[10px] lg:text-[11px] w-full">
-                        <span className="truncate">{datasetId}_001</span> <span className="text-green-400 flex-shrink-0">...</span> <span className="truncate">{datasetId}_{parsedData.length.toString().padStart(3, '0')}</span>
-                      </div>
-                      <p className="text-green-600 font-bold mt-2">(For {parsedData.length} samples)</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <p className="text-center text-[11px] font-medium text-slate-400 mb-8 mt-[-10px]">If you upload another dataset, a new ID will be created (e.g., EXP_009) and numbering will start from EXP_009_001.</p>
-
-                {/* Summary & Footer */}
-                <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)] flex flex-col mb-4 relative overflow-hidden">
-                  
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-[#4C3BDE]" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-[16px]">Experiment Summary</h3>
-                      <p className="text-[12px] text-slate-500 font-medium mt-0.5">Review your configuration before proceeding</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-                    <div className="bg-[#F8F6FF] rounded-xl p-6 text-center border border-[#E5E0FF] flex flex-col items-center justify-center">
-                      <FlaskConical className="w-7 h-7 text-[#4C3BDE] mb-4" />
-                      <p className="text-[12px] text-slate-500 font-bold mb-1.5">Experiment ID (New)</p>
-                      <p className="text-xl font-extrabold text-[#4C3BDE] mb-2">{datasetId}</p>
-                      <p className="text-[11px] text-slate-500 font-medium">Automatically assigned<br/>for this dataset</p>
-                    </div>
-                    <div className="bg-[#F0FDF4] rounded-xl p-6 text-center border border-[#DCFCE7] flex flex-col items-center justify-center">
-                      <Thermometer className="w-7 h-7 text-green-600 mb-4" />
-                      <p className="text-[12px] text-green-700 font-bold mb-1.5">Samples in Dataset</p>
-                      <p className="text-xl font-extrabold text-green-700 mb-2">{parsedData.length}</p>
-                      <p className="text-[11px] text-green-600/80 font-medium">Will be numbered automatically<br/>{datasetId}_001 to {datasetId}_{parsedData.length.toString().padStart(3, '0')}</p>
-                    </div>
-                    <div className="bg-[#F8FAFC] rounded-xl p-6 text-center border border-[#E2E8F0] flex flex-col items-center justify-center">
-                      <Activity className="w-7 h-7 text-blue-500 mb-4" />
-                      <p className="text-[12px] text-slate-500 font-bold mb-1.5">Optimization Variables</p>
-                      <p className="text-xl font-extrabold text-slate-900 mb-2">4</p>
-                      <p className="text-[11px] text-slate-500 font-medium">GTE, GTI, FRA, Pressure<br/>(To be optimized)</p>
-                    </div>
-                    <div className="bg-[#FFF7ED] rounded-xl p-6 text-center border border-[#FFEDD5] flex flex-col items-center justify-center">
-                      <FlaskConical className="w-7 h-7 text-orange-500 mb-4" />
-                      <p className="text-[12px] text-orange-700 font-bold mb-1.5">Constants</p>
-                      <p className="text-xl font-extrabold text-orange-700 mb-2">9</p>
-                      <p className="text-[11px] text-orange-600/80 font-medium">Fixed environment<br/>parameters</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-end pt-6 border-t border-slate-100">
-                    <button 
-                      onClick={() => setStep(3)} 
-                      className="px-12 py-3.5 bg-[#4020f5] text-white rounded-xl font-bold hover:bg-[#3D2EB0] transition-all shadow-md text-[14px] flex items-center space-x-3 mb-2"
-                    >
-                      <span>Review & Proceed</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                    <p className="text-[11px] font-medium text-slate-500 mr-2">You can review all settings in the next step.</p>
-                  </div>
-                </div>
-              </div>
+              <MapColumns
+                datasetId={datasetId}
+                file={file}
+                setStep={setStep}
+                importSessionId={importSessionId}
+                setImportSessionId={setImportSessionId}
+                columnMapping={columnMapping}
+                setColumnMapping={setColumnMapping}
+                optimizationVariables={optimizationVariables}
+                setOptimizationVariables={setOptimizationVariables}
+                numericalColumns={columnsInfo.numerical}
+                fileColumns={Object.keys(selectedVariables)}
+              />
             )}
 
             {step === 3 && (
-              <div className="animate-fade-in flex h-full">
-                <div className="max-w-2xl w-full mx-auto mt-8">
-                  <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Dataset Details</h2>
-                    <p className="text-slate-500 text-[14px]">
-                      Provide a name for your dataset before proceeding.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8">
-                    <div className="mb-8">
-                      <label className="block text-[13px] font-bold text-slate-700 mb-2">
-                        Dataset Name <span className="text-red-500">*</span>
-                      </label>
-                      <input 
-                        type="text" 
-                        value={datasetName}
-                        onChange={(e) => setDatasetName(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-[14px] text-slate-800"
-                      />
-                      <p className="text-[12px] text-slate-500 mt-2">A clear and descriptive name helps you identify this dataset easily.</p>
+              <div className="animate-fade-in flex flex-col h-full w-full max-w-[1000px] mx-auto mt-4">
+                <div className="mb-8">
+                  <h2 className="text-[22px] font-bold text-slate-900 mb-1">Step 3: Dataset Details & Experiment Configuration</h2>
+                  <p className="text-slate-500 text-[14px]">
+                    Provide dataset information and set the global experiment configuration (constants).
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="col-span-1 md:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                    <div className="flex items-center gap-2 mb-6 text-indigo-600">
+                      <FileText className="w-5 h-5" />
+                      <h3 className="text-[15px] font-bold text-slate-900">Dataset Details</h3>
                     </div>
-
-                    <div>
-                      <label className="block text-[13px] font-bold text-slate-700 mb-2">
-                        Auto-generated filename
-                      </label>
-                      <div className="flex items-center">
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[13px] font-bold text-slate-700 mb-2">
+                          Dataset Name <span className="text-red-500">*</span>
+                        </label>
                         <input 
                           type="text" 
-                          value={autoGenFileName}
-                          readOnly
-                          className="w-full px-4 py-3 rounded-l-lg border border-slate-200 bg-slate-50 focus:outline-none text-[13px] text-slate-600 font-mono"
+                          value={datasetName}
+                          onChange={(e) => setDatasetName(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[13px] text-slate-800"
                         />
-                        <button className="px-4 py-3 border-y border-r border-slate-200 bg-slate-50 rounded-r-lg hover:bg-slate-100 transition-colors text-slate-500" title="Copy" onClick={() => navigator.clipboard.writeText(autoGenFileName)}>
-                          <Copy className="w-4 h-4" />
-                        </button>
+                        <p className="text-[11px] text-slate-500 mt-2">A unique, descriptive name for this dataset.</p>
                       </div>
-                      <p className="text-[12px] text-slate-500 mt-2">This is the system filename. You can rename your dataset above.</p>
+                      
+                      <div>
+                        <label className="block text-[13px] font-bold text-slate-700 mb-2">
+                          Description
+                        </label>
+                        <textarea 
+                          value={datasetDescription}
+                          onChange={(e) => setDatasetDescription(e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[13px] text-slate-800 resize-none"
+                        ></textarea>
+                        <p className="text-[11px] text-slate-500 mt-2">Optional description of the dataset.</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
+                  <div className="col-span-1 bg-indigo-50/50 rounded-xl border border-indigo-100 p-6 flex flex-col justify-center">
+                    <div className="flex items-center gap-2 mb-4 text-[#4C3BDE]">
+                      <Info className="w-4 h-4" />
+                      <h4 className="font-bold text-[13px]">About Experiment Configuration</h4>
+                    </div>
+                    <p className="text-[12px] text-slate-600 leading-relaxed">
+                      These values are constant for all experiments in this dataset. They describe the setup and materials used and are not expected to change between rows.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Experiment Configuration Section */}
+                {constantsSchema.length > 0 && (
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-8 flex-1">
+                    <div className="flex items-center gap-2 mb-1 text-purple-600">
+                      <FlaskConical className="w-5 h-5" />
+                      <h3 className="text-[15px] font-bold text-slate-900">
+                        Experiment Configuration (Constants)
+                      </h3>
+                    </div>
+                    <p className="text-slate-500 text-[12px] mb-6">
+                      Set the fixed parameters for this experiment. These values will be applied to all rows in this dataset.
+                    </p>
+
+                    {/* Categorical Constants */}
+                    <div className="mb-8">
+                      <h4 className="font-bold text-slate-900 mb-4 text-[13px]">Categorical Constants</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {constantsSchema.filter(c => c.type === 'categorical').map(c => (
+                          <div key={c.name}>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 mb-1.5">
+                              {c.label || c.name}
+                              <Info className="w-3 h-3 text-slate-400" />
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={boConstants[c.name] || ''}
+                                onChange={(e) => updateBoConstant(c.name, e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[12px] text-slate-800 bg-white hover:bg-slate-50 transition-colors appearance-none"
+                              >
+                                {c.options?.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                                <option value="Other">Other...</option>
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                            {boConstants[c.name] === 'Other' && (
+                              <div className="mt-3 animate-fade-in">
+                                <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 mb-1.5">
+                                  Custom Value <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder={`Enter ${c.label ? c.label.toLowerCase() : c.name.toLowerCase()}...`}
+                                  value={customConstants[c.name] || ''}
+                                  onChange={(e) => updateCustomConstant(c.name, e.target.value)}
+                                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[12px] text-slate-800 bg-white"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Numerical Constants */}
+                    <div className="mb-6">
+                      <h4 className="font-bold text-slate-900 mb-4 text-[13px]">Numerical Constants</h4>
+                      <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                        {constantsSchema.filter(c => c.type === 'numeric').map(c => (
+                          <div key={c.name}>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 mb-1.5">
+                              {c.label || c.name}
+                              <Info className="w-3 h-3 text-slate-400" />
+                            </label>
+                            <input
+                              type="number"
+                              value={boConstants[c.name] !== undefined ? boConstants[c.name] : ''}
+                              onChange={(e) => updateBoConstant(c.name, e.target.value)}
+                              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[12px] text-slate-800 bg-white hover:bg-slate-50 transition-colors"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Bottom Banner */}
+                    <div className="bg-purple-50/50 rounded-lg border border-purple-100 p-4 flex items-center gap-3">
+                      <Zap className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span className="text-[12px] font-medium text-purple-800">
+                        Categorical constants use predefined values. Click "Other..." to enter a custom value.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-auto pb-4">
+                  <button 
+                    onClick={() => setStep(2)}
+                    className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px] flex items-center gap-2"
+                  >
+                    Back to Selection
+                  </button>
+                  <div className="flex items-center gap-3">
                     <button 
-                      onClick={() => setStep(2)}
-                      className="px-6 py-2.5 border border-slate-200 bg-white text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[14px]"
+                      onClick={() => {}}
+                      className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px]"
                     >
-                      Previous
+                      Save Draft
                     </button>
                     <button 
-                      onClick={() => setStep(4)}
-                      className="px-6 py-2.5 bg-[#4020f5] text-white rounded-lg font-bold hover:bg-[#3D2EB0] transition-all shadow-md text-[14px] flex items-center space-x-2"
+                      onClick={() => {
+                        if (!datasetName.trim()) {
+                          alert("Please provide a dataset name.");
+                          return;
+                        }
+                        const missingCustoms = constantsSchema.filter(c => c.type === 'categorical' && boConstants[c.name] === 'Other' && (!customConstants[c.name] || !customConstants[c.name].trim()));
+                        if (missingCustoms.length > 0) {
+                          alert(`Please provide a custom value for: ${missingCustoms.map(c => c.label || c.name).join(', ')}`);
+                          return;
+                        }
+                        setStep(4);
+                      }}
+                      className="px-6 py-2.5 bg-[#1d4ed8] text-white rounded-lg font-bold hover:bg-[#1e40af] transition-all shadow-md text-[13px] flex items-center space-x-2"
                     >
-                      <span>Continue</span>
+                      <span>Continue to Review</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>

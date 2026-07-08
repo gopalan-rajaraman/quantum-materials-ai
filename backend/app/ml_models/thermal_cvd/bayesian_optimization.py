@@ -13,10 +13,7 @@ from dataclasses import dataclass
 class BORecommendation:
     """Single Bayesian Optimization recommendation."""
     step: int
-    GTE: float
-    GTI: float
-    FRA: float
-    Pressure: float
+    variables: Dict[str, float]
     predicted_FWHM: float
     uncertainty: float
     EI_value: float
@@ -113,10 +110,7 @@ class BayesianOptimizationEngine:
             pred_mev = float(mu[0])
             rec = BORecommendation(
                 step=rank,
-                GTE=float(var_dict['GTE']),
-                GTI=float(var_dict['GTI']),
-                FRA=float(var_dict['FRA']),
-                Pressure=float(var_dict['Pressure']),
+                variables={var: float(val) for var, val in var_dict.items()},
                 predicted_FWHM=pred_mev,
                 uncertainty=float(sigma[0]),
                 EI_value=float(ei_values[idx]),
@@ -190,10 +184,7 @@ class BayesianOptimizationEngine:
             # Create recommendation
             rec = BORecommendation(
                 step=step + 1,
-                GTE=float(var_dict['GTE']),
-                GTI=float(var_dict['GTI']),
-                FRA=float(var_dict['FRA']),
-                Pressure=float(var_dict['Pressure']),
+                variables={var: float(val) for var, val in var_dict.items()},
                 predicted_FWHM=float(y_new),
                 uncertainty=float(sigma_new[0]),
                 EI_value=float(ei_vals[idx_best]),
@@ -222,10 +213,7 @@ class BayesianOptimizationEngine:
         return [
             {
                 'step': rec.step,
-                'GTE_celsius': round(rec.GTE, 2),
-                'GTI_minutes': round(rec.GTI, 2),
-                'FRA_sccm': round(rec.FRA, 2),
-                'Pressure_Torr': round(rec.Pressure, 2),
+                'variables': rec.variables,
                 'predicted_FWHM_meV': round(rec.predicted_FWHM, 2),
                 'uncertainty_meV': round(rec.uncertainty, 2),
                 'EI_value': round(rec.EI_value, 6),

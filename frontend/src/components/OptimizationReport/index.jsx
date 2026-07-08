@@ -149,7 +149,7 @@ export const OptimizationReport = React.forwardRef(({
 
         <SectionTitle num="1" title="EXECUTIVE SUMMARY" />
 
-        <div className="grid grid-cols-4 border border-slate-200 rounded-sm mb-10 divide-x divide-slate-200">
+        <div className="grid grid-cols-5 border border-slate-200 rounded-sm mb-10 divide-x divide-slate-200">
           <div className="p-5 flex flex-col justify-center">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Best FWHM Achieved</span>
             <span className="text-3xl font-bold text-[#2f277a]">{currentBestFWHM?.toFixed(1) || '--'} meV</span>
@@ -159,12 +159,16 @@ export const OptimizationReport = React.forwardRef(({
             <span className="text-3xl font-bold text-[#2f277a]">{bestExpName}</span>
           </div>
           <div className="p-5 flex flex-col justify-center">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Number of Experiments</span>
-            <span className="text-3xl font-bold text-[#2f277a]">{nExperiments}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Initial Samples</span>
+            <span className="text-3xl font-bold text-[#2f277a]">{nExperiments - boIterations}</span>
           </div>
           <div className="p-5 flex flex-col justify-center">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Number of BO Iterations</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">BO Iterations</span>
             <span className="text-3xl font-bold text-[#2f277a]">{boIterations}</span>
+          </div>
+          <div className="p-5 flex flex-col justify-center">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Total Experiments</span>
+            <span className="text-3xl font-bold text-[#2f277a]">{nExperiments}</span>
           </div>
         </div>
 
@@ -176,7 +180,7 @@ export const OptimizationReport = React.forwardRef(({
             The Gaussian Process model uses the measured Thermal CVD experiments to estimate both expected FWHM and posterior uncertainty. This allows the optimization loop to compare known high-performing regions against less explored regions that may still contain better recipes.
           </div>
           <div>
-            The parameter analysis indicates that <strong>Pressure</strong> contributes the largest share of the measured response variation in this dataset, so the next search should control that parameter carefully while validating the BO recommendation experimentally.
+            The parameter analysis indicates which variable contributes the largest share of the measured response variation in this dataset. The next search should control that parameter carefully while validating the BO recommendation experimentally.
           </div>
         </div>
       </PageContainer>
@@ -256,31 +260,21 @@ export const OptimizationReport = React.forwardRef(({
           </div>
           
           <div className="w-1/2 flex flex-col justify-center">
-             <div className="flex justify-between border-b border-slate-100 py-3">
-               <span className="text-[14px] text-slate-600 font-medium">Growth temperature</span>
-               <span className="text-[14px] text-slate-900 font-bold">{bestExpData?.gte} C</span>
+            {Object.entries(bestExpData?.variables || {}).map(([key, val]) => (
+             <div key={key} className="flex justify-between border-b border-slate-100 py-3">
+               <span className="text-[14px] text-slate-600 font-medium">{key}</span>
+               <span className="text-[14px] text-slate-900 font-bold">{val}</span>
              </div>
-             <div className="flex justify-between border-b border-slate-100 py-3">
-               <span className="text-[14px] text-slate-600 font-medium">Growth time</span>
-               <span className="text-[14px] text-slate-900 font-bold">{bestExpData?.gti} min</span>
-             </div>
-             <div className="flex justify-between border-b border-slate-100 py-3">
-               <span className="text-[14px] text-slate-600 font-medium">Ar flow</span>
-               <span className="text-[14px] text-slate-900 font-bold">{bestExpData?.fra} sccm</span>
-             </div>
-             <div className="flex justify-between py-3">
-               <span className="text-[14px] text-slate-600 font-medium">Pressure</span>
-               <span className="text-[14px] text-slate-900 font-bold">{bestExpData?.pressure} Torr</span>
-             </div>
+            ))}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-8 text-[13px] text-slate-700 leading-relaxed mb-12">
           <div>
-            This result was achieved at <strong>{bestExpData?.pressure} Torr</strong> pressure and <strong>{bestExpData?.gte}°C</strong> growth temperature. The model identifies <strong>Pressure</strong> as the dominant variable explaining FWHM variation. The best experiment's performance suggests an optimum in this region of parameter space.
+            This result was achieved with the parameters listed above. The model analyzes these parameters to identify the dominant variables explaining FWHM variation, suggesting an optimum in this region of parameter space.
           </div>
           <div>
-            Since <strong>Pressure</strong> is the most influential parameter, the next search should prioritize careful control of this variable while exploring nearby conditions. The observed FWHM of <strong>{currentBestFWHM?.toFixed(1)} meV</strong> serves as the baseline for measuring improvement. Any new condition must exceed this value to constitute genuine progress in the optimization campaign.
+            The observed FWHM of <strong>{currentBestFWHM?.toFixed(1)} meV</strong> serves as the baseline for measuring improvement. The next search should prioritize careful control while exploring nearby conditions. Any new condition must exceed this baseline value to constitute genuine progress in the optimization campaign.
           </div>
         </div>
 
@@ -293,22 +287,15 @@ export const OptimizationReport = React.forwardRef(({
            </div>
 
            <div className="grid grid-cols-4 gap-4 text-center mb-10">
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Growth Temperature</div>
-                <div className="text-xl font-bold text-[#2f277a]">{suggestion?.GTE_celsius || '--'}°C</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Growth Time</div>
-                <div className="text-xl font-bold text-[#2f277a]">{suggestion?.GTI_minutes || '--'} min</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Ar Flow Rate</div>
-                <div className="text-xl font-bold text-[#2f277a]">{suggestion?.FRA_sccm || '--'} sccm</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Pressure</div>
-                <div className="text-xl font-bold text-[#2f277a]">{suggestion?.Pressure_Torr || '--'} Torr</div>
-              </div>
+              {Object.entries(suggestion?.variables || {}).map(([key, val]) => {
+                const formattedVal = (typeof val === 'number' || !isNaN(val)) ? Number(val).toFixed(2) : val;
+                return (
+                  <div key={key}>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-2 truncate" title={key}>{key}</div>
+                    <div className="text-xl font-bold text-[#2f277a]">{formattedVal}</div>
+                  </div>
+                );
+              })}
            </div>
 
            <div className="grid grid-cols-3 gap-4 text-center mb-8">
@@ -342,10 +329,9 @@ export const OptimizationReport = React.forwardRef(({
           <thead className="border-b-[2px] border-[#2f277a] text-[10px] font-bold text-slate-900 uppercase">
             <tr>
               <th className="py-4">Experiment ID</th>
-              <th className="py-4">GTE<br/>(C)</th>
-              <th className="py-4">GTI<br/>(MIN)</th>
-              <th className="py-4">FRA<br/>(SCCM)</th>
-              <th className="py-4">Pressure<br/>(TORR)</th>
+              {Object.keys(timelineData?.[0]?.variables || {}).map(key => (
+                <th key={key} className="py-4">{key}</th>
+              ))}
               <th className="py-4">Actual FWHM<br/>(MEV)</th>
               <th className="py-4">Predicted FWHM<br/>(MEV)</th>
               <th className="py-4">Status</th>
@@ -357,10 +343,9 @@ export const OptimizationReport = React.forwardRef(({
               return (
                 <tr key={idx} className={`border-b border-slate-200 ${isBest ? 'bg-[#f8f7ff] text-[#2f277a] font-medium' : 'text-slate-700'}`}>
                   <td className="py-3">Experiment {idx + 1}</td>
-                  <td className="py-3">{row.gte}</td>
-                  <td className="py-3">{row.gti}</td>
-                  <td className="py-3">{row.fra}</td>
-                  <td className="py-3">{row.pressure}</td>
+                  {Object.values(row.variables || {}).map((val, i) => (
+                    <td key={i} className="py-3">{val}</td>
+                  ))}
                   <td className="py-3 font-semibold">{parseFloat(row.fwhm).toFixed(1)}</td>
                   <td className="py-3">{parseFloat(row.fwhm).toFixed(1)}</td>
                   <td className="py-3">{isBest ? 'Best observed' : (row.type === 'Initial' ? 'Training sample' : 'BO Sample')}</td>
