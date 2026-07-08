@@ -108,6 +108,8 @@ const Upload = () => {
 
   const parseFile = async (selectedFile) => {
     setFile(selectedFile);
+    setColumnMapping({});
+    setOptimizationVariables([]);
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {

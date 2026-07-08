@@ -91,14 +91,23 @@ const MapColumns = ({
     );
   }
 
-  const hasTarget = !!columnMapping['PL_FWHM'];
-  const has4OptVars = optimizationVariables.length === 4;
-  const isReady = hasTarget && has4OptVars;
-
   // Derive numerical columns for optimization vars (use passed prop if available, else filter parsedCols naively)
   const availableNumerical = numericalColumns && numericalColumns.length > 0 
     ? numericalColumns 
     : parsedCols; // Fallback if index.jsx didn't pass it yet
+
+  const validOptVars = availableNumerical.filter(c => c !== columnMapping['PL_FWHM']);
+  const validSelectedVars = optimizationVariables.filter(v => validOptVars.includes(v));
+
+  useEffect(() => {
+    if (columnMapping['PL_FWHM'] && validOptVars.length === 4 && validSelectedVars.length < 4) {
+      setOptimizationVariables(validOptVars);
+    }
+  }, [columnMapping['PL_FWHM'], validOptVars.join(','), validSelectedVars.length, setOptimizationVariables]);
+
+  const hasTarget = !!columnMapping['PL_FWHM'];
+  const has4OptVars = validSelectedVars.length === 4;
+  const isReady = hasTarget && has4OptVars;
 
   return (
     <div className="animate-fade-in flex flex-col h-full text-slate-800">
@@ -141,9 +150,9 @@ const MapColumns = ({
         </p>
         
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {availableNumerical.filter(c => c !== columnMapping['PL_FWHM']).map(col => {
-            const isSelected = optimizationVariables.includes(col);
-            const isMaxedOut = !isSelected && optimizationVariables.length >= 4;
+          {validOptVars.map(col => {
+            const isSelected = validSelectedVars.includes(col);
+            const isMaxedOut = !isSelected && validSelectedVars.length >= 4;
             
             return (
               <div 
@@ -168,10 +177,10 @@ const MapColumns = ({
           })}
         </div>
         
-        {optimizationVariables.length !== 4 && (
+        {validSelectedVars.length !== 4 && (
           <div className="mt-6 flex items-center gap-2 p-3 bg-amber-50 text-amber-700 rounded-lg border border-amber-100 text-[12px] font-semibold">
             <AlertCircle className="w-4 h-4" />
-            Please select {4 - optimizationVariables.length} more optimization {4 - optimizationVariables.length === 1 ? 'variable' : 'variables'}.
+            Please select {4 - validSelectedVars.length} more optimization {4 - validSelectedVars.length === 1 ? 'variable' : 'variables'}.
           </div>
         )}
       </div>
