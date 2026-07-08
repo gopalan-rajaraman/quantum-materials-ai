@@ -72,6 +72,19 @@ const MapColumns = ({
     });
   };
 
+  const availableNumerical = numericalColumns && numericalColumns.length > 0 
+    ? numericalColumns 
+    : parsedCols; // Fallback if index.jsx didn't pass it yet
+
+  const validOptVars = availableNumerical.filter(c => c !== columnMapping['PL_FWHM']);
+  const validSelectedVars = optimizationVariables.filter(v => validOptVars.includes(v));
+
+  useEffect(() => {
+    if (columnMapping['PL_FWHM'] && validOptVars.length === 4 && validSelectedVars.length < 4) {
+      setOptimizationVariables(validOptVars);
+    }
+  }, [columnMapping['PL_FWHM'], validOptVars.join(','), validSelectedVars.length, setOptimizationVariables]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-slate-500">
@@ -90,20 +103,6 @@ const MapColumns = ({
       </div>
     );
   }
-
-  // Derive numerical columns for optimization vars (use passed prop if available, else filter parsedCols naively)
-  const availableNumerical = numericalColumns && numericalColumns.length > 0 
-    ? numericalColumns 
-    : parsedCols; // Fallback if index.jsx didn't pass it yet
-
-  const validOptVars = availableNumerical.filter(c => c !== columnMapping['PL_FWHM']);
-  const validSelectedVars = optimizationVariables.filter(v => validOptVars.includes(v));
-
-  useEffect(() => {
-    if (columnMapping['PL_FWHM'] && validOptVars.length === 4 && validSelectedVars.length < 4) {
-      setOptimizationVariables(validOptVars);
-    }
-  }, [columnMapping['PL_FWHM'], validOptVars.join(','), validSelectedVars.length, setOptimizationVariables]);
 
   const hasTarget = !!columnMapping['PL_FWHM'];
   const has4OptVars = validSelectedVars.length === 4;
