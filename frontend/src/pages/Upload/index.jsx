@@ -119,16 +119,8 @@ const Upload = () => {
         
         if (data.length > 0) {
           const headers = Object.keys(data[0] || {});
-          const hasFWHM = headers.some(h => h.toUpperCase().includes('FWHM'));
-          if (!hasFWHM) {
-            alert('Target Variable (FWHM) column not found. Please upload a dataset containing the target variable.');
-            setFile(null);
-            return;
-          }
-
           let numColsCount = 0;
           headers.forEach(key => {
-            if (key.toUpperCase().includes('FWHM')) return; // exclude target
             let isNum = true;
             for (let i = 0; i < Math.min(data.length, 10); i++) {
               let val = data[i][key];
@@ -142,8 +134,8 @@ const Upload = () => {
             if (isNum) numColsCount++;
           });
 
-          if (numColsCount < 4) {
-            alert('At least 4 numerical columns are required for optimization.');
+          if (numColsCount < 5) {
+            alert('At least 5 numerical columns are required (1 target + 4 optimization variables).');
             setFile(null);
             return;
           }
