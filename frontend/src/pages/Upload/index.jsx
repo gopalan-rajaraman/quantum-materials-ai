@@ -313,7 +313,7 @@ const Upload = () => {
 
     // Calculate dynamic ranges for Optimization Variables (matches backend logic)
     const calcDynamicRanges = {};
-    ['GTE', 'GTI', 'FRA', 'Pressure'].forEach(v => {
+    numerical.forEach(v => {
       let vals = [];
       for (let i = 0; i < data.length; i++) {
         let val = data[i][v];

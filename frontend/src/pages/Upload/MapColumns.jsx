@@ -115,7 +115,7 @@ const MapColumns = ({
             <h3 className="text-[15px] font-bold text-slate-900">Target Variable</h3>
           </div>
           <label className="block text-[12px] font-bold text-slate-700 mb-2">
-            Target Variable (e.g. PL FWHM) <span className="text-red-500">*</span>
+            Target Variable <span className="text-red-500">*</span>
           </label>
           <select
             value={columnMapping['PL_FWHM'] || ""}
@@ -127,7 +127,7 @@ const MapColumns = ({
               <option key={col} value={col}>{col}</option>
             ))}
           </select>
-          <p className="text-[11px] text-slate-500 mt-2">The output value that Bayesian Optimization will minimize or maximize.</p>
+          <p className="text-[11px] text-slate-500 mt-2">Choose the column representing the optimization objective (e.g., FWHM).</p>
         </div>
       </div>
 
