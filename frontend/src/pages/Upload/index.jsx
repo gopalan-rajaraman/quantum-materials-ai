@@ -118,11 +118,36 @@ const Upload = () => {
         const data = XLSX.utils.sheet_to_json(ws);
         
         if (data.length > 0) {
-          if (data.length < 7) {
-            alert('Error: Uploaded file must contain at least 7 experimental entries. Please upload a file with more data.');
+          const headers = Object.keys(data[0] || {});
+          const hasFWHM = headers.some(h => h.toUpperCase().includes('FWHM'));
+          if (!hasFWHM) {
+            alert('Target Variable (FWHM) column not found. Please upload a dataset containing the target variable.');
             setFile(null);
             return;
           }
+
+          let numColsCount = 0;
+          headers.forEach(key => {
+            if (key.toUpperCase().includes('FWHM')) return; // exclude target
+            let isNum = true;
+            for (let i = 0; i < Math.min(data.length, 10); i++) {
+              let val = data[i][key];
+              if (val !== undefined && val !== null && val !== '' && val !== 'NS') {
+                if (typeof val === 'string' && isNaN(Number(val))) {
+                  isNum = false;
+                  break;
+                }
+              }
+            }
+            if (isNum) numColsCount++;
+          });
+
+          if (numColsCount < 4) {
+            alert('At least 4 numerical columns are required for optimization.');
+            setFile(null);
+            return;
+          }
+
           if (sessionDatasetCountRef.current === null) {
             try {
               const res = await api.fetchSavedDatasets();
@@ -146,8 +171,7 @@ const Upload = () => {
             return {
               ...row,
               Dataset_ID: dsId,
-              Exp_Number: expId,
-              'PL FWHM': row['PL FWHM'] || (Math.random() * 50 + 50).toFixed(2)
+              Exp_Number: expId
             };
           });
 
