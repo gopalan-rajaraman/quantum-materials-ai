@@ -200,11 +200,6 @@ const Datasets = () => {
                 className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-[220px] focus:outline-none focus:ring-1 focus:ring-[#4C3BDE]"
               />
             </div>
-            
-            <button className="flex items-center space-x-2 text-slate-600 px-3 py-1.5 hover:bg-slate-50 rounded border border-slate-200 transition-colors text-[12px] font-semibold ml-2">
-              <Filter className="w-3.5 h-3.5" />
-              <span>More Filters</span>
-            </button>
           </div>
  
           <div className="flex items-center space-x-4">

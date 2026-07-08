@@ -643,6 +643,25 @@ def get_bo_progress(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/virtual-space")
+def get_virtual_space(current_user: dict = Depends(get_current_user)):
+    """Get the full generated virtual search space as a list of dictionaries."""
+    opt = get_optimizer(current_user["_id"])
+    if opt is None or not getattr(opt, '_fitted', False) or getattr(opt, 'X_search', None) is None:
+        raise HTTPException(status_code=503, detail="Search space not generated yet")
+    
+    try:
+        X_raw = opt.encoder.scaler_X.inverse_transform(opt.X_search)
+        var_names = opt.encoder.VARIABLES
+        
+        virtual_space = []
+        for row in X_raw:
+            virtual_space.append({var_names[i]: float(row[i]) for i in range(len(var_names))})
+            
+        return {"search_space": virtual_space}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/variables-distribution")
 def get_variables_distribution(current_user: dict = Depends(get_current_user)):

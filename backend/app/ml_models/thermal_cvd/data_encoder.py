@@ -98,9 +98,12 @@ class ThermalCVDEncoder:
                 if len(series) > 0:
                     v_min = float(series.min())
                     v_max = float(series.max())
-                    # Add a 20% margin to the search space range
-                    margin = max((v_max - v_min) * 0.2, 1.0)
-                    self.VARIABLE_RANGES[var] = (max(0.0, v_min - margin), v_max + margin)
+                    v_avg = float(series.mean())
+                    
+                    # Calculate ranges using abs(avg - min) and avg + max as requested
+                    lower_limit = abs(v_avg - v_min)
+                    upper_limit = v_avg + v_max
+                    self.VARIABLE_RANGES[var] = (lower_limit, upper_limit)
                 else:
                     self.VARIABLE_RANGES[var] = (0.0, 1000.0) # Default fallback
             else:

@@ -532,9 +532,20 @@ async def confirm_import(
         
         insert_result = await datasets_collection.insert_one(dataset_record)
         
-        # 6. Trigger GP Asynchronously
-        import asyncio
-        asyncio.create_task(run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables, payload.initial_training_size))
+        # 6. Trigger GP Synchronously to get search space
+        await run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables, payload.initial_training_size)
+        
+        search_space = []
+        variable_ranges = {}
+        opt = cvd_routes.get_optimizer(current_user["_id"])
+        if opt and getattr(opt, '_fitted', False) and getattr(opt, 'X_search', None) is not None:
+            X_raw = opt.encoder.scaler_X.inverse_transform(opt.X_search)
+            var_names = opt.encoder.VARIABLES
+            for row in X_raw:
+                search_space.append({var_names[i]: float(row[i]) for i in range(len(var_names))})
+            for var in var_names:
+                v_min, v_max = opt.encoder.VARIABLE_RANGES[var]
+                variable_ranges[var] = [float(v_min), float(v_max)]
         
         # Cleanup
         try:
@@ -547,6 +558,8 @@ async def confirm_import(
             "status": "success",
             "inserted_id": str(insert_result.inserted_id),
             "message": "Dataset imported successfully",
+            "search_space": search_space,
+            "variable_ranges": variable_ranges,
             "report": {
                 "rows_processed": total_rows,
                 "variables_mapped": len(payload.mapping),
