@@ -418,7 +418,8 @@ async def parse_dataset(
             "import_session_id": session_id,
             "columns": columns,
             "preview": preview,
-            "duplicate_headers": duplicate_headers
+            "duplicate_headers": duplicate_headers,
+            "total_rows": len(df)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -430,8 +431,11 @@ class ConfirmImportPayload(BaseModel):
     template_id: Optional[str] = None
     save_as_template: Optional[bool] = False
     template_name: Optional[str] = None
-    cat_constants: Optional[Dict[str, str]] = None
-    num_constants: Optional[Dict[str, float]] = None
+    cat_constants: Optional[Dict[str, str]] = {}
+    num_constants: Optional[Dict[str, float]] = {}
+    initial_training_size: Optional[int] = None
+    start_idx: Optional[int] = None
+    end_idx: Optional[int] = None
 
 @router.post("/upload/confirm")
 async def confirm_import(
@@ -462,7 +466,12 @@ async def confirm_import(
             
         total_rows = len(df)
         
-        # 3. Apply Mapping
+        # 3. Apply slice if a specific batch was selected
+        if payload.start_idx is not None and payload.end_idx is not None:
+            df = df.iloc[payload.start_idx:payload.end_idx].reset_index(drop=True)
+            total_rows = len(df)
+            
+        # 4. Apply Mapping
         # mapping is { internal_name: excel_column }
         # We need to rename dataframe columns from excel_column -> internal_name
         inverted_mapping = {v: k for k, v in payload.mapping.items()}
@@ -525,7 +534,7 @@ async def confirm_import(
         
         # 6. Trigger GP Asynchronously
         import asyncio
-        asyncio.create_task(run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables))
+        asyncio.create_task(run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables, payload.initial_training_size))
         
         # Cleanup
         try:
@@ -547,7 +556,7 @@ async def confirm_import(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-async def run_gp_training_async(df, user_id, optimization_variables):
+async def run_gp_training_async(df, user_id, optimization_variables, initial_training_size=None):
     """Background task to train GP."""
     try:
         if cvd_routes.optimizer_instance is not None:
@@ -561,6 +570,9 @@ async def run_gp_training_async(df, user_id, optimization_variables):
             
             if len(train_df) > 0:
                 cvd_routes.optimizer_instance.load_training_data(train_df)
+                if initial_training_size is not None:
+                    cvd_routes.optimizer_instance._training_info['initial_samples'] = min(initial_training_size, len(train_df))
+                
                 cvd_routes.optimizer_instance.generate_search_space(n_points=5000)
                 cvd_routes.optimizer_instance.train_gp()
                 cvd_routes.set_optimizer(user_id, cvd_routes.optimizer_instance)

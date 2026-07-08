@@ -13,7 +13,8 @@ const MapColumns = ({
   optimizationVariables,
   setOptimizationVariables,
   numericalColumns,
-  fileColumns
+  fileColumns,
+  setTotalRows
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,6 +33,9 @@ const MapColumns = ({
           session = parseRes.import_session_id;
           cols = parseRes.columns;
           setImportSessionId(session);
+          if (setTotalRows && parseRes.total_rows) {
+            setTotalRows(parseRes.total_rows);
+          }
         }
         
         setParsedCols(cols);

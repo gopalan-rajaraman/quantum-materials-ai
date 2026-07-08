@@ -212,7 +212,7 @@ const Optimization = () => {
       {
         x: plotData.x.concat(plotData.x.slice().reverse()),
         y: plotData.mu.map((m, i) => m + 1.96 * plotData.sigma[i]).concat(plotData.mu.map((m, i) => m - 1.96 * plotData.sigma[i]).reverse()),
-        type: 'scatter', fill: 'toself', fillcolor: 'rgba(241, 196, 15, 0.2)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
+        type: 'scatter', fill: 'toself', fillcolor: 'rgba(255, 213, 0, 0.4)', opacity: 1, line: {color: 'transparent'}, name: '95% confidence interval', hoverinfo: 'skip'
       },
       {
         x: plotData.x, y: plotData.mu, type: 'scatter', mode: 'lines', name: 'Surrogate model', line: {color: '#2C3E50', width: 2, dash: 'dash'}, hoverinfo: 'skip'
@@ -499,6 +499,7 @@ const Optimization = () => {
                 All Bayesian Optimization decisions and Expected Improvement calculations are computed using the full 4D GP over your selected optimization variables.
               </p>
             </div>
+          </div>
           <div className="h-[400px] w-full bg-slate-50/50 rounded-xl border border-slate-100 overflow-hidden relative">
              {loading && !plotData ? (
                <div className="flex h-full items-center justify-center text-slate-400">Loading model...</div>
@@ -536,7 +537,7 @@ const Optimization = () => {
           
           <div className="space-y-5 flex-1 opacity-90">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-sm border border-amber-400" style={{backgroundColor: 'rgba(241, 196, 15, 0.2)'}}></div>
+              <div className="w-4 h-4 rounded-sm border border-amber-500" style={{backgroundColor: 'rgba(255, 213, 0, 0.4)'}}></div>
               <div className="text-sm"><span className="text-amber-600 font-bold">Soft Gold:</span> <span className="text-slate-500">95% Confidence Interval</span></div>
             </div>
             <div className="flex items-center gap-3">

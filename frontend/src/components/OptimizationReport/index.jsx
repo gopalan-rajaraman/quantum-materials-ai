@@ -149,26 +149,26 @@ export const OptimizationReport = React.forwardRef(({
 
         <SectionTitle num="1" title="EXECUTIVE SUMMARY" />
 
-        <div className="grid grid-cols-5 border border-slate-200 rounded-sm mb-10 divide-x divide-slate-200">
-          <div className="p-5 flex flex-col justify-center">
+        <div className="grid grid-cols-12 border border-slate-200 rounded-sm mb-10 divide-x divide-slate-200">
+          <div className="p-4 flex flex-col justify-center col-span-3">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Best FWHM Achieved</span>
-            <span className="text-3xl font-bold text-[#2f277a]">{currentBestFWHM?.toFixed(1) || '--'} meV</span>
+            <span className="text-2xl font-bold text-[#2f277a]">{currentBestFWHM?.toFixed(1) || '--'} meV</span>
           </div>
-          <div className="p-5 flex flex-col justify-center">
+          <div className="p-4 flex flex-col justify-center col-span-3">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Best Experiment</span>
-            <span className="text-3xl font-bold text-[#2f277a]">{bestExpName}</span>
+            <span className="text-2xl font-bold text-[#2f277a] break-words leading-tight">{bestExpName}</span>
           </div>
-          <div className="p-5 flex flex-col justify-center">
+          <div className="p-4 flex flex-col justify-center col-span-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Initial Samples</span>
-            <span className="text-3xl font-bold text-[#2f277a]">{nExperiments - boIterations}</span>
+            <span className="text-2xl font-bold text-[#2f277a]">{nExperiments - boIterations}</span>
           </div>
-          <div className="p-5 flex flex-col justify-center">
+          <div className="p-4 flex flex-col justify-center col-span-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">BO Iterations</span>
-            <span className="text-3xl font-bold text-[#2f277a]">{boIterations}</span>
+            <span className="text-2xl font-bold text-[#2f277a]">{boIterations}</span>
           </div>
-          <div className="p-5 flex flex-col justify-center">
+          <div className="p-4 flex flex-col justify-center col-span-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Total Experiments</span>
-            <span className="text-3xl font-bold text-[#2f277a]">{nExperiments}</span>
+            <span className="text-2xl font-bold text-[#2f277a]">{nExperiments}</span>
           </div>
         </div>
 
@@ -325,16 +325,16 @@ export const OptimizationReport = React.forwardRef(({
         
         <SectionTitle num="5" title="COMPLETE EXPERIMENT HISTORY" />
 
-        <table className="w-full text-[12px] text-left">
-          <thead className="border-b-[2px] border-[#2f277a] text-[10px] font-bold text-slate-900 uppercase">
+        <table className="w-full text-[11px] text-left table-fixed">
+          <thead className="border-b-[2px] border-[#2f277a] text-[9px] font-bold text-slate-900 uppercase">
             <tr>
-              <th className="py-4">Experiment ID</th>
+              <th className="py-3 px-2 w-[14%]">Experiment ID</th>
               {Object.keys(timelineData?.[0]?.variables || {}).map(key => (
-                <th key={key} className="py-4">{key}</th>
+                <th key={key} className="py-3 px-2">{key}</th>
               ))}
-              <th className="py-4">Actual FWHM<br/>(MEV)</th>
-              <th className="py-4">Predicted FWHM<br/>(MEV)</th>
-              <th className="py-4">Status</th>
+              <th className="py-3 px-2 w-[11%]">Actual FWHM<br/>(MEV)</th>
+              <th className="py-3 px-2 w-[11%]">Predicted FWHM<br/>(MEV)</th>
+              <th className="py-3 px-2 w-[14%]">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -342,13 +342,13 @@ export const OptimizationReport = React.forwardRef(({
               const isBest = parseFloat(row.fwhm) === currentBestFWHM;
               return (
                 <tr key={idx} className={`border-b border-slate-200 ${isBest ? 'bg-[#f8f7ff] text-[#2f277a] font-medium' : 'text-slate-700'}`}>
-                  <td className="py-3">Experiment {idx + 1}</td>
+                  <td className="py-3 px-2">Experiment {idx + 1}</td>
                   {Object.values(row.variables || {}).map((val, i) => (
-                    <td key={i} className="py-3">{val}</td>
+                    <td key={i} className="py-3 px-2 break-words">{val}</td>
                   ))}
-                  <td className="py-3 font-semibold">{parseFloat(row.fwhm).toFixed(1)}</td>
-                  <td className="py-3">{parseFloat(row.fwhm).toFixed(1)}</td>
-                  <td className="py-3">{isBest ? 'Best observed' : (row.type === 'Initial' ? 'Training sample' : 'BO Sample')}</td>
+                  <td className="py-3 px-2 font-semibold">{parseFloat(row.fwhm).toFixed(1)}</td>
+                  <td className="py-3 px-2">{parseFloat(row.fwhm).toFixed(1)}</td>
+                  <td className="py-3 px-2 leading-tight">{isBest ? 'Best observed' : (row.type === 'Initial' ? 'Training sample' : 'BO Sample')}</td>
                 </tr>
               )
             })}
