@@ -857,7 +857,15 @@ const Upload = () => {
                   </button>
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={() => {}}
+                      onClick={() => {
+                        const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
+                        const existing = drafts.find(d => d.id === datasetId);
+                        if (existing) {
+                          existing.name = datasetName || existing.name;
+                          localStorage.setItem('draftDatasets', JSON.stringify(drafts));
+                        }
+                        alert("Draft saved successfully! You can resume it from the Datasets page later.");
+                      }}
                       className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px]"
                     >
                       Save Draft
