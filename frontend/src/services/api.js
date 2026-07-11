@@ -16,6 +16,7 @@ const request = async (path, options = {}) => {
   
   const response = await fetch(url, {
     headers,
+    credentials: 'include',
     cache: 'no-store',
     ...options,
   });
@@ -71,6 +72,7 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
     const response = await fetch(url, {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: formData,
     });
     if (!response.ok) {
@@ -99,6 +101,7 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
     const response = await fetch(url, {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: formData,
     });
     if (!response.ok) {
@@ -141,6 +144,9 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
   unlockDataset: (id) => request(`/api/datasets/${id}/unlock`, { method: 'POST' }),
   deleteDataset: (id) => request(`/api/datasets/${id}`, { method: 'DELETE' }),
   getDataset: (id) => request(`/api/datasets/${id}`),
+  fetchDatasets: () => request('/api/datasets/list'),
+  activateDataset: (id) => request(`/api/datasets/${id}/activate`, { method: 'POST' }),
+  getActiveDataset: () => request('/api/users/active-dataset'),
 
   // Thermal CVD Model
   fetchModelInfo: () => request('/thermal-cvd/info'),
@@ -186,6 +192,9 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
       method: 'POST',
       body: JSON.stringify(payload)
     }),
+
+  // Results (scoped to active dataset)
+  getResults: () => request('/thermal-cvd/results'),
 };
 
 export default api;

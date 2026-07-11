@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Cpu, LineChart, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Target, Cpu, LineChart, AlertTriangle, ArrowLeft, Upload, Database, FolderOpen, ChevronRight } from 'lucide-react';
 import Plot from 'react-plotly.js';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 
 const Results = () => {
-  const [results, setResults] = useState(null);
+  // View state: LOADING | NO_DATASET | SELECT_DATASET | RESULTS
+  const [view, setView] = useState('LOADING');
   const [loading, setLoading] = useState(true);
+  const [activeDataset, setActiveDataset] = useState(null);
+  const [datasets, setDatasets] = useState([]);
+  const [activatingId, setActivatingId] = useState(null);
+
+  // BO Results state
+  const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [boProgress, setBoProgress] = useState(null);
   const [modelInfo, setModelInfo] = useState(null);
@@ -14,31 +21,59 @@ const Results = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkProgressAndFetch = async () => {
+    async function loadResults() {
       try {
-        // First check BO progress
-        const progressData = await api.getBoProgress();
-        setBoProgress(progressData);
-        
-        if (!progressData.can_access_results) {
-          setError(`Complete ${progressData.min_required_steps} BO Loop iterations to access results. Current: ${progressData.total_steps} steps completed.`);
+        // Step 1: Check for active dataset
+        const activeResp = await api.getActiveDataset();
+
+        if (!activeResp.active_dataset) {
+          // No active dataset — check if user has any datasets
+          const datasetsResp = await api.fetchDatasets();
+
+          if (!datasetsResp.datasets || datasetsResp.datasets.length === 0) {
+            setView('NO_DATASET');
+          } else {
+            setDatasets(datasetsResp.datasets);
+            setView('SELECT_DATASET');
+          }
           setLoading(false);
           return;
         }
-        
-        // If progress is sufficient, fetch optimization results
-        const data = await api.runOptimization(10);
-        setResults(data);
 
-        // Fetch model info (for feature importances)
+        // Active dataset exists — set it immediately so header shows the badge
+        setActiveDataset(activeResp.active_dataset);
+        setView('RESULTS');
+
+        // Step 2: Fetch full results scoped to this dataset_id
         try {
-          const infoData = await api.fetchModelInfo();
-          setModelInfo(infoData);
-        } catch (e) {
-          console.error("Failed to fetch model info:", e);
+          const resultsResp = await api.getResults();
+
+          // Progress / readiness check
+          if (resultsResp.progress) {
+            setBoProgress(resultsResp.progress);
+          }
+
+          // Set optimization results
+          if (resultsResp.optimization) {
+            setResults(resultsResp.optimization);
+          }
+
+          // Set model info (feature importances)
+          if (resultsResp.model_info) {
+            setModelInfo(resultsResp.model_info);
+          }
+        } catch (resultsErr) {
+          // 404 means no active dataset (race condition) — already handled above
+          if (resultsErr.message && resultsErr.message.includes('No active dataset')) {
+            setView('NO_DATASET');
+            setLoading(false);
+            return;
+          }
+          console.error("Results fetch error:", resultsErr);
+          setError(resultsErr.message);
         }
 
-        // Fetch surface data (for contour plot)
+        // Step 3: Fetch surface data (independent, optional)
         try {
           const sData = await api.getSurfaceData({ var_x: 'GTE', var_y: 'GTI', grid_size: 20 });
           setSurfaceData(sData);
@@ -46,25 +81,175 @@ const Results = () => {
           console.error("Failed to fetch surface data:", e);
         }
       } catch (err) {
+        console.error("Results load error:", err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
-    };
-    
-    checkProgressAndFetch();
+    }
+
+    loadResults();
   }, []);
 
-  if (loading) {
+  // Handle activating a dataset from the selector
+  const handleActivateDataset = async (datasetId) => {
+    setActivatingId(datasetId);
+    try {
+      await api.activateDataset(datasetId);
+      // Reload the page to trigger the full Results flow
+      window.location.reload();
+    } catch (err) {
+      setError(err.message);
+      setActivatingId(null);
+    }
+  };
+
+  // ─── LOADING ────────────────────────────────────────────
+  if (loading && view === 'LOADING') {
     return (
       <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
         <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-        <div className="text-xl font-medium text-slate-700">Running full Bayesian Optimization sequence...</div>
+        <div className="text-xl font-medium text-slate-700">Loading Results…</div>
+        <p className="text-slate-500 mt-2">Checking your dataset and optimization status.</p>
+      </div>
+    );
+  }
+
+  // ─── NO DATASET ─────────────────────────────────────────
+  if (view === 'NO_DATASET') {
+    return (
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
+        <div className="bg-white rounded-3xl p-12 border border-slate-200 shadow-sm max-w-lg w-full text-center">
+          <div className="w-20 h-20 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-6">
+            <FolderOpen className="w-10 h-10 text-indigo-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">No Dataset Yet</h2>
+          <p className="text-slate-500 mb-8 leading-relaxed">
+            Upload a dataset to start Bayesian Optimization. Once you have data, the AI will help you find optimal synthesis parameters.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate('/datasets/upload')}
+              className="flex items-center justify-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+            >
+              <Upload className="w-5 h-5" />
+              <span>Upload Dataset</span>
+            </button>
+            <button
+              onClick={() => navigate('/datasets')}
+              className="flex items-center justify-center space-x-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all"
+            >
+              <Database className="w-5 h-5" />
+              <span>Browse Datasets</span>
+            </button>
+          </div>
+
+          {/* Empty state cards */}
+          <div className="grid grid-cols-2 gap-3 mt-10">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Historical Observations</p>
+              <p className="text-sm text-slate-500">No data</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Surrogate Model</p>
+              <p className="text-sm text-slate-500">Not trained</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Acquisition Function</p>
+              <p className="text-sm text-slate-500">No data</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Next Suggestion</p>
+              <p className="text-sm text-slate-500">No suggestion available</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── SELECT DATASET ─────────────────────────────────────
+  if (view === 'SELECT_DATASET') {
+    return (
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
+        <div className="bg-white rounded-3xl p-10 border border-slate-200 shadow-sm max-w-2xl w-full">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+              <Database className="w-8 h-8 text-amber-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Select a Dataset</h2>
+            <p className="text-slate-500">Choose a dataset to continue with Bayesian Optimization results.</p>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm mb-6">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {datasets.map((ds) => (
+              <div
+                key={ds._id}
+                className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center group-hover:border-indigo-200">
+                    <Database className="w-5 h-5 text-slate-400 group-hover:text-indigo-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800">{ds.name || 'Unnamed Dataset'}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {ds.row_count || ds.total_experiments || 0} experiments · {ds.status || 'ready'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleActivateDataset(ds._id)}
+                  disabled={activatingId === ds._id}
+                  className="flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {activatingId === ds._id ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Opening…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Open</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/datasets/upload')}
+              className="text-sm text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+            >
+              + Upload a new dataset
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── RESULTS: BO Still Loading ──────────────────────────
+  if (loading && view === 'RESULTS') {
+    return (
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
+        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <div className="text-xl font-medium text-slate-700">Running full Bayesian Optimization sequence…</div>
         <p className="text-slate-500 mt-2">Computing n steps of convergence.</p>
       </div>
     );
   }
 
+  // ─── RESULTS: Error / BO Incomplete ─────────────────────
   if (error) {
     return (
       <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
@@ -102,17 +287,34 @@ const Results = () => {
     );
   }
 
+  // ─── RESULTS: No results loaded yet ─────────────────────
+  if (!results) {
+    return (
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[600px]">
+        <div className="text-slate-500">No results available.</div>
+      </div>
+    );
+  }
+
   // Find the best recommendation (lowest FWHM)
   const bestRec = results.recommendations.reduce((prev, curr) => 
     prev.predicted_FWHM_meV < curr.predicted_FWHM_meV ? prev : curr
   );
 
+  // ─── RESULTS: Full Dashboard ────────────────────────────
   return (
     <div className="p-8 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between mb-10">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-1">Result Summary</h2>
-          <p className="text-slate-500">Overall Summary of the entire BO loop after convergence.</p>
+          <p className="text-slate-500">
+            Overall Summary of the entire BO loop after convergence.
+            {activeDataset && (
+              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                {activeDataset.dataset_name}
+              </span>
+            )}
+          </p>
         </div>
         <button 
           onClick={() => navigate('/optimization')}
