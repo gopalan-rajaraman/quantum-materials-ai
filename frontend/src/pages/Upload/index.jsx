@@ -404,6 +404,7 @@ const Upload = () => {
       if (response.inserted_id) {
         setDatasetObjectId(response.inserted_id);
         await api.lockDataset(response.inserted_id);
+        await api.activateDataset(response.inserted_id); // Auto-activate newly uploaded dataset
       }
 
       // Store search space and variable ranges

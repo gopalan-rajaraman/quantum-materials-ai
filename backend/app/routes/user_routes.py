@@ -176,14 +176,20 @@ async def register_user(user_data: UserCreate, request: Request, response: Respo
     result = await collection.insert_one(user)
     user["_id"] = result.inserted_id
  
-    email_sent = True
     try:
         await send_verification_email(user_data.email, user_data.full_name, verification_token)
         logger.info("Verification email sent to %s", user_data.email)
     except Exception:
         logger.exception("Failed to send verification email to %s", user_data.email)
         email_sent = False
- 
+        
+    background_tasks.add_task(
+        send_auth_email,
+        event="signup",
+        to_email=user_data.email,
+        user=user
+    )
+
     auth_data = await handle_successful_login(user, response, request, provider="local", remember_me=False)
     
     if email_sent:
@@ -308,6 +314,18 @@ async def login_user(login_data: UserLogin, request: Request, response: Response
     
     if user["password_hash"] != hash_password(login_data.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+    ip_address = request.headers.get("X-Forwarded-For", request.client.host if request.client else "Unknown").split(",")[0].strip()
+    user_agent_str = request.headers.get("User-Agent", "Unknown")
+    
+    background_tasks.add_task(
+        send_auth_email,
+        event="login",
+        to_email=user["email"],
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent_str
+    )
     
     return await handle_successful_login(user, response, request, provider="local", remember_me=login_data.remember_me)
  
@@ -356,6 +374,8 @@ async def google_login(google_req: GoogleLoginRequest, request: Request, respons
                 
             if update_data:
                 await collection.update_one({"_id": user["_id"]}, {"$set": update_data})
+            
+            event_type = "login"
         else:
             # Create new user
             new_user = {
@@ -375,6 +395,19 @@ async def google_login(google_req: GoogleLoginRequest, request: Request, respons
             result = await collection.insert_one(new_user)
             user = new_user
             user["_id"] = result.inserted_id
+            
+            event_type = "signup"
+            
+        ip_address = request.headers.get("X-Forwarded-For", request.client.host if request.client else "Unknown").split(",")[0].strip()
+        user_agent_str = request.headers.get("User-Agent", "Unknown")
+        background_tasks.add_task(
+            send_auth_email,
+            event=event_type,
+            to_email=email,
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent_str
+        )
  
         return await handle_successful_login(user, response, request, provider="google", remember_me=google_req.remember_me)
     except ValueError as e:

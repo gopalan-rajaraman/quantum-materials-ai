@@ -76,6 +76,8 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="User not found")
 
     user["_id"] = str(user["_id"])
+    if user.get("active_dataset_id"):
+        user["active_dataset_id"] = str(user["active_dataset_id"])
     user.pop("password_hash", None)
     user.pop("verification_token", None)
     user["current_sid"] = sid

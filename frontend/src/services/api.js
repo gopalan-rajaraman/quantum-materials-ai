@@ -1,4 +1,6 @@
 const API_BASE_URL = 'http://localhost:8000';
+import { clearAuth } from '../utils/auth';
+
 
 const request = async (path, options = {}) => {
   const url = `${API_BASE_URL}${path}`;
@@ -22,12 +24,20 @@ const request = async (path, options = {}) => {
   });
   
   if (!response.ok) {
+    if (response.status === 401 && !path.includes('/login') && !path.includes('/signup')) {
+      clearAuth();
+      window.location.href = '/login';
+    }
+    
     let errorDetail = 'API Request Failed';
     try {
       const errJson = await response.json();
       errorDetail = errJson.detail || errJson.message || errorDetail;
     } catch (_) {}
-    throw new Error(errorDetail);
+    
+    const error = new Error(errorDetail);
+    error.status = response.status;
+    throw error;
   }
   
   return response.json();
@@ -35,6 +45,7 @@ const request = async (path, options = {}) => {
 
 export const api = {
   // Auth
+  fetchMe: () => request('/api/users/me'),
   login: (email, password) => 
     request('/api/users/login', {
       method: 'POST',
@@ -48,8 +59,8 @@ export const api = {
     }),
 
   // Datasets
-  fetchDashboardStats: () => request('/api/datasets/dashboard'),
-fetchSavedDatasets: () => request('/api/datasets/list'),
+  fetchDashboardStats: () => request('/api/datasets/dashboard-stats'),
+  fetchSavedDatasets: () => request('/api/datasets/list'),
   
   uploadDataset: async (files, catConstants = {}, numConstants = {}) => {
     const formData = new FormData();
@@ -144,6 +155,7 @@ fetchSavedDatasets: () => request('/api/datasets/list'),
   unlockDataset: (id) => request(`/api/datasets/${id}/unlock`, { method: 'POST' }),
   deleteDataset: (id) => request(`/api/datasets/${id}`, { method: 'DELETE' }),
   getDataset: (id) => request(`/api/datasets/${id}`),
+  getDatasetExperiments: (id, page = 1, pageSize = 1000) => request(`/api/datasets/${id}/experiments?page=${page}&page_size=${pageSize}`),
   fetchDatasets: () => request('/api/datasets/list'),
   activateDataset: (id) => request(`/api/datasets/${id}/activate`, { method: 'POST' }),
   getActiveDataset: () => request('/api/users/active-dataset'),

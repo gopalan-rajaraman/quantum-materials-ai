@@ -1,5 +1,6 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { api } from './services/api';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -19,11 +20,35 @@ import Docs from './pages/Docs';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const user = localStorage.getItem('user');
-  const token = localStorage.getItem('token');
-  if (!user || !token) {
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    api.fetchMe()
+      .then(() => {
+        if (isMounted) setIsAuthenticated(true);
+      })
+      .catch(() => {
+        if (isMounted) setIsAuthenticated(false);
+      });
+      
+    return () => { isMounted = false; };
+  }, [location.pathname]);
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
   return children;
 };
 

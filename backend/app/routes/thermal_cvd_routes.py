@@ -58,9 +58,12 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
     else:
         dataset_id = str(dataset_id)
         
-    dataset = await datasets_coll.find_one({"_id": ObjectId(dataset_id)})
+    dataset = await datasets_coll.find_one({
+        "_id": ObjectId(dataset_id),
+        "user_id": ObjectId(user_id)
+    })
     if not dataset:
-        return optimizer_instances.get('default') or optimizer_instance
+        return None  # Return None instead of default so endpoints can throw an error
         
     updated_at = dataset.get("updated_at")
     
@@ -1134,9 +1137,12 @@ async def get_results(current_user: dict = Depends(get_current_user)):
 
     dataset_id_str = str(dataset_id)
 
-    dataset = await datasets_coll.find_one({"_id": ObjectId(dataset_id_str)})
+    dataset = await datasets_coll.find_one({
+        "_id": ObjectId(dataset_id_str),
+        "user_id": ObjectId(current_user["_id"])
+    })
     if not dataset:
-        raise HTTPException(status_code=404, detail="Active dataset not found")
+        raise HTTPException(status_code=404, detail="Active dataset not found or permission denied")
 
     # --- 2. Fetch experiment history for this dataset ---
     experiments = await experiments_coll.find(

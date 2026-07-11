@@ -548,6 +548,13 @@ async def confirm_import(
         
         insert_result = await datasets_collection.insert_one(dataset_record)
         
+        # Update user's active dataset
+        from app.database.mongodb_config import get_users_collection
+        await get_users_collection().update_one(
+            {"_id": ObjectId(current_user["_id"])},
+            {"$set": {"active_dataset_id": insert_result.inserted_id}}
+        )
+        
         # 6. Trigger GP Synchronously to get search space
         await run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables, payload.initial_training_size)
         
@@ -671,7 +678,14 @@ async def upload_json_data(payload: SpreadsheetData, current_user: dict = Depend
             "data": df.to_dict(orient='records'),
             "user_id": ObjectId(current_user["_id"])
         }
-        await datasets_collection.insert_one(dataset_record)
+        insert_result = await datasets_collection.insert_one(dataset_record)
+        
+        # Update user's active dataset
+        from app.database.mongodb_config import get_users_collection
+        await get_users_collection().update_one(
+            {"_id": ObjectId(current_user["_id"])},
+            {"$set": {"active_dataset_id": insert_result.inserted_id}}
+        )
 
         if cvd_routes.optimizer_instance is not None:
             cvd_routes.optimizer_instance.load_training_data(df)

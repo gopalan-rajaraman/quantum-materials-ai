@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Database, CheckCircle2, Clock, RefreshCw, Star, Eye, MoreVertical, ChevronLeft, ChevronRight, ChevronDown, Trash2, Download } from 'lucide-react';
+import ExcelJS from 'exceljs';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 
@@ -69,20 +70,89 @@ const Experiments = () => {
   const handleDownload = async (e, exp) => {
     e.stopPropagation();
     try {
-      const dataset = await api.getDataset(exp._id || exp.id);
-      const dataStr = JSON.stringify(dataset, null, 2);
-      const blob = new Blob([dataStr], { type: "application/json" });
+      let experimentsData = [];
+      let datasetDoc = exp;
+      
+      // Try to fetch the full document just to be absolutely sure we have the latest embedded data if it exists
+      try {
+         const fullDoc = await api.getDataset(exp._id || exp.id);
+         if (fullDoc) datasetDoc = fullDoc;
+      } catch(e) {
+         console.warn("Could not fetch full dataset doc, falling back to exp summary", e);
+      }
+      
+      // 1. Check embedded data
+      if (datasetDoc.data && Array.isArray(datasetDoc.data) && datasetDoc.data.length > 0) {
+        experimentsData = datasetDoc.data;
+      } else if (datasetDoc.experiments && Array.isArray(datasetDoc.experiments) && datasetDoc.experiments.length > 0) {
+        experimentsData = datasetDoc.experiments;
+      } else {
+        // 2. Try the experiments endpoint
+        try {
+          const data = await api.getDatasetExperiments(exp._id || exp.id, 1, 10000);
+          if (data && data.data && Array.isArray(data.data)) {
+             experimentsData = data.data;
+          } else if (data && data.experiments && Array.isArray(data.experiments)) {
+             experimentsData = data.experiments;
+          } else if (Array.isArray(data)) {
+             experimentsData = data;
+          }
+        } catch (apiErr) {
+          console.warn('Backend fetch failed, possibly a draft dataset without backend experiments.', apiErr);
+        }
+      }
+      
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Dataset');
+      
+      if (experimentsData.length > 0) {
+        // Flatten variables
+        const flatData = experimentsData.map((ex, index) => {
+          if (ex.variables) {
+             return {
+               'Experiment Number': ex.experiment_number || index + 1,
+               'Type': ex.type || 'historical',
+               'FWHM (meV)': parseFloat(ex.fwhm) || '',
+               ...ex.variables
+             };
+          }
+          // Fallback if data is already flat
+          return { ...ex };
+        });
+        
+        const headers = Object.keys(flatData[0]);
+        ws.columns = headers.map(k => ({ header: k, key: k, width: 15 }));
+        
+        // Add header row styles
+        ws.getRow(1).font = { bold: true };
+        
+        ws.addRows(flatData);
+      } else {
+        ws.columns = [{ header: 'Message', key: 'msg', width: 30 }];
+        ws.addRow({ msg: 'No experiments found in this dataset.' });
+      }
+      
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${exp.name || 'dataset'}.json`;
+      
+      let fileName = exp.name || 'dataset';
+      if (fileName.toLowerCase().endsWith('.json') || fileName.toLowerCase().endsWith('.csv') || fileName.toLowerCase().endsWith('.xlsx')) {
+        fileName = fileName.substring(0, fileName.lastIndexOf('.'));
+      }
+      
+      link.download = `${fileName}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      
+      showToast('Download Complete', 'Dataset downloaded successfully as Excel file.', 'success');
     } catch (err) {
       console.error('Error downloading dataset:', err);
-      showToast('Download failed', 'The dataset could not be downloaded. Please try again or contact support.', 'error', () => handleDownload(e, exp));
+      showToast('Download failed', 'The dataset could not be downloaded. Please try again or contact support.', 'error');
     }
   };
 
@@ -284,9 +354,6 @@ const Experiments = () => {
                       <div className="flex items-center justify-end space-x-3">
                         <button onClick={(e) => handleDownload(e, exp)} className="p-1.5 text-slate-400 hover:text-white hover:bg-[#4C3BDE] rounded-md transition-all duration-200" title="Download">
                           <Download className="w-4 h-4" />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/datasets/' + (exp._id || exp.id)); showToast('Link Copied', 'Dataset link copied to clipboard.', 'success'); }} className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-indigo-50 rounded-md transition-all duration-200" title="Share">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
                         </button>
                         <button onClick={(e) => confirmDelete(e, exp._id || exp.id)} className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500 rounded-md transition-all duration-200" title="Delete">
                           <Trash2 className="w-4 h-4" />
