@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
@@ -17,26 +17,13 @@ import { getStoredUser, getUserDisplayName, logout } from '../../utils/auth';
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
   const isActive = (path) => location.pathname === path;
   const loggedInUser = getStoredUser();
   const displayName = getUserDisplayName(loggedInUser);
   const displayRole = loggedInUser?.role || 'Researcher';
   const initial = displayName.charAt(0).toUpperCase();
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleLogout = () => {
-    setMenuOpen(false);
     logout(navigate);
   };
  
@@ -90,36 +77,25 @@ const Sidebar = () => {
  
       <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
         {/* User Profile */}
-        <div className="relative" ref={menuRef}>
+        <div className="flex flex-col gap-2 p-3 bg-[#1C184B]/50 rounded-xl border border-white/5">
+          <div className="flex items-center space-x-3 px-1">
+            <div className="w-9 h-9 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white font-semibold text-[15px] shadow-inner shrink-0">
+              {initial}
+            </div>
+            <div className="text-left overflow-hidden">
+              <p className="text-[14px] font-semibold text-white leading-tight truncate">{displayName}</p>
+              <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
+            </div>
+          </div>
+
           <button
             type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors"
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-[#FCA5A5] hover:bg-white/5 transition-colors"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white font-semibold text-[15px] shadow-inner">
-                {initial}
-              </div>
-              <div className="text-left">
-                <p className="text-[14px] font-semibold text-white leading-tight">{displayName}</p>
-                <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
-              </div>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-[#8C8CA1] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span className="text-[13px] font-semibold">Log out</span>
           </button>
-
-          {menuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#1C184B] border border-[#2B256B] rounded-xl shadow-xl overflow-hidden z-20">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-[#FCA5A5] hover:bg-white/5 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="text-[13px] font-semibold">Log out</span>
-              </button>
-            </div>
-          )}
         </div>
  
         {/* Glow Info Card */}

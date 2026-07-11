@@ -195,14 +195,27 @@ async def get_saved_datasets(current_user: dict = Depends(get_current_user)):
             d_id = f'EXP_{100 + i + 1}'
         entry['id'] = d_id
         entry['target'] = 'PL_FWHM (meV)'
+        
+        # Calculate best value specific to this dataset
+        dataset_data = entry.get('data', [])
+        best_fwhm = None
+        if dataset_data:
+            for row in dataset_data:
+                val = row.get('PL_FWHM')
+                if val is not None:
+                    try:
+                        fval = float(val)
+                        if best_fwhm is None or fval < best_fwhm:
+                            best_fwhm = fval
+                    except (ValueError, TypeError):
+                        pass
+
         entry.pop('data', None)
 
         # Use actual status from database, default to 'unlocked' if not set
         entry['status'] = entry.get('status', 'unlocked')
 
-        # Pull live best value from the model if fitted
-        if cvd_routes.optimizer_instance is not None and cvd_routes.optimizer_instance._fitted:
-            best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
+        if best_fwhm is not None:
             entry['bestValue'] = f'{best_fwhm:.2f} meV'
         else:
             entry['bestValue'] = '--'

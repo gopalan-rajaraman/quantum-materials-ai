@@ -255,7 +255,7 @@ async def google_login(google_req: GoogleLoginRequest, request: Request, backgro
             raise HTTPException(status_code=500, detail="Google Client ID not configured")
             
         idinfo = id_token.verify_oauth2_token(
-            request.credential, requests.Request(), client_id,
+            google_req.credential, requests.Request(), client_id,
             clock_skew_in_seconds=10
         )
  

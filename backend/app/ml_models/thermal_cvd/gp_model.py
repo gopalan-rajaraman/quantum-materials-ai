@@ -30,7 +30,7 @@ class ThermalCVDGPModel:
         # Stable bounds as requested for sparse dataset, but relaxed to allow local structure
         self.kernel = (
             ConstantKernel(1.0, (0.1, 10.0))
-            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.1, 10.0), nu=2.5)
+            * Matern(length_scale=[1.0, 1.0, 1.0, 1.0], length_scale_bounds=(0.1, 5.0), nu=2.5)
             + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-4, 1e-1))
         )
 

@@ -210,6 +210,7 @@ class ThermalCVDOptimizer:
             y_best_scaled,
             self.encoder,
             n_suggestions=n_suggestions,
+            X_train=self.X_train,
         )
 
         # Inverse-transform predicted FWHM and uncertainty from scaled space to meV

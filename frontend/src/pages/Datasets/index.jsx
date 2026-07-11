@@ -142,7 +142,7 @@ const Datasets = () => {
         </button>
       </div>
  
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-5 flex items-center space-x-4">
           <div className="w-12 h-12 rounded-xl bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
             <Database className="w-6 h-6" />
@@ -171,16 +171,6 @@ const Datasets = () => {
             <p className="text-[11px] font-bold text-slate-500 mb-0.5">Unlocked Datasets</p>
             <p className="text-2xl font-bold text-[#1e1b4b] mb-0.5">{unlockedDatasets}</p>
             <p className="text-[10px] text-slate-400 font-semibold">Active datasets</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-5 flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500">
-            <PlayCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-500 mb-0.5">Total Runs</p>
-            <p className="text-2xl font-bold text-[#1e1b4b] mb-0.5">{totalRuns}</p>
-            <p className="text-[10px] text-slate-400 font-semibold">Model runs executed</p>
           </div>
         </div>
       </div>

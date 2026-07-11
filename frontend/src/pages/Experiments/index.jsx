@@ -10,6 +10,19 @@ const Experiments = () => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [experiments, setExperiments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [toast, setToast] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const showToast = (title, message, type = 'error', onRetry = null) => {
+    setToast({ title, message, type, onRetry });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   const fetchExperiments = async () => {
     setLoading(true);
@@ -35,50 +48,41 @@ const Experiments = () => {
     fetchExperiments();
   }, []);
 
-  const handleDelete = async (e, id) => {
+  const confirmDelete = (e, id) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this dataset? This action cannot be undone.')) {
-      return;
-    }
-    
+    setDeleteModal(id);
+  };
+
+  const handleDelete = async (id) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/datasets/saved/${id}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        // Refresh the list after successful deletion
-        fetchExperiments();
-      } else {
-        alert('Failed to delete the dataset.');
-      }
+      await api.deleteDataset(id);
+      fetchExperiments();
+      setDeleteModal(null);
+      showToast('Dataset deleted', 'The dataset was successfully deleted.', 'success');
     } catch (err) {
       console.error('Error deleting dataset:', err);
-      alert('An error occurred while trying to delete the dataset.');
+      showToast('Delete failed', 'An error occurred while trying to delete the dataset.');
+      setDeleteModal(null);
     }
   };
 
   const handleDownload = async (e, exp) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`http://localhost:8000/api/datasets/saved/${exp._id || exp.id}`);
-      if (res.ok) {
-        const dataset = await res.json();
-        const dataStr = JSON.stringify(dataset, null, 2);
-        const blob = new Blob([dataStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${exp.name || 'dataset'}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else {
-        alert('Failed to download dataset.');
-      }
+      const dataset = await api.getDataset(exp._id || exp.id);
+      const dataStr = JSON.stringify(dataset, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${exp.name || 'dataset'}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading dataset:', err);
-      alert('An error occurred while downloading.');
+      showToast('Download failed', 'The dataset could not be downloaded. Please try again or contact support.', 'error', () => handleDownload(e, exp));
     }
   };
 
@@ -93,13 +97,69 @@ const Experiments = () => {
     else if (statusFilter === 'In Progress') matchesStatus = !isCompletedOrLocked;
     
     return matchesSearch && matchesStatus;
+  }).sort((a, b) => {
+    const idA = a.id || '';
+    const idB = b.id || '';
+    if (idA > idB) return -1;
+    if (idA < idB) return 1;
+    return 0;
   });
 
-  // Use filtered experiments from API or empty array if no data
-  const displayData = filteredExperiments && filteredExperiments.length > 0 ? filteredExperiments : [];
+  const totalPages = Math.ceil(filteredExperiments.length / itemsPerPage);
+  const displayData = filteredExperiments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="w-full max-w-[1200px] mx-auto">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in flex flex-col bg-white rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-slate-200 overflow-hidden min-w-[340px]">
+          <div className="p-4 flex items-start space-x-3">
+            <div className="flex-shrink-0 mt-0.5">
+              {toast.type === 'error' ? (
+                <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-red-500 font-bold text-xs">✕</div>
+              ) : (
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h4 className="text-[14px] font-bold text-slate-900">{toast.title}</h4>
+              <p className="text-[13px] text-slate-500 mt-1">{toast.message}</p>
+            </div>
+          </div>
+          <div className="bg-slate-50 px-4 py-2 flex items-center justify-end space-x-4 border-t border-slate-100">
+            {toast.onRetry && (
+              <button onClick={toast.onRetry} className="text-[13px] font-bold text-[#4C3BDE] hover:text-[#3D2EB0] transition-colors">
+                Retry
+              </button>
+            )}
+            <button onClick={() => setToast(null)} className="text-[13px] font-bold text-slate-500 hover:text-slate-700 transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform transition-all">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4 text-red-500">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Dataset</h3>
+            <p className="text-[14px] text-slate-500 mb-6">Are you sure you want to delete this dataset? This action cannot be undone.</p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => setDeleteModal(null)} className="px-4 py-2 rounded-lg text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => handleDelete(deleteModal)} className="px-4 py-2 rounded-lg text-[13px] font-bold text-white bg-red-500 hover:bg-red-600 shadow-sm transition-colors">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#1e1b4b] mb-4">Experiments</h1>
@@ -168,12 +228,13 @@ const Experiments = () => {
                 <th className="px-4 py-5 whitespace-nowrap">Best FWHM Found</th>
 
                 <th className="px-4 py-5 whitespace-nowrap">Created On</th>
+                <th className="px-4 py-5 whitespace-nowrap text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-500 animate-pulse">
+                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500 animate-pulse">
                     Loading experiments...
                   </td>
                 </tr>
@@ -219,11 +280,24 @@ const Experiments = () => {
                       <div className="text-slate-800 font-semibold text-[13px]">{exp.date?.split(' ')[0] || '—'}</div>
                       <div className="text-[11px] text-slate-500 font-medium mt-0.5">{exp.time || (exp.date?.includes(' ') ? exp.date.split(' ')[1] : '')}</div>
                     </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex items-center justify-end space-x-3">
+                        <button onClick={(e) => handleDownload(e, exp)} className="p-1.5 text-slate-400 hover:text-white hover:bg-[#4C3BDE] rounded-md transition-all duration-200" title="Download">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/datasets/' + (exp._id || exp.id)); showToast('Link Copied', 'Dataset link copied to clipboard.', 'success'); }} className="p-1.5 text-slate-400 hover:text-[#4C3BDE] hover:bg-indigo-50 rounded-md transition-all duration-200" title="Share">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+                        </button>
+                        <button onClick={(e) => confirmDelete(e, exp._id || exp.id)} className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500 rounded-md transition-all duration-200" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center">
+                  <td colSpan="8" className="px-6 py-12 text-center">
                     <div className="text-slate-500 text-[14px]">No experiments found. Upload a dataset to get started.</div>
                   </td>
                 </tr>
@@ -235,35 +309,81 @@ const Experiments = () => {
         {/* Pagination Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white">
           <div className="text-slate-500 text-[13px] font-medium">
-            Showing {displayData.length} of {filteredExperiments.length} experiments
+            Showing {filteredExperiments.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredExperiments.length)} of {filteredExperiments.length} experiments
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-1">
-               <button className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+               <button 
+                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                 disabled={currentPage === 1}
+                 className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+               >
                   <ChevronLeft className="w-4 h-4" />
                </button>
-               <button className="w-8 h-8 flex items-center justify-center rounded-md bg-[#4C3BDE] text-white font-bold text-[13px] shadow-sm">
-                  1
-               </button>
-               <button className="w-8 h-8 flex items-center justify-center rounded-md text-slate-600 hover:bg-slate-50 font-bold text-[13px] transition-colors">
-                  2
-               </button>
-               <button className="w-8 h-8 flex items-center justify-center rounded-md text-slate-600 hover:bg-slate-50 font-bold text-[13px] transition-colors">
-                  3
-               </button>
-               <span className="px-2 text-slate-400 text-[13px]">...</span>
-               <button className="w-8 h-8 flex items-center justify-center rounded-md text-slate-600 hover:bg-slate-50 font-bold text-[13px] transition-colors">
-                  20
-               </button>
-               <button className="w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-slate-50 transition-colors">
+               
+               {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = idx + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = idx + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + idx;
+                  } else {
+                    pageNum = currentPage - 2 + idx;
+                  }
+                  
+                  return (
+                    <button 
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-md font-bold text-[13px] transition-colors ${
+                        currentPage === pageNum 
+                          ? 'bg-[#4C3BDE] text-white shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+               })}
+               
+               {totalPages > 5 && currentPage < totalPages - 2 && (
+                 <>
+                   <span className="px-2 text-slate-400 text-[13px]">...</span>
+                   <button 
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="w-8 h-8 flex items-center justify-center rounded-md text-slate-600 hover:bg-slate-50 font-bold text-[13px] transition-colors"
+                    >
+                      {totalPages}
+                    </button>
+                 </>
+               )}
+
+               <button 
+                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                 disabled={currentPage === totalPages || totalPages === 0}
+                 className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+               >
                   <ChevronRight className="w-4 h-4" />
                </button>
             </div>
             <div className="flex items-center">
-               <button className="flex items-center space-x-2 px-3 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-[13px] font-semibold bg-white shadow-sm">
-                  <span>10 / page</span>
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-               </button>
+               <div className="relative">
+                 <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="appearance-none flex items-center space-x-2 pl-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-[13px] font-semibold bg-white shadow-sm focus:outline-none focus:border-[#4C3BDE]"
+                 >
+                    <option value={10}>10 / page</option>
+                    <option value={20}>20 / page</option>
+                    <option value={50}>50 / page</option>
+                 </select>
+                 <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+               </div>
             </div>
           </div>
         </div>

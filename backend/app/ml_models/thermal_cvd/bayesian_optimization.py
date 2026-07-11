@@ -25,7 +25,7 @@ class BayesianOptimizationEngine:
     Minimizes PL FWHM using Expected Improvement (EI) acquisition.
     """
 
-    def __init__(self, xi: float = 0.01):
+    def __init__(self, xi: float = 0.005):
         """
         Initialize BO engine.
 
@@ -42,7 +42,7 @@ class BayesianOptimizationEngine:
         X: np.ndarray,
         gp,
         y_best: float,
-        xi: float = 0.01,
+        xi: float = 0.005,
     ) -> np.ndarray:
         """
         Compute Expected Improvement acquisition function.
@@ -80,6 +80,7 @@ class BayesianOptimizationEngine:
         y_best: float,
         encoder,
         n_suggestions: int = 1,
+        X_train: Optional[np.ndarray] = None,
     ) -> List[BORecommendation]:
         """
         Suggest the next experiment(s) with highest EI.
@@ -90,6 +91,7 @@ class BayesianOptimizationEngine:
             y_best: Current best observed FWHM
             encoder: ThermalCVDEncoder for decoding variables
             n_suggestions: Number of top suggestions to return
+            X_train: Optional scaled training data to compute distance to known points
 
         Returns:
             List of BORecommendation objects
@@ -101,11 +103,20 @@ class BayesianOptimizationEngine:
 
         recommendations = []
         for rank, idx in enumerate(top_indices, 1):
+            X_candidate = X_search[idx : idx + 1]
+            
             # Decode to variable space
-            var_dict = encoder.decode_variables(X_search[idx : idx + 1])
+            var_dict = encoder.decode_variables(X_candidate)
 
             # Predict FWHM at this point
-            mu, sigma = gp.predict(X_search[idx : idx + 1], return_std=True)
+            mu, sigma = gp.predict(X_candidate, return_std=True)
+            ei_val = float(ei_values[idx])
+            
+            if X_train is not None:
+                nearest_distance = float(np.min(np.linalg.norm(X_train - X_candidate, axis=1)))
+                print(f"[BO Suggestion {rank}] Predicted={mu[0]:.2f}, Std={sigma[0]:.2f}, EI={ei_val:.4f}, NearestDist={nearest_distance:.4f}")
+            else:
+                print(f"[BO Suggestion {rank}] Predicted={mu[0]:.2f}, Std={sigma[0]:.2f}, EI={ei_val:.4f}")
 
             pred_mev = float(mu[0])
             rec = BORecommendation(
@@ -113,7 +124,7 @@ class BayesianOptimizationEngine:
                 variables={var: float(val) for var, val in var_dict.items()},
                 predicted_FWHM=pred_mev,
                 uncertainty=float(sigma[0]),
-                EI_value=float(ei_values[idx]),
+                EI_value=ei_val,
             )
             recommendations.append(rec)
 

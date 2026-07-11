@@ -100,9 +100,10 @@ class ThermalCVDEncoder:
                     v_max = float(series.max())
                     v_avg = float(series.mean())
                     
-                    # Calculate ranges using abs(avg - min) and avg + max as requested
-                    lower_limit = abs(v_avg - v_min)
-                    upper_limit = v_avg + v_max
+                    # Calculate ranges using actual min/max with a 2% exploration margin
+                    margin = (v_max - v_min) * 0.02 if v_max > v_min else v_avg * 0.02
+                    lower_limit = max(0.0, v_min - margin)
+                    upper_limit = v_max + margin
                     self.VARIABLE_RANGES[var] = (lower_limit, upper_limit)
                 else:
                     self.VARIABLE_RANGES[var] = (0.0, 1000.0) # Default fallback

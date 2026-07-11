@@ -96,36 +96,12 @@ const Dashboard = () => {
       value: totalDatasets,
       icon: <Database className="w-5 h-5 text-[#5D3EBC]" />,
       iconBg: 'bg-[#F0EDFF]',
-      trend: '+ 20%',
-      trendColor: 'text-[#10B981] bg-[#E6F4EA]',
-      label: 'vs last 30 days',
     },
     {
       title: 'Total Experiments',
       value: activeExperiments,
       icon: <FlaskConical className="w-5 h-5 text-[#3B82F6]" />,
       iconBg: 'bg-[#E8F0FE]',
-      trend: '+ 12%',
-      trendColor: 'text-[#10B981] bg-[#E6F4EA]',
-      label: 'vs last 30 days',
-    },
-    {
-      title: 'Completed Runs',
-      value: completedRuns,
-      icon: <Check className="w-5 h-5 text-[#10B981]" />,
-      iconBg: 'bg-[#E6F4EA]',
-      trend: '+ 18%',
-      trendColor: 'text-[#10B981] bg-[#E6F4EA]',
-      label: 'vs last 30 days',
-    },
-    {
-      title: 'In Progress',
-      value: inProgressCount,
-      icon: <Clock className="w-5 h-5 text-[#F59E0B]" />,
-      iconBg: 'bg-[#FEF3C7]',
-      trend: '- 5%',
-      trendColor: 'text-[#EF4444] bg-[#FEE2E2]',
-      label: 'vs last 30 days',
     },
   ];
  
@@ -243,7 +219,7 @@ const Dashboard = () => {
       </div>
  
       {/* Row 1: Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {statCardsData.map((card, i) => (
           <div key={i} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
             <div className={`w-12 h-12 rounded-xl ${card.iconBg} flex items-center justify-center shrink-0`}>
@@ -253,11 +229,15 @@ const Dashboard = () => {
               <span className="text-[13px] font-semibold text-[#8C8CA1] block mb-0.5">{card.title}</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-[#0D0B2E]">{card.value}</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${card.trendColor}`}>
-                  {card.trend}
-                </span>
+                {card.trend && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${card.trendColor}`}>
+                    {card.trend}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] font-medium text-[#8C8CA1] block mt-0.5">{card.label}</span>
+              {card.label && (
+                <span className="text-[10px] font-medium text-[#8C8CA1] block mt-0.5">{card.label}</span>
+              )}
             </div>
           </div>
         ))}

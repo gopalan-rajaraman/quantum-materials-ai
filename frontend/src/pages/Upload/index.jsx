@@ -174,29 +174,6 @@ const Upload = () => {
           setParsedData(dataWithIds);
           setTotalRows(dataWithIds.length);
           analyzeColumns(dataWithIds);
-
-          // Save a draft entry to localStorage immediately so the Experiments
-          // page can show this dataset with "Unlocked" status even if the user
-          // doesn't proceed to lock it yet.
-            const now = new Date();
-            const pad = (n) => n.toString().padStart(2, '0');
-            const formattedDate = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-            
-            const draftEntry = {
-              id: dsId,
-              name: selectedFile.name.replace(/\.[^/.]+$/, ''),
-              status: 'Unlocked',
-              date: formattedDate,
-              time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-              samples: data.length,
-              sourceFile: selectedFile.name,
-              _isDraft: true,
-            };
-          const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
-          // Replace any existing draft with the same session ID
-          const filtered = drafts.filter(d => d.id !== dsId);
-          filtered.unshift(draftEntry);
-          localStorage.setItem('draftDatasets', JSON.stringify(filtered));
         }
       } catch (err) {
         console.error("Error parsing Excel:", err);
@@ -438,10 +415,6 @@ const Upload = () => {
       }
 
       setIsLocked(true);
-
-      // Remove the draft entry now that the dataset is properly locked on backend
-      const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
-      localStorage.setItem('draftDatasets', JSON.stringify(drafts.filter(d => d.id !== datasetId)));
     } catch (err) {
       console.error(err);
       setLockError(err.message);
@@ -723,7 +696,7 @@ const Upload = () => {
                       <h3 className="text-[15px] font-bold text-slate-900">Dataset Details</h3>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                       <div>
                         <label className="block text-[13px] font-bold text-slate-700 mb-2">
                           Dataset Name <span className="text-red-500">*</span>
@@ -735,19 +708,6 @@ const Upload = () => {
                           className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[13px] text-slate-800"
                         />
                         <p className="text-[11px] text-slate-500 mt-2">A unique, descriptive name for this dataset.</p>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-[13px] font-bold text-slate-700 mb-2">
-                          Description
-                        </label>
-                        <textarea 
-                          value={datasetDescription}
-                          onChange={(e) => setDatasetDescription(e.target.value)}
-                          rows={3}
-                          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[#4C3BDE] focus:ring-1 focus:ring-[#4C3BDE] text-[13px] text-slate-800 resize-none"
-                        ></textarea>
-                        <p className="text-[11px] text-slate-500 mt-2">Optional description of the dataset.</p>
                       </div>
                     </div>
                   </div>

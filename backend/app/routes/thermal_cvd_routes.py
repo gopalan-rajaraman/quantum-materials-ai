@@ -537,16 +537,19 @@ def get_plot_data(slice_mode: str = "suggestion", current_user: dict = Depends(g
                 dtype=int,
             )
             sample_indices = np.unique(np.append(sample_indices, selected_idx))
-            search_ei = [
-                {
-                    'candidate_index': int(idx),
+            search_ei = []
+            for idx in sample_indices:
+                idx = int(idx)
+                X_candidate = opt.X_search[idx : idx + 1]
+                var_dict = opt.encoder.decode_variables(X_candidate)
+                search_ei.append({
+                    'candidate_index': idx,
                     'ei': float(ei_search[idx]),
                     'predicted_FWHM_meV': float(max(mu_search[idx], 0.0)),
                     'uncertainty_meV': float(sigma_search[idx]),
                     'is_selected': bool(idx == selected_idx),
-                }
-                for idx in sample_indices
-            ]
+                    'variables': {k: float(v) for k, v in var_dict.items()},
+                })
 
         return {
             'x': x_dense.flatten().tolist(),
