@@ -3,10 +3,13 @@ Bayesian Optimization engine using Expected Improvement (EI) acquisition functio
 Suggests optimal experiments to minimize FWHM.
 """
 
+import logging
 import numpy as np
 from scipy.stats import norm
 from typing import Tuple, List, Dict, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -114,9 +117,9 @@ class BayesianOptimizationEngine:
             
             if X_train is not None:
                 nearest_distance = float(np.min(np.linalg.norm(X_train - X_candidate, axis=1)))
-                print(f"[BO Suggestion {rank}] Predicted={mu[0]:.2f}, Std={sigma[0]:.2f}, EI={ei_val:.4f}, NearestDist={nearest_distance:.4f}")
+                logger.info(f"[BO Suggestion {rank}] Predicted={mu[0]:.2f}, Std={sigma[0]:.2f}, EI={ei_val:.4f}, NearestDist={nearest_distance:.4f}")
             else:
-                print(f"[BO Suggestion {rank}] Predicted={mu[0]:.2f}, Std={sigma[0]:.2f}, EI={ei_val:.4f}")
+                logger.info(f"[BO Suggestion {rank}] Predicted={mu[0]:.2f}, Std={sigma[0]:.2f}, EI={ei_val:.4f}")
 
             pred_mev = float(mu[0])
             rec = BORecommendation(

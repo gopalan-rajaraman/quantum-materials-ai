@@ -1,6 +1,6 @@
 export function saveAuth(data) {
   if (data?.access_token) {
-    localStorage.setItem('token', data.access_token);
+    // We no longer store the token in localStorage since we use HTTP-only cookies.
   }
   if (data?.user && typeof data.user === 'object') {
     localStorage.setItem('user', JSON.stringify(data.user));
@@ -31,25 +31,20 @@ export function getUserDisplayName(user, fallback = 'Researcher') {
 }
  
 export function clearAuth() {
-  localStorage.removeItem('token');
+  // localStorage.removeItem('token'); no longer needed
   localStorage.removeItem('user');
   localStorage.removeItem('datasetCount');
   localStorage.removeItem('draftDatasets');
 }
 
 export async function logout(navigate) {
-  const token = localStorage.getItem('token');
-  if (token) {
-    try {
-      await fetch('/api/users/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+  try {
+    await fetch('/api/users/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch (err) {
+    console.error('Logout error:', err);
   }
   clearAuth();
   if (typeof navigate === 'function') {

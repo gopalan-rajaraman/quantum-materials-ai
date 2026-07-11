@@ -85,7 +85,7 @@ const SignUpForm = () => {
         </div>
       )}
       
-      <ContinueWithGoogle onError={setError} />
+      <ContinueWithGoogle onError={setError} isSignup={true} />
 
       <div className="auth-divider"><span>OR</span></div>
 
@@ -230,7 +230,7 @@ const ForgotPasswordPanel = ({ onBack }) => {
 /* ─── Sign In Form ───────────────────────────────────────────── */
 const SignInForm = () => {
   const [showPw, setShowPw]           = useState(false);
-  const [formData, setFormData]       = useState({ email:'', password:'' });
+  const [formData, setFormData]       = useState({ email:'', password:'', rememberMe: false });
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState('');
   const [showForgot, setShowForgot]   = useState(false);
@@ -245,6 +245,7 @@ const SignInForm = () => {
       const data = await apiPost('/api/users/login', {
         email: formData.email,
         password: formData.password,
+        remember_me: formData.rememberMe,
       });
       saveAuth(data);
       navigate('/dashboard');
@@ -270,7 +271,7 @@ const SignInForm = () => {
         </div>
       )}
 
-      <ContinueWithGoogle onError={setError} />
+      <ContinueWithGoogle onError={setError} rememberMe={formData.rememberMe} />
 
       <div className="auth-divider"><span>OR</span></div>
 
@@ -286,7 +287,7 @@ const SignInForm = () => {
  
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
         <label style={{ display:'flex', alignItems:'center', gap:7, fontSize:13.5, color:'#64748b', cursor:'pointer' }}>
-          <input type="checkbox" style={{ accentColor:'#6366f1' }}/> Remember me
+          <input type="checkbox" name="rememberMe" checked={formData.rememberMe} onChange={e => setFormData({...formData, rememberMe: e.target.checked})} style={{ accentColor:'#6366f1' }}/> Remember me
         </label>
         <span
           style={{ fontSize:13.5, color:'#6366f1', fontWeight:600, cursor:'pointer' }}

@@ -1,6 +1,9 @@
 import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, RBF, ConstantKernel as C
+import logging
+logger = logging.getLogger(__name__)
+
 
 class GPModel:
     def __init__(self, kernel_type="matern"):
@@ -23,7 +26,7 @@ class GPModel:
         Runs an initial hyperparameter tuning phase on aggregated historical datasets
         to learn the bounds of the chemical space before active optimization begins.
         """
-        print(f"Tuning Gaussian Process on {len(X)} historical data points...")
+        logger.info(f"Tuning Gaussian Process on {len(X)} historical data points...")
         # In a real scenario, this might involve cross-validation or grid search over kernel bounds
         # For sklearn's GPR, .fit() automatically optimizes the kernel's hyperparameters via L-BFGS-B
         self.model.fit(X, y)

@@ -11,6 +11,9 @@ from bson import ObjectId
 
 from app.database.mongodb_config import (
     get_datasets_collection,
+    get_experiments_collection,
+    get_users_collection,
+    get_dataset_events_collection,
     get_activity_log_collection
 )
 from app.database.mongodb_models import DatasetModel, ActivityLogModel
@@ -113,6 +116,96 @@ async def get_activity_log(limit: int = 20, current_user: dict = Depends(get_cur
 # all static GET routes above.
 # ──────────────────────────────────────────────────────
 
+@router.post("/{dataset_id}/activate")
+async def activate_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    """Set the active dataset for the current user."""
+    users_collection = get_users_collection()
+    datasets_collection = get_datasets_collection()
+    
+    # Check if dataset exists and belongs to user
+    dataset = await datasets_collection.find_one({"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])})
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found or access denied")
+        
+    await users_collection.update_one(
+        {"_id": ObjectId(current_user["_id"])},
+        {"$set": {"active_dataset_id": ObjectId(dataset_id)}}
+    )
+    
+    # Log audit event
+    events_collection = get_dataset_events_collection()
+    await events_collection.insert_one({
+        "dataset_id": ObjectId(dataset_id),
+        "event_type": "Dataset activated",
+        "details": {"user_id": str(current_user["_id"])},
+        "created_at": datetime.utcnow().isoformat()
+    })
+    
+    return {"message": "Dataset activated successfully", "dataset_id": dataset_id}
+
+
+@router.get("/{dataset_id}/summary")
+async def get_dataset_summary(dataset_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a lightweight summary of a dataset."""
+    collection = get_datasets_collection()
+    dataset = await collection.find_one({"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])})
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    experiments_collection = get_experiments_collection()
+    historical_count = await experiments_collection.count_documents({"dataset_id": ObjectId(dataset_id), "type": "historical"})
+    bo_count = await experiments_collection.count_documents({"dataset_id": ObjectId(dataset_id), "type": "bo"})
+    
+    return {
+        "id": str(dataset["_id"]),
+        "name": dataset.get("name", ""),
+        "rows": dataset.get("row_count", historical_count + bo_count),
+        "historical": historical_count,
+        "bo_iterations": dataset.get("bo_iterations", bo_count),
+        "best_fwhm": dataset.get("best_fwhm", None),
+        "last_bo_run": dataset.get("last_bo_run", None),
+        "last_updated": dataset.get("updated_at"),
+        "optimizer_version": dataset.get("optimizer_version", "v1"),
+        "status": dataset.get("status", "ready")
+    }
+
+@router.get("/{dataset_id}/experiments")
+async def get_dataset_experiments(
+    dataset_id: str, 
+    page: int = 1, 
+    page_size: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get paginated experiments for a dataset."""
+    collection = get_datasets_collection()
+    dataset = await collection.find_one({"_id": ObjectId(dataset_id), "user_id": ObjectId(current_user["_id"])})
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    experiments_collection = get_experiments_collection()
+    skip = (page - 1) * page_size
+    
+    cursor = experiments_collection.find({"dataset_id": ObjectId(dataset_id)}).sort("experiment_number", 1).skip(skip).limit(page_size)
+    
+    experiments = []
+    async for exp in cursor:
+        exp["_id"] = str(exp["_id"])
+        exp["dataset_id"] = str(exp["dataset_id"])
+        experiments.append(exp)
+        
+    total_count = await experiments_collection.count_documents({"dataset_id": ObjectId(dataset_id)})
+    
+    return {
+        "data": experiments,
+        "total": total_count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total_count + page_size - 1) // page_size
+    }
+
+# ──────────────────────────────────────────────────────
+
+
 @router.get("/{dataset_id}")
 async def get_dataset(dataset_id: str, current_user: dict = Depends(get_current_user)):
     """Get a specific dataset by ID."""
@@ -141,15 +234,17 @@ async def create_dataset(dataset_data: Dict[str, Any], current_user: dict = Depe
         "name": dataset_data.get("name", "Untitled Dataset"),
         "description": dataset_data.get("description", ""),
         "user_id": ObjectId(current_user["_id"]),
-        "status": "unlocked",
+        "status": "ready",
         "experiment_id_range": dataset_data.get("experiment_id_range", ""),
-        "total_experiments": dataset_data.get("total_experiments", 0),
+        "total_experiments": 0,
+        "row_count": 0,
         "numerical_constants": dataset_data.get("numerical_constants", {}),
         "categorical_constants": dataset_data.get("categorical_constants", {}),
         "variables_to_vary": dataset_data.get("variables_to_vary", []),
         "minimum_runs_required": dataset_data.get("minimum_runs_required", 0),
         "total_planned_runs": dataset_data.get("total_planned_runs", 0),
-        "data": dataset_data.get("data", []),
+        "column_mapping": {},
+        "optimizer_config": {},
         "created_at": datetime.utcnow().isoformat(),
         "updated_at": datetime.utcnow().isoformat()
     }
@@ -157,8 +252,39 @@ async def create_dataset(dataset_data: Dict[str, Any], current_user: dict = Depe
     result = await collection.insert_one(dataset)
     dataset["_id"] = str(result.inserted_id)
     
+    # If data is provided, insert it into experiments collection
+    data = dataset_data.get("data", [])
+    if data:
+        experiments_collection = get_experiments_collection()
+        experiments_to_insert = []
+        for i, row in enumerate(data):
+            experiments_to_insert.append({
+                "dataset_id": result.inserted_id,
+                "experiment_number": i + 1,
+                "type": "historical",
+                "schema_version": 1,
+                "status": "completed",
+                "parameters": row,
+                "created_at": datetime.utcnow().isoformat()
+            })
+        if experiments_to_insert:
+            await experiments_collection.insert_many(experiments_to_insert)
+            await collection.update_one(
+                {"_id": result.inserted_id},
+                {"$set": {"row_count": len(experiments_to_insert), "total_experiments": len(experiments_to_insert)}}
+            )
+            
     # Log activity
     await log_activity("Dataset Created", f"Dataset '{dataset['name']}' created", "bg-purple-500", user_id=current_user["_id"])
+    
+    # Audit Event
+    events_collection = get_dataset_events_collection()
+    await events_collection.insert_one({
+        "dataset_id": result.inserted_id,
+        "event_type": "Dataset created",
+        "details": {"rows": len(data)},
+        "created_at": datetime.utcnow().isoformat()
+    })
     
     return dataset
 
@@ -246,15 +372,36 @@ async def upload_dataset(files: list[UploadFile] = File(...), current_user: dict
             "name": ", ".join(filenames),
             "description": f"Uploaded on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "user_id": ObjectId(current_user["_id"]),
-            "status": "unlocked",
+            "status": "ready",
             "total_experiments": total_rows,
-            "data": combined_df.to_dict(orient='records'),
+            "row_count": total_rows,
+            "column_mapping": {},
+            "optimizer_config": {},
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }
         
         result = await collection.insert_one(dataset)
-        dataset["_id"] = str(result.inserted_id)
+        dataset_id = result.inserted_id
+        
+        # Insert experiments
+        experiments_collection = get_experiments_collection()
+        experiments_to_insert = []
+        data_records = combined_df.to_dict(orient='records')
+        for i, row in enumerate(data_records):
+            experiments_to_insert.append({
+                "dataset_id": dataset_id,
+                "experiment_number": i + 1,
+                "type": "historical",
+                "schema_version": 1,
+                "status": "completed",
+                "parameters": row,
+                "created_at": datetime.utcnow().isoformat()
+            })
+        if experiments_to_insert:
+            await experiments_collection.insert_many(experiments_to_insert)
+            
+        dataset["_id"] = str(dataset_id)
         
         await log_activity("Dataset Uploaded", f"{', '.join(filenames)} uploaded ({total_rows} rows)", "bg-purple-500", user_id=current_user["_id"])
         

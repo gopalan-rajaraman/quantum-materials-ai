@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import { Target, Save, Info, TrendingDown, Trophy, AlertTriangle, RefreshCw, Download } from 'lucide-react';
 import api from '../../services/api';
@@ -25,8 +25,6 @@ const Optimization = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [suggestionError, setSuggestionError] = useState(null);
-  const [fetchingSuggestion, setFetchingSuggestion] = useState(false);
   const reportRef = useRef(null);
 
   const handleDownloadPDF = useReactToPrint({
@@ -73,24 +71,6 @@ const Optimization = () => {
     }
   }, [suggestions]);
 
-  const fetchSuggestion = async () => {
-    setFetchingSuggestion(true);
-    setSuggestionError(null);
-    try {
-      const sugg = await api.suggestExperiments(1);
-      const recs = sugg.recommendations || [];
-      setSuggestions(recs);
-      if (recs.length === 0) {
-        setSuggestionError('The model returned no recommendations. Ensure the model is fitted with a valid dataset.');
-      }
-    } catch (e) {
-      console.error('Suggestion fetch failed:', e);
-      setSuggestionError(e.message || 'Failed to fetch suggestion from the server.');
-    } finally {
-      setFetchingSuggestion(false);
-    }
-  };
-
   const fetchModelData = async () => {
     try {
       const info = await api.fetchModelInfo();
@@ -99,7 +79,10 @@ const Optimization = () => {
       if (info.status === 'fitted') {
         try { await api.getBoProgress(); } catch (e) {}
         
-        await fetchSuggestion();
+        try {
+          const sugg = await api.suggestExperiments(1);
+          setSuggestions(sugg.recommendations || []);
+        } catch (e) { console.error(e); }
         
         try {
           const pd = await api.getPlotData(sliceMode);
@@ -255,7 +238,7 @@ const Optimization = () => {
         const predFWHM = Number(sug.predicted_FWHM_meV || 0).toFixed(1);
         const predSigma = Number(sug.uncertainty_meV || 0).toFixed(1);
         
-        starHover = `<b>Suggested Experiment</b><br><br>${varsStr}<br><br><b>Predicted FWHM: ${predFWHM} ± ${predSigma} meV</b><extra></extra>`;
+        starHover = `<b>Suggested Experiment</b><br><br>${varsStr}<br><br><b>Predicted FWHM: ${predFWHM} ┬▒ ${predSigma} meV</b><extra></extra>`;
       }
       gpTraces.push({
         x: [plotData.maxEITemp], y: [plotData.maxEIMu], type: 'scatter', mode: 'markers', name: 'Next Suggested Experiment',
@@ -596,7 +579,7 @@ const Optimization = () => {
             The initial dataset has been loaded and the Gaussian Process surrogate model is fitted. You can now begin the active learning loop to explore the parameter space.
           </p>
           <button 
-            onClick={async () => { setBoStarted(true); await fetchSuggestion(); }}
+            onClick={() => setBoStarted(true)}
             className="bg-[#7C4DFF] hover:bg-[#6C63FF] text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-purple-200 transition-all transform hover:scale-105"
           >
             Run Bayesian Optimization
@@ -709,7 +692,7 @@ const Optimization = () => {
                   <div className="mt-6 pt-4 bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
                     <div className="flex justify-between items-end">
                       <span className="text-emerald-700 text-sm font-bold">Predicted FWHM:</span>
-                      <span className="text-emerald-600 text-2xl font-bold">{predictedFwhm.toFixed(1)} <span className="text-sm font-normal opacity-70">± {predictedUncertainty.toFixed(1)}</span></span>
+                      <span className="text-emerald-600 text-2xl font-bold">{predictedFwhm.toFixed(1)} <span className="text-sm font-normal opacity-70">┬▒ {predictedUncertainty.toFixed(1)}</span></span>
                     </div>
                   </div>
 
@@ -718,41 +701,7 @@ const Optimization = () => {
                   </p>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6 text-center">
-                  {fetchingSuggestion ? (
-                    <>
-                      <RefreshCw className="w-8 h-8 text-[#7C4DFF] animate-spin" />
-                      <p className="text-slate-500 text-sm">Fetching next suggestion from model...</p>
-                    </>
-                  ) : suggestionError ? (
-                    <>
-                      <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                        <AlertTriangle className="w-6 h-6 text-red-500" />
-                      </div>
-                      <p className="text-red-600 text-sm font-semibold">Could not load suggestion</p>
-                      <p className="text-slate-400 text-xs max-w-[200px] leading-relaxed">{suggestionError}</p>
-                      <button
-                        onClick={fetchSuggestion}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#7C4DFF] hover:bg-[#6C63FF] text-white text-sm font-bold rounded-xl transition-all"
-                      >
-                        <RefreshCw className="w-4 h-4" /> Retry
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                        <Target className="w-6 h-6 text-slate-400" />
-                      </div>
-                      <p className="text-slate-500 text-sm">No suggestion loaded yet.</p>
-                      <button
-                        onClick={fetchSuggestion}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#7C4DFF] hover:bg-[#6C63FF] text-white text-sm font-bold rounded-xl transition-all"
-                      >
-                        <RefreshCw className="w-4 h-4" /> Get Suggestion
-                      </button>
-                    </>
-                  )}
-                </div>
+                <div className="flex-1 flex items-center justify-center text-slate-500">No suggestions ready.</div>
               )}
 
               {suggestions.length > 0 && !loading && (
@@ -777,50 +726,48 @@ const Optimization = () => {
       {boStarted && timelineData && timelineData.length > 0 && (
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm mt-6 mb-6 animate-fade-in">
           <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-            <TrendingDown className="w-5 h-5 text-[#7C4DFF]" /> BO Campaign History &amp; Convergence
+            <TrendingDown className="w-5 h-5 text-[#7C4DFF]" /> BO Campaign History & Convergence
           </h3>
 
-          {/* Two-column: KPI Summary on left, View Experiments on right */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-
-            {/* LEFT: KPI Summary */}
-            <div>
-              <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-4">Campaign Summary</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Initial Best FWHM</p>
-                  <p className="text-2xl font-bold text-slate-700">{initialBestFWHM?.toFixed(1) || '--'} meV</p>
-                </div>
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Current Best FWHM</p>
-                  <p className="text-2xl font-bold text-emerald-700">{currentBestFWHM?.toFixed(1) || '--'} meV</p>
-                </div>
-                {boData.length > 0 ? (
-                  <>
-                    <div className="bg-[#f3f0ff] border border-[#e5d9f2] rounded-xl p-4">
-                      <p className="text-xs font-bold text-[#7C4DFF] uppercase tracking-wide mb-1">Improvement</p>
-                      <p className="text-2xl font-bold text-[#6C63FF]">{improvementPercent.toFixed(1)}%</p>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                      <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">BO Iterations</p>
-                      <p className="text-2xl font-bold text-blue-700">{boData.length}</p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-center">
-                    <p className="text-sm font-bold text-amber-700 flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin-slow opacity-75" />
-                      Status: Awaiting Experimental Validation
-                    </p>
-                  </div>
-                )}
-              </div>
+          {/* KPI Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Initial Best FWHM</p>
+              <p className="text-2xl font-bold text-slate-700">{initialBestFWHM?.toFixed(1) || '--'} meV</p>
             </div>
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">Current Best FWHM</p>
+              <p className="text-2xl font-bold text-emerald-700">{currentBestFWHM?.toFixed(1) || '--'} meV</p>
+            </div>
+            
+            {boData.length > 0 ? (
+              <>
+                <div className="bg-[#f3f0ff] border border-[#e5d9f2] rounded-xl p-4">
+                  <p className="text-xs font-bold text-[#7C4DFF] uppercase tracking-wide mb-1">Improvement</p>
+                  <p className="text-2xl font-bold text-[#6C63FF]">{improvementPercent.toFixed(1)}%</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">BO Iterations</p>
+                  <p className="text-2xl font-bold text-blue-700">{boData.length}</p>
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-center">
+                <p className="text-sm font-bold text-amber-700 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin-slow opacity-75" />
+                  Status: Awaiting Experimental Validation
+                </p>
+              </div>
+            )}
+          </div>
 
-            {/* RIGHT: View Experiments */}
-            <div className="flex flex-col">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Convergence Plot removed per user request */}
+
+            {/* Data Tables */}
+            <div className="flex flex-col h-[300px]">
               <h4 className="font-bold text-slate-800 mb-2">BO Campaign (User Experiments)</h4>
-              <div className="overflow-y-auto border border-slate-200 rounded-xl" style={{maxHeight: '220px'}}>
+              <div className="overflow-y-auto flex-1 border border-slate-200 rounded-xl">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-600 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                     <tr>
@@ -856,7 +803,7 @@ const Optimization = () => {
 
               <details className="mt-4 group">
                 <summary className="text-sm font-semibold text-slate-600 cursor-pointer hover:text-[#7C4DFF] flex items-center gap-1 transition-colors">
-                  &#9658; View Initial Training Dataset ({initialData.length} samples)
+                  Γû╢ View Initial Training Dataset ({initialData.length} samples)
                 </summary>
                 <div className="overflow-y-auto max-h-[160px] mt-2 border border-slate-200 rounded-xl">
                   <table className="w-full text-sm text-left">
@@ -884,7 +831,6 @@ const Optimization = () => {
                 </div>
               </details>
             </div>
-
           </div>
         </div>
       )}

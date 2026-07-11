@@ -13,6 +13,21 @@ motor
 python-dotenv
 python-jose[cryptography]
 passlib[bcrypt]
+fastapi
+uvicorn[standard]
+python-multipart
+pandas
+numpy
+scikit-learn
+scipy
+openpyxl
+matplotlib
+seaborn
+pymongo
+motor
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
 bcrypt
 email-validator
 aiosmtplib
@@ -20,3 +35,5 @@ python-dotenv
 jinja2
 google-auth
 requests
+user-agents
+pydantic-settings

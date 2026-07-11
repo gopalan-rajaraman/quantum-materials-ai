@@ -8,6 +8,7 @@ export async function apiPost(path, body) {
   try {
     res = await fetch(url, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });

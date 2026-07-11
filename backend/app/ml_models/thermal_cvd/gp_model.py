@@ -8,6 +8,9 @@ from typing import Tuple, Optional
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, ConstantKernel, WhiteKernel, RBF
 from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 class ThermalCVDGPModel:
@@ -68,7 +71,7 @@ class ThermalCVDGPModel:
             random_state=self.random_state,
         )
         self.gp.fit(X_train, y_train)
-        print(f"[GP FIT] Kernel optimized: {self.gp.kernel_}")
+        logger.info(f"[GP FIT] Kernel optimized: {self.gp.kernel_}")
         self._fitted = True
         self._check_stability()
 
@@ -83,7 +86,7 @@ class ThermalCVDGPModel:
             random_state=self.random_state,
         )
         gp.fit(X_train, y_train)
-        print(f"[GP FAST_FIT] Kernel optimized: {gp.kernel_}")
+        logger.info(f"[GP FAST_FIT] Kernel optimized: {gp.kernel_}")
         self.gp = gp
         self._fitted = True
         self._check_stability()

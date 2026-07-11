@@ -1,62 +1,63 @@
 import os
-from dotenv import load_dotenv
-
-# Ensure environment variables are loaded from the backend/.env file
-# regardless of the directory from which the server is started.
-backend_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.join(backend_dir, ".env")
-load_dotenv(dotenv_path=env_path, override=True)
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 from app.routes.upload_routes import router as upload_router
 from app.routes.thermal_cvd_routes import router as thermal_cvd_router, init_thermal_cvd_model
 from app.routes.user_routes import router as user_router
 from app.database.mongodb_config import MongoDB
 from app.email_utils import log_smtp_status
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-from dotenv import load_dotenv
-import os
-load_dotenv(override=True)
-print(f"GOOGLE_CLIENT_ID ON STARTUP: {os.getenv('GOOGLE_CLIENT_ID')}")
+from app.routes.template_routes import router as template_router
+from app.routes.experiment_routes import router as experiment_router
+from app.routes.dataset_routes import router as dataset_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
     log_smtp_status()
-    # Startup
-    print("Starting up... connecting to MongoDB")
+    logger.info("Starting up... connecting to MongoDB")
     await MongoDB.connect()
-    print("Starting up... initializing Thermal CVD optimizer")
+    logger.info("Starting up... initializing Thermal CVD optimizer")
     init_thermal_cvd_model()
     yield
-    # Shutdown
-    print("Shutting down... closing MongoDB connection")
+    logger.info("Shutting down... closing MongoDB connection")
     await MongoDB.close()
 
 app = FastAPI(
     title="Quantum Materials AI API",
     description="FastAPI backend for material discovery and Bayesian Optimization",
-    version="1.0.0",
+    version=settings.VERSION,
     lifespan=lifespan
 )
 
+# Global Exception Handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
 # Allow React Frontend
 origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    "http://localhost:5175",
-    "http://127.0.0.1:5175",
+    settings.FRONTEND_URL,
 ]
 
 app.add_middleware(
@@ -71,17 +72,33 @@ app.add_middleware(
 def read_root():
     return {"message": "Welcome to Quantum Materials AI API"}
 
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "version": settings.VERSION,
+        "environment": settings.ENV
+    }
+
+@app.get("/ready")
+async def readiness_check():
+    try:
+        # Check MongoDB connection
+        await MongoDB.client.admin.command('ping')
+        return {"status": "ready"}
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return JSONResponse(status_code=503, content={"status": "not ready"})
+
 # Include routers
 app.include_router(upload_router)
 app.include_router(thermal_cvd_router)
 app.include_router(user_router)
-from app.routes.template_routes import router as template_router
 app.include_router(template_router)
-from app.routes.experiment_routes import router as experiment_router
 app.include_router(experiment_router)
-from app.routes.dataset_routes import router as dataset_router
 app.include_router(dataset_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    reload = settings.ENV != 'production'
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=reload)

@@ -7,21 +7,20 @@ import logging
 import os
 
 import aiosmtplib
-from dotenv import load_dotenv
+from app.config import settings
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-FROM_NAME = os.getenv("FROM_NAME", "Quantum Materials AI")
-FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+SMTP_HOST = settings.SMTP_HOST
+SMTP_PORT = settings.SMTP_PORT
+SMTP_USER = settings.SMTP_USER
+SMTP_PASSWORD = settings.SMTP_PASSWORD
+FROM_NAME = settings.FROM_NAME
+FROM_EMAIL = settings.FROM_EMAIL
+FRONTEND_URL = settings.FRONTEND_URL
 
 
 def smtp_configured() -> bool:

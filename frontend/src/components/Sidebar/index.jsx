@@ -11,6 +11,7 @@ import {
   ChevronDown, 
   Hexagon,
   LogOut,
+  BookOpen,
 } from 'lucide-react';
 import { getStoredUser, getUserDisplayName, logout } from '../../utils/auth';
  
@@ -71,6 +72,7 @@ const Sidebar = () => {
           <NavItem path="/variables" icon={LayoutGrid} label="Variables" />
           <NavItem path="/results" icon={TrendingUp} label="Results" />
           <NavItem path="/models" icon={Boxes} label="Models" />
+          <NavItem path="/docs" icon={BookOpen} label="Documentation" />
           <NavItem path="/settings" icon={Settings} label="Settings" />
         </nav>
       </div>

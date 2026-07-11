@@ -15,7 +15,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const ContinueWithGoogle = ({ onError }) => {
+const ContinueWithGoogle = ({ onError, rememberMe = false, isSignup = false }) => {
   const containerRef = useRef(null);
   const [buttonWidth, setButtonWidth] = useState(400);
   const navigate = useNavigate();
@@ -36,13 +36,15 @@ const ContinueWithGoogle = ({ onError }) => {
     try {
       const data = await apiPost('/api/users/google-login', {
         credential: credentialResponse.credential,
+        remember_me: rememberMe,
+        is_signup: isSignup
       });
       saveAuth(data);
       navigate('/dashboard');
     } catch (err) {
       onError?.(err.message || 'Google login failed');
     }
-  }, [navigate, onError]);
+  }, [navigate, onError, rememberMe, isSignup]);
 
   if (!GOOGLE_CLIENT_ID) {
     return (

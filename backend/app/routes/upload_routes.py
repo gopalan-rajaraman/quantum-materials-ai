@@ -8,6 +8,9 @@ import io
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from bson import ObjectId
+import logging
+logger = logging.getLogger(__name__)
+
 
 from datetime import datetime
 import pandas as pd
@@ -47,7 +50,7 @@ async def log_activity(title: str, desc: str, color: str = "bg-cyan-500", user_i
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     """Returns live stats for the Dashboard page."""
     user_id = str(current_user["_id"])
-    opt = cvd_routes.get_optimizer(user_id)
+    opt = await cvd_routes.get_optimizer(user_id)
 
     datasets_collection = get_datasets_collection()
     activity_collection = get_activity_log_collection()
@@ -550,7 +553,7 @@ async def confirm_import(
         
         search_space = []
         variable_ranges = {}
-        opt = cvd_routes.get_optimizer(current_user["_id"])
+        opt = await cvd_routes.get_optimizer(current_user["_id"])
         if opt and getattr(opt, '_fitted', False) and getattr(opt, 'X_search', None) is not None:
             X_raw = opt.encoder.scaler_X.inverse_transform(opt.X_search)
             var_names = opt.encoder.VARIABLES
@@ -605,7 +608,7 @@ async def run_gp_training_async(df, user_id, optimization_variables, initial_tra
                 best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
                 await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
     except Exception as e:
-        print(f"Async GP Training Error: {e}")
+        logger.info(f"Async GP Training Error: {e}")
 
 
 

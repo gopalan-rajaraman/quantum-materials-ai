@@ -15,6 +15,7 @@ import Models from './pages/Models';
 import Settings from './pages/Settings';
 import VerifyEmail from './pages/VerifyEmail';
 import ResetPassword from './pages/ResetPassword';
+import Docs from './pages/Docs';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -58,6 +59,7 @@ const AppLayout = () => {
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
           <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/docs" element={<ProtectedRoute><Docs /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>

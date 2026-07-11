@@ -48,6 +48,7 @@ class UserModel(BaseModel):
     verification_token: Optional[str] = None
     member_since: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    active_dataset_id: Optional[PyObjectId] = None
 
     model_config = {
         "populate_by_name": True,
@@ -61,7 +62,7 @@ class DatasetModel(BaseModel):
     name: str
     description: str = ""
     user_id: Optional[PyObjectId] = None
-    status: str = "unlocked"  # unlocked, in_progress, locked
+    status: str = "ready"  # uploading, processing, ready, optimizing, archived, deleted
     experiment_id_range: str = ""
     total_experiments: int = 0
     numerical_constants: Dict[str, Any] = {}
@@ -69,8 +70,15 @@ class DatasetModel(BaseModel):
     variables_to_vary: List[Dict[str, Any]] = []
     minimum_runs_required: int = 0
     total_planned_runs: int = 0
-    data: List[Dict[str, Any]] = []  # Actual experiment data
     column_mapping: Dict[str, str] = {}  # Store the mapping that was actually used
+    optimizer_config: Dict[str, Any] = {}
+    optimizer_version: str = "v1"
+    statistics: Dict[str, Any] = {}
+    last_bo_run: Optional[str] = None
+    deleted_at: Optional[str] = None
+    lock_owner: Optional[str] = None
+    lock_acquired_at: Optional[str] = None
+    lock_expires_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
@@ -85,9 +93,15 @@ class ExperimentModel(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
     dataset_id: Optional[PyObjectId] = None
     experiment_id: str
-    status: str = "planned"  # planned, running, completed, failed
+    experiment_number: int = 1
+    type: str = "historical"  # historical, bo
+    schema_version: int = 1
+    status: str = "completed"  # pending, running, completed, failed
     parameters: Dict[str, Any] = {}  # GTE, GTI, FRA, Pressure, etc.
     results: Optional[Dict[str, Any]] = None  # PL_FWHM, PL_Peak, morphology, etc.
+    predicted_value: Optional[float] = None
+    actual_value: Optional[float] = None
+    uncertainty: Optional[float] = None
     notes: str = ""
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = None
@@ -106,6 +120,20 @@ class ActivityLogModel(BaseModel):
     description: str
     color: str = "bg-cyan-500"
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
+
+
+class DatasetEventModel(BaseModel):
+    """Audit trail for dataset events."""
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    dataset_id: PyObjectId
+    event_type: str  # Dataset uploaded, BO started, etc.
+    details: Dict[str, Any] = {}
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
     model_config = {
         "populate_by_name": True,
