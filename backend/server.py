@@ -60,35 +60,70 @@ origins = [
     settings.FRONTEND_URL,
 ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.ALLOWED_ORIGINS:
+    origins.extend([o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()])
+
+if settings.ENV != 'production':
+    # Permissive configuration for local development
+    origins.extend(["http://127.0.0.1:5173", "http://localhost:5173"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_origin_regex=".*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Strict configuration for production
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Quantum Materials AI API"}
 
 @app.get("/health")
-def health_check():
-    return {
+async def health_check():
+    health_status = {
         "status": "ok",
         "version": settings.VERSION,
-        "environment": settings.ENV
+        "environment": settings.ENV,
+        "checks": {
+            "mongodb": "unknown",
+            "env_vars": "ok"
+        }
     }
+    
+    # Check MongoDB connection
+    try:
+        await MongoDB.client.admin.command('ping')
+        health_status["checks"]["mongodb"] = "ok"
+    except Exception as e:
+        logger.error(f"Health check MongoDB failed: {e}")
+        health_status["checks"]["mongodb"] = "failed"
+        health_status["status"] = "degraded"
+        
+    # Check critical env vars
+    critical_vars = ["FRONTEND_URL", "MONGODB_URL", "JWT_SECRET_KEY"]
+    missing_vars = [var for var in critical_vars if not getattr(settings, var, None)]
+    
+    if missing_vars:
+        health_status["checks"]["env_vars"] = f"missing: {', '.join(missing_vars)}"
+        health_status["status"] = "degraded"
+        
+    status_code = 200 if health_status["status"] == "ok" else 503
+    return JSONResponse(status_code=status_code, content=health_status)
 
 @app.get("/ready")
 async def readiness_check():
-    try:
-        # Check MongoDB connection
-        await MongoDB.client.admin.command('ping')
-        return {"status": "ready"}
-    except Exception as e:
-        logger.error(f"Readiness check failed: {e}")
-        return JSONResponse(status_code=503, content={"status": "not ready"})
+    # Reuse the enhanced health check logic for readiness probes
+    return await health_check()
 
 # Include routers
 app.include_router(upload_router)

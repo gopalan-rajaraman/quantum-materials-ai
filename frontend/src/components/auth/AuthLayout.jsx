@@ -10,8 +10,8 @@ const IconHexagon = () => (
 );
 
 const LeftPanel = () => (
-  <div style={{
-    width: '50%', flexShrink: 0,
+  <div className="auth-left-panel" style={{
+    flexShrink: 0,
     background: 'linear-gradient(160deg,#f8faff 0%,#eef2ff 50%,#e0e7ff 100%)',
     display: 'flex', flexDirection: 'column',
     padding: '40px 60px',
@@ -60,10 +60,9 @@ const AuthLayout = ({ children, footer }) => (
       background: '#f5f3ff',
     }}>
       <LeftPanel />
-      <div style={{
-        width: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column',
+      <div className="auth-right-panel" style={{
+        flexShrink: 0, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '30px 40px',
         background: 'white',
         overflowY: 'auto',
       }}>

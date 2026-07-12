@@ -121,4 +121,23 @@ export const AUTH_STYLES = `
     border-radius: 4px;
     transition: width 0.3s ease, background 0.3s ease;
   }
+
+  .auth-left-panel {
+    width: 50%;
+  }
+
+  .auth-right-panel {
+    width: 50%;
+    padding: 30px 40px;
+  }
+
+  @media (max-width: 900px) {
+    .auth-left-panel {
+      display: none !important;
+    }
+    .auth-right-panel {
+      width: 100% !important;
+      padding: 30px 20px !important;
+    }
+  }
 `;

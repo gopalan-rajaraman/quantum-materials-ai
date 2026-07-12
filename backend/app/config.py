@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     FROM_EMAIL: str
     
     FRONTEND_URL: str
+    BACKEND_URL: str = "http://localhost:8000"
+    ALLOWED_ORIGINS: str = ""
     GOOGLE_CLIENT_ID: str
     
     class Config:
