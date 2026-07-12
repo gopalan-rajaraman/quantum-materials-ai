@@ -73,18 +73,45 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
         if entry["updated_at"] == updated_at:
             return entry["optimizer"]
             
-    # Need to load experiments and train
+    # Verify metadata exists
+    opt_vars = dataset.get("optimization_variables")
+    if not opt_vars:
+        raise HTTPException(
+            status_code=400,
+            detail="Dataset is missing optimization variable mapping."
+        )
+
+    # 1. Load the original uploaded dataset
+    if "data" in dataset and dataset["data"]:
+        df = pd.DataFrame(dataset["data"])
+    else:
+        df = pd.DataFrame()
+        
+    target_col = dataset.get("target_column", "PL_FWHM")
+        
+    # 2. Load manually logged experiments
     experiments_coll = get_experiments_collection()
     cursor = experiments_coll.find({"dataset_id": ObjectId(dataset_id), "status": "completed"}).sort("experiment_number", 1)
-    experiments = []
-    async for exp in cursor:
-        experiments.append(exp["parameters"])
-        
-    if not experiments:
-        return optimizer_instances.get('default') or optimizer_instance
-        
-    df = pd.DataFrame(experiments)
     
+    manual_experiments = []
+    async for exp in cursor:
+        params = exp.get("parameters", {})
+        row = params.copy()
+        # Fix target extraction: might be in parameters directly or result_fwhm
+        if target_col not in row:
+            row[target_col] = exp.get("result_fwhm", params.get(target_col))
+        manual_experiments.append(row)
+        
+    if manual_experiments:
+        df_manual = pd.DataFrame(manual_experiments)
+        if df.empty:
+            df = df_manual
+        else:
+            df = pd.concat([df, df_manual], ignore_index=True)
+            
+    if df.empty:
+        raise HTTPException(status_code=400, detail="No experiments found in dataset.")
+        
     opt = ThermalCVDOptimizer()
     
     # Restore mapping if it exists
@@ -92,6 +119,30 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
     if mapping:
         opt.encoder.COLUMN_MAPPING = mapping
         
+    # Apply constants if they were updated later
+    optimizer_config = dataset.get("optimizer_config", {})
+    if optimizer_config and "constants" in optimizer_config:
+        opt.encoder.constant_values = optimizer_config["constants"]
+        
+    opt.encoder.set_variables(opt_vars)
+    
+    # Apply generalized preprocessing
+    # Only ensure target_col and opt_vars are numeric (we don't force TOCVD here unless it's in config, though uploaded data is already preprocessed)
+    num_cols = opt_vars + [target_col]
+    for col in num_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Drop rows with NaN in the target column
+    if target_col in df.columns:
+        df = df.dropna(subset=[target_col]).reset_index(drop=True)
+    
+    if len(df) == 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"No valid experiments remain after cleaning. Please ensure {target_col} values exist."
+        )
+
     opt.load_training_data(df)
     opt.generate_search_space(n_points=5000)
     opt.train_gp()
@@ -102,7 +153,6 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
     }
     
     return opt
-
 def set_optimizer(user_id: str, opt: ThermalCVDOptimizer) -> None:
     # Used mainly for the default initialization now
     optimizer_instances[str(user_id)] = opt
@@ -656,7 +706,7 @@ class AddExperimentRequest(BaseModel):
     variables: Dict[str, float]
     PL_FWHM: float
 
-@router.post("/add-experiment")
+@router.post("/submit-experiment")
 async def add_experiment(request: AddExperimentRequest, current_user: dict = Depends(get_current_user)):
     """Add a manual experiment result and update the model."""
     dataset_id = current_user.get("active_dataset_id")
