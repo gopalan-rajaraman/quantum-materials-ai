@@ -1,20 +1,13 @@
-const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import { clearAuth } from '../utils/auth';
-
 
 const request = async (path, options = {}) => {
   const url = `${API_BASE_URL}${path}`;
-  const token = localStorage.getItem('token');
   
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-  
-  // Add Authorization header if token exists
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
   
   const response = await fetch(url, {
     headers,
@@ -191,7 +184,7 @@ export const api = {
     request('/thermal-cvd/simulate-run', { method: 'POST' }),
 
   addManualExperiment: (payload) => 
-    request('/thermal-cvd/add-experiment', {
+    request('/thermal-cvd/submit-experiment', {
       method: 'POST',
       body: JSON.stringify(payload)
     }),

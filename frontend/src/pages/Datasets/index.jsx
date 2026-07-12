@@ -17,6 +17,8 @@ const Datasets = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -125,6 +127,16 @@ const Datasets = () => {
     (ds.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     (ds.target || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const totalItems = filteredDatasets.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentDatasets = filteredDatasets.slice(startIndex, startIndex + itemsPerPage);
+  
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, itemsPerPage]);
  
   return (
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
@@ -228,7 +240,9 @@ const Datasets = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredDatasets.map((ds, idx) => (
+              {currentDatasets.map((ds, index) => {
+                const idx = startIndex + index;
+                return (
                 <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-3">
@@ -247,7 +261,7 @@ const Datasets = () => {
                   <td className="py-4 px-6 text-[13px] font-bold text-slate-800">{(ds.rows || ds.samples) ? (parseInt(ds.rows || ds.samples, 10) * 12).toFixed(1) + " KB" : '—'}</td>
                   <td className="py-4 px-6 text-[13px] font-semibold text-slate-700">{ds.author || loggedInUsername}</td>
                 </tr>
-              ))}
+              )})}
               {filteredDatasets.length === 0 && (
                 <tr>
                   <td colSpan="7" className="text-center py-8 text-slate-400 font-medium">
@@ -261,21 +275,33 @@ const Datasets = () => {
  
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-[12px] font-medium text-slate-500">Showing <span className="font-bold text-[#4C3BDE]">{filteredDatasets.length > 0 ? 1 : 0} to {filteredDatasets.length} of {totalDatasets} datasets</span></span>
+          <span className="text-[12px] font-medium text-slate-500">Showing <span className="font-bold text-[#4C3BDE]">{totalItems > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} datasets</span></span>
           <div className="flex space-x-1">
-            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-50">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded bg-[#4C3BDE] text-white text-[13px] font-bold">1</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50">
+            <button className="w-8 h-8 flex items-center justify-center rounded bg-[#4C3BDE] text-white text-[13px] font-bold">{currentPage}</button>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-[12px] font-medium text-slate-500">Rows per page</span>
             <div className="relative">
-              <select className="appearance-none bg-white border border-slate-200 rounded text-[12px] font-bold text-slate-700 py-1.5 pl-3 pr-8 focus:outline-none cursor-pointer">
-                <option>{totalDatasets}</option>
+              <select 
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="appearance-none bg-white border border-slate-200 rounded text-[12px] font-bold text-slate-700 py-1.5 pl-3 pr-8 focus:outline-none cursor-pointer">
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={totalDatasets || 100}>All</option>
               </select>
               <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>

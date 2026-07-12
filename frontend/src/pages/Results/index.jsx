@@ -80,9 +80,12 @@ const Results = () => {
           <div className="w-20 h-20 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-6">
             <FolderOpen className="w-10 h-10 text-indigo-400" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-3">No Dataset Yet</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">No dataset found</h2>
+          <p className="text-slate-500 mb-2 leading-relaxed">
+            You haven't uploaded a dataset yet.
+          </p>
           <p className="text-slate-500 mb-8 leading-relaxed">
-            Upload a dataset to start Bayesian Optimization. Once you have data, the AI will help you find optimal synthesis parameters.
+            Upload a dataset to start Bayesian Optimization.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -91,13 +94,6 @@ const Results = () => {
             >
               <Upload className="w-5 h-5" />
               <span>Upload Dataset</span>
-            </button>
-            <button
-              onClick={() => navigate('/datasets')}
-              className="flex items-center justify-center space-x-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all"
-            >
-              <Database className="w-5 h-5" />
-              <span>Browse Datasets</span>
             </button>
           </div>
         </div>

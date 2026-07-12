@@ -333,6 +333,7 @@ async def login_user(login_data: UserLogin, request: Request, response: Response
 class GoogleLoginRequest(BaseModel):
     credential: str
     remember_me: bool = False
+    is_signup: bool = False
  
  
 @router.post("/google-login")
@@ -363,6 +364,8 @@ async def google_login(google_req: GoogleLoginRequest, request: Request, respons
         full_name = idinfo.get("name", "")
  
         if user:
+            if google_req.is_signup:
+                raise HTTPException(status_code=400, detail="This email is already registered. Please log in instead.")
             # User exists, link account if not already linked
             auth_providers = user.get("auth_providers", ["local"])
             update_data = {}
