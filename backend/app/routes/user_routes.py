@@ -155,7 +155,7 @@ async def register_user(user_data: UserCreate, request: Request, response: Respo
     # Check if user already exists
     existing_user = await collection.find_one({"email": user_data.email})
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="This email is already registered. Please log in instead.")
     
     verification_token = secrets.token_urlsafe(32)
     

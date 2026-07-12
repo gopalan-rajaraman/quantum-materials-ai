@@ -81,7 +81,26 @@ const SignUpForm = () => {
       {error && (
         <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', padding:'10px 14px', borderRadius:8, fontSize:13.5, marginBottom:12, display:'flex', alignItems:'center', gap:8 }}>
           <div style={{ width:6, height:6, borderRadius:'50%', background:'#dc2626', flexShrink:0 }}/>
-          {error}
+          <div style={{ flex: 1 }}>{error}</div>
+          {error.includes("already registered") && (
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              style={{
+                padding: '6px 10px',
+                background: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Go to Login
+            </button>
+          )}
         </div>
       )}
       
