@@ -996,6 +996,11 @@ const Upload = () => {
                        <h3 className="text-[16px] font-bold text-slate-900 mb-1.5">Lock Dataset</h3>
                        <p className="text-slate-600 text-[13px] mb-1.5 leading-relaxed font-medium">Are you sure you want to lock this dataset?</p>
                        <p className="text-slate-600 text-[13px] mb-5 leading-relaxed font-medium">Once locked, the uploaded data cannot be modified.</p>
+                       {lockError && (
+                          <div className="bg-red-50 text-red-600 px-3 py-2 rounded-lg mb-4 border border-red-200 text-xs font-medium">
+                            {lockError}
+                          </div>
+                        )}
                        <div className="flex space-x-3">
                           <button 
                             onClick={() => {
@@ -1008,7 +1013,6 @@ const Upload = () => {
                           </button>
                           <button 
                             onClick={() => {
-                              setShowFinalLockModal(false);
                               handleLockDataset();
                             }}
                             disabled={isLocking}

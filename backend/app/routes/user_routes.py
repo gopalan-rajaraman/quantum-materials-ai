@@ -117,16 +117,16 @@ async def handle_successful_login(user: dict, response: Response, request: Reque
         key="qm_access",
         value=access_token,
         httponly=True,
-        secure=False,  # Set to True in production
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=15 * 60
     )
     response.set_cookie(
         key="qm_refresh",
         value=refresh_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=max_age
     )
     
@@ -432,8 +432,8 @@ async def logout_user(request: Request, response: Response, current_user: dict =
         sessions_collection = get_sessions_collection()
         await sessions_collection.update_one({"jti": sid}, {"$set": {"revoked": True}})
         
-    response.delete_cookie("qm_access")
-    response.delete_cookie("qm_refresh")
+    response.delete_cookie("qm_access", secure=True, httponly=True, samesite="none")
+    response.delete_cookie("qm_refresh", secure=True, httponly=True, samesite="none")
     try:
         activity_collection = get_activity_log_collection()
         if activity_collection is not None:
@@ -521,16 +521,16 @@ async def refresh_token(request: Request, response: Response):
         key="qm_access",
         value=access_info["access_token"],
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=15 * 60
     )
     response.set_cookie(
         key="qm_refresh",
         value=new_refresh_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=max_age
     )
     
