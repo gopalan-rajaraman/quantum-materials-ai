@@ -88,6 +88,19 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
         df = pd.DataFrame()
         
     target_col = dataset.get("target_column", "PL_FWHM")
+    
+    # Apply generalized preprocessing to initial data
+    num_cols = opt_vars + [target_col]
+    for col in num_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Drop rows with NaN in the target column
+    if target_col in df.columns:
+        df = df.dropna(subset=[target_col]).reset_index(drop=True)
+        
+    # Crucial Fix: calculate initial count BEFORE adding manual experiments
+    initial_count = len(df)
         
     # 2. Load manually logged experiments
     experiments_coll = get_experiments_collection()
@@ -104,6 +117,12 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
         
     if manual_experiments:
         df_manual = pd.DataFrame(manual_experiments)
+        for col in num_cols:
+            if col in df_manual.columns:
+                df_manual[col] = pd.to_numeric(df_manual[col], errors='coerce')
+        if target_col in df_manual.columns:
+            df_manual = df_manual.dropna(subset=[target_col]).reset_index(drop=True)
+            
         if df.empty:
             df = df_manual
         else:
@@ -126,24 +145,10 @@ async def get_optimizer(user_id: str) -> Optional[ThermalCVDOptimizer]:
         
     opt.encoder.set_variables(opt_vars)
     
-    # Apply generalized preprocessing
-    # Only ensure target_col and opt_vars are numeric (we don't force TOCVD here unless it's in config, though uploaded data is already preprocessed)
-    num_cols = opt_vars + [target_col]
-    for col in num_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    # Drop rows with NaN in the target column
-    if target_col in df.columns:
-        df = df.dropna(subset=[target_col]).reset_index(drop=True)
-    
-    if len(df) == 0:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"No valid experiments remain after cleaning. Please ensure {target_col} values exist."
-        )
-
     opt.load_training_data(df)
+    
+    # Manually override the initial_samples counter so it represents ONLY the uploaded dataset, not the manual additions
+    opt._training_info['initial_samples'] = initial_count
     opt.generate_search_space(n_points=5000)
     opt.train_gp()
     
@@ -734,9 +739,13 @@ async def add_experiment(request: AddExperimentRequest, current_user: dict = Dep
         datasets_coll = get_datasets_collection()
         events_coll = get_dataset_events_collection()
         
+        new_sample_count = result.get('new_total_samples')
+        
         full_vars = dict(var_dict)
         full_vars['PL_FWHM'] = request.PL_FWHM
-        new_sample_count = result.get('new_total_samples')
+        
+        logger.info(f"[submit-experiment] SAVING to DB: {full_vars}")
+        print(f"[submit-experiment] SAVING to DB: {full_vars}")
         
         await experiments_coll.insert_one({
             "dataset_id": ObjectId(dataset_id),
