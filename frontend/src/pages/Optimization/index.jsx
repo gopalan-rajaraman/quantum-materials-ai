@@ -756,13 +756,13 @@ const Optimization = () => {
               )}
 
               {suggestions.length > 0 && !loading && (
-                <form onSubmit={handleAddExperiment} className="mt-6 pt-4 flex gap-2">
+                <form onSubmit={handleAddExperiment} className="mt-6 pt-4 flex flex-col sm:flex-row gap-3">
                   <input 
                     type="number" step="0.01" required value={fwhmResult} onChange={(e) => setFwhmResult(e.target.value)}
                     placeholder="Actual FWHM..."
                     className="flex-1 bg-white border-2 border-slate-200 rounded-xl px-4 py-2 text-slate-900 outline-none focus:border-emerald-500"
                   />
-                  <button disabled={submitting} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 disabled:opacity-50">
+                  <button disabled={submitting} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 w-full sm:w-auto">
                     <Save className="w-4 h-4" /> Log Result
                   </button>
                 </form>
