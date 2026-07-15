@@ -140,7 +140,7 @@ const Datasets = () => {
  
   return (
     <div className="animate-fade-in flex flex-col min-h-screen space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1e1b4b] mb-4">My Datasets</h1>
           <p className="text-[15px] text-slate-500 leading-relaxed">Manage, explore and organize all your experiment datasets.</p>
@@ -154,7 +154,7 @@ const Datasets = () => {
         </button>
       </div>
  
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 p-5 flex items-center space-x-4">
           <div className="w-12 h-12 rounded-xl bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
             <Database className="w-6 h-6" />
@@ -190,16 +190,16 @@ const Datasets = () => {
       {/* Table Section */}
       <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100">
         {/* Filters */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="relative">
+        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center space-x-4 w-full md:w-auto">
+            <div className="relative w-full md:w-auto">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <input 
                 type="text" 
                 placeholder="Search datasets..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-[220px] focus:outline-none focus:ring-1 focus:ring-[#4C3BDE]"
+                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-full md:w-[220px] focus:outline-none focus:ring-1 focus:ring-[#4C3BDE]"
               />
             </div>
           </div>
@@ -226,8 +226,8 @@ const Datasets = () => {
         </div>
  
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto w-full max-w-full pb-2">
+          <table className="w-full whitespace-nowrap">
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left py-4 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dataset Name</th>
@@ -274,8 +274,8 @@ const Datasets = () => {
         </div>
  
         {/* Pagination */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-[12px] font-medium text-slate-500">Showing <span className="font-bold text-[#4C3BDE]">{totalItems > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} datasets</span></span>
+        <div className="p-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
+          <span className="text-[12px] font-medium text-slate-500 text-center md:text-left">Showing <span className="font-bold text-[#4C3BDE]">{totalItems > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} datasets</span></span>
           <div className="flex space-x-1">
             <button 
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -312,7 +312,7 @@ const Datasets = () => {
       {/* Dataset Size Overview */}
       <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden mb-6">
         <div className="p-8 pb-4">
-          <div className="flex justify-between items-start mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
               <h2 className="text-2xl font-bold text-[#1e1b4b] mb-1">Dataset Size Overview</h2>
               <p className="text-[14px] text-slate-500">Understand how your dataset storage is being used.</p>
@@ -328,7 +328,7 @@ const Datasets = () => {
             </div>
           </div>
  
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             {/* Chart */}
             <div className="w-[320px] h-[320px] relative flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -360,7 +360,7 @@ const Datasets = () => {
             </div>
  
             {/* List */}
-            <div className="flex-1 max-w-[600px] ml-12">
+            <div className="flex-1 w-full max-w-[600px] lg:ml-12 mt-8 lg:mt-0">
               <div className="grid grid-cols-12 text-[12px] font-bold text-slate-400 mb-4 px-2">
                 <div className="col-span-6">Category</div>
                 <div className="col-span-3 text-right">Size</div>

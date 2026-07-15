@@ -184,16 +184,16 @@ const Dashboard = () => {
         </div>
  
         {/* Action Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Search bar */}
-          <div className="relative">
+          <div className="relative flex-1 md:flex-none">
             <Search className="w-4 h-4 text-[#8C8CA1] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
-              placeholder="Search datasets, experiments..." 
+              placeholder="Search datasets..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-64 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5D3EBC]/20 focus:border-[#5D3EBC] text-[13px] font-medium placeholder:text-[#8C8CA1] bg-white text-slate-800 transition-all"
+              className="pl-10 pr-4 py-2 w-full md:w-64 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5D3EBC]/20 focus:border-[#5D3EBC] text-[13px] font-medium placeholder:text-[#8C8CA1] bg-white text-slate-800 transition-all"
             />
           </div>
  
@@ -259,8 +259,8 @@ const Dashboard = () => {
               </button>
             </div>
  
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-[13px]">
+            <div className="overflow-x-auto w-full max-w-full pb-2">
+              <table className="w-full text-left text-[13px] whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-slate-100 text-[#8C8CA1] font-semibold">
                     <th className="pb-3 font-semibold">Dataset Name</th>
