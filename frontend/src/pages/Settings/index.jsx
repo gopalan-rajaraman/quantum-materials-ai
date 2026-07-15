@@ -130,8 +130,8 @@ const Settings = () => {
           {/* Fields */}
           <div className="space-y-8">
             {/* Default BO Iterations */}
-            <div className="flex items-center justify-between">
-              <div className="flex-1 mr-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1 sm:mr-8">
                 <div className="flex items-center space-x-2 mb-1">
                   <span className="text-[14px] font-bold text-slate-800">Default BO Iterations</span>
                   <div className="relative group cursor-pointer">
@@ -161,8 +161,8 @@ const Settings = () => {
             </div>
  
             {/* Optimization Goal */}
-            <div className="flex items-center justify-between">
-              <div className="flex-1 mr-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1 sm:mr-8">
                 <div className="flex items-center space-x-2 mb-1">
                   <span className="text-[14px] font-bold text-slate-800">Optimization Goal</span>
                   <div className="relative group cursor-pointer">

@@ -484,12 +484,12 @@ const Optimization = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <div className="lg:col-span-3 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <div className="flex flex-col mb-4">
-            <div className="flex justify-between items-start">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                Gaussian Process Surrogate Model (Sequence Visualization) <Info className="w-4 h-4 text-slate-400" />
+            <div className="flex flex-col xl:flex-row justify-between items-start gap-4">
+              <h3 className="text-xl font-bold text-slate-900 flex flex-wrap items-center gap-2">
+                Gaussian Process Surrogate Model (Sequence Visualization) <Info className="w-4 h-4 text-slate-400 shrink-0" />
               </h3>
               
-              <div className="flex bg-slate-100 rounded-lg p-1 ml-4 shadow-sm border border-slate-200">
+              <div className="flex flex-col sm:flex-row bg-slate-100 rounded-lg p-1 w-full xl:w-auto shadow-sm border border-slate-200">
                 <button 
                   onClick={() => setSliceMode('suggestion')}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${sliceMode === 'suggestion' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}

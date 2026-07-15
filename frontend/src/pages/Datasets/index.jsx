@@ -330,7 +330,7 @@ const Datasets = () => {
  
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             {/* Chart */}
-            <div className="w-[320px] h-[320px] relative flex-shrink-0">
+            <div className="w-full max-w-[320px] aspect-square relative flex-shrink-0 mx-auto lg:mx-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

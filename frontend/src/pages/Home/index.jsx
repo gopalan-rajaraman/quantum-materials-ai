@@ -95,8 +95,26 @@ const STYLES = `
     transition: opacity 0.2s, transform 0.2s !important;
   }
   .signup-btn:hover {
+  .signup-btn:hover {
     opacity: 0.88 !important;
     transform: translateY(-2px) !important;
+  }
+
+  @media (max-width: 800px) {
+    .hero-container {
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 32px 20px !important;
+    }
+    .hero-side {
+      display: none !important;
+    }
+    .hero-title {
+      font-size: 36px !important;
+    }
+    .hero-subtitle {
+      font-size: 36px !important;
+    }
   }
 `;
 
@@ -415,7 +433,7 @@ const Home = () => {
         <section style={{ position:'relative', overflow:'hidden' }}>
           <ParticleBackground />
 
-          <div style={{
+          <div className="hero-container" style={{
             position: 'relative',
             zIndex: 1,
             display: 'grid',
@@ -428,7 +446,7 @@ const Home = () => {
           }}>
 
             {/* Left — floating atom */}
-            <div style={{ display:'flex', justifyContent:'flex-start', alignItems:'center' }}>
+            <div className="hero-side" style={{ display:'flex', justifyContent:'flex-start', alignItems:'center' }}>
               <div style={{
                 width: 200, height: 200,
                 animation: 'floatY 4.5s ease-in-out infinite',
@@ -462,7 +480,7 @@ const Home = () => {
 
               {/* Headline line 1 */}
               <div style={fadeUpStyle(150)}>
-                <span style={{
+                <span className="hero-title" style={{
                   display: 'block',
                   fontSize: 48,
                   fontWeight: 800,
@@ -476,7 +494,7 @@ const Home = () => {
 
               {/* Headline line 2 — shimmer gradient */}
               <div style={fadeUpStyle(280)}>
-                <span style={{
+                <span className="hero-subtitle" style={{
                   display: 'block',
                   fontSize: 48,
                   fontWeight: 800,
@@ -510,7 +528,7 @@ const Home = () => {
             </div>
 
             {/* Right — floating crystal */}
-            <div style={{ display:'flex', justifyContent:'flex-end', alignItems:'center' }}>
+            <div className="hero-side" style={{ display:'flex', justifyContent:'flex-end', alignItems:'center' }}>
               <div style={{
                 width: 200, height: 200,
                 animation: 'floatYReverse 4.5s ease-in-out infinite',
