@@ -809,14 +809,14 @@ const Upload = () => {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between mt-auto pb-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-auto pb-4 gap-4">
                   <button 
                     onClick={() => setStep(2)}
-                    className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px] flex items-center gap-2"
+                    className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px] flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
                     Back to Selection
                   </button>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                     <button 
                       onClick={() => {
                         const drafts = JSON.parse(localStorage.getItem('draftDatasets') || '[]');
@@ -827,7 +827,7 @@ const Upload = () => {
                         }
                         alert("Draft saved successfully! You can resume it from the Datasets page later.");
                       }}
-                      className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px]"
+                      className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all shadow-sm text-[13px] w-full sm:w-auto"
                     >
                       Save Draft
                     </button>
@@ -846,7 +846,7 @@ const Upload = () => {
                         }
                         setStep(4);
                       }}
-                      className="px-6 py-2.5 bg-[#1d4ed8] text-white rounded-lg font-bold hover:bg-[#1e40af] transition-all shadow-md text-[13px] flex items-center space-x-2"
+                      className="px-6 py-2.5 bg-[#1d4ed8] text-white rounded-lg font-bold hover:bg-[#1e40af] transition-all shadow-md text-[13px] flex items-center justify-center space-x-2 w-full sm:w-auto"
                     >
                       <span>Continue to Review</span>
                       <ArrowRight className="w-4 h-4" />
@@ -915,13 +915,13 @@ const Upload = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                     <div className="p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-500"><Layers className="w-4 h-4" /></div>
-                        <div>
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-500 shrink-0"><Layers className="w-4 h-4" /></div>
+                        <div className="min-w-0">
                           <p className="text-[11px] font-bold text-slate-500">Dataset ID</p>
-                          <p className="font-bold text-indigo-600">{datasetId || 'DS_NEW'}</p>
+                          <p className="font-bold text-indigo-600 truncate">{datasetId || 'DS_NEW'}</p>
                         </div>
                       </div>
                     </div>

@@ -422,17 +422,17 @@ const Optimization = () => {
 
   return (
     <div className="p-6 bg-slate-50 min-h-full text-slate-800 animate-fade-in font-sans">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold text-slate-900 mb-1">Optimization Dashboard</h2>
           <p className="text-slate-500">Bayesian Optimization engine tracking FWHM minimization.</p>
         </div>
         {boStarted && (
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button 
               onClick={handleDownloadExcel} 
               disabled={isExportingExcel || isDownloading}
-              className="flex items-center gap-2 bg-[#0ca678] hover:bg-[#099268] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 bg-[#0ca678] hover:bg-[#099268] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 w-full sm:w-auto"
             >
               {isExportingExcel ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               {isExportingExcel ? 'Exporting...' : 'Export Excel'}
@@ -440,7 +440,7 @@ const Optimization = () => {
             <button 
               onClick={handleDownloadPDF} 
               disabled={isDownloading || isExportingExcel}
-              className="flex items-center gap-2 bg-[#2f277a] hover:bg-[#1f1a54] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 bg-[#2f277a] hover:bg-[#1f1a54] text-white px-5 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 w-full sm:w-auto"
             >
               {isDownloading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
               {isDownloading ? 'Generating PDF...' : 'Download PDF'}

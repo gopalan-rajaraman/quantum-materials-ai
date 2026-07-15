@@ -337,8 +337,8 @@ const Datasets = () => {
                     data={categoryData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={90}
-                    outerRadius={140}
+                    innerRadius="55%"
+                    outerRadius="80%"
                     paddingAngle={0}
                     dataKey="size"
                     stroke="none"
