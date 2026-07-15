@@ -5,7 +5,8 @@ import api from '../../services/api';
 import { useReactToPrint } from 'react-to-print';
 import OptimizationReport from '../../components/OptimizationReport';
 import { generateExcelReport } from '../../utils/excelExport';
-
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 const Optimization = () => {
   const [modelInfo, setModelInfo] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
@@ -28,9 +29,6 @@ const Optimization = () => {
   const [suggestionError, setSuggestionError] = useState(null);
   const [fetchingSuggestion, setFetchingSuggestion] = useState(false);
   const reportRef = useRef(null);
-
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
