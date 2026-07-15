@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText, Layers, Users, Shield, AlertCircle, ExternalLink, Zap } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, Lock, CheckCircle2, CheckCircle, ChevronRight, BarChart2, Check, ArrowRight, PieChart, Info, Thermometer, Clock, Wind, Gauge, FlaskConical, Copy, Trash2, ChevronDown, Activity, List, FileText, Layers, Users, Shield, AlertCircle, ExternalLink, Zap, Download } from 'lucide-react';
 import MapColumns from './MapColumns';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
