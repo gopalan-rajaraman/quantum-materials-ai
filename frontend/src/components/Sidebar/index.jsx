@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
@@ -12,10 +12,13 @@ import {
   Hexagon,
   LogOut,
   BookOpen,
+  Menu,
+  X,
 } from 'lucide-react';
 import { getStoredUser, getUserDisplayName, logout } from '../../utils/auth';
  
 const Sidebar = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const isActive = (path) => location.pathname === path;
@@ -33,6 +36,7 @@ const Sidebar = () => {
     return (
       <Link 
         to={path} 
+        onClick={() => setIsOpen(false)}
         className={`flex items-center space-x-3 px-4 py-3 rounded-xl mb-1.5 transition-all duration-200 ${
           active 
             ? 'bg-[#5D3EBC] text-white shadow-lg shadow-[#5D3EBC]/30' 
@@ -46,7 +50,24 @@ const Sidebar = () => {
   };
  
   return (
-    <aside className="w-[260px] bg-[#0D0B2E] min-h-screen h-screen sticky top-0 p-5 flex flex-col justify-between shrink-0 text-white select-none print:hidden">
+    <>
+      {/* Mobile Hamburger Button */}
+      <button 
+        className="lg:hidden fixed top-4 left-4 z-[60] p-2 rounded-lg bg-[#0D0B2E] text-white shadow-md"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
+
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/60 z-[40]" 
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <aside className={`w-[260px] bg-[#0D0B2E] min-h-screen h-screen sticky top-0 p-5 flex flex-col justify-between shrink-0 text-white select-none print:hidden transition-transform duration-300 z-[50] max-lg:fixed max-lg:left-0 max-lg:-translate-x-full ${isOpen ? 'max-lg:translate-x-0' : ''}`}>
       <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar">
         {/* Brand Logo */}
         <div className="flex items-center space-x-3 px-2 py-4 mb-6">
@@ -149,7 +170,8 @@ const Sidebar = () => {
           </p>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };
  
