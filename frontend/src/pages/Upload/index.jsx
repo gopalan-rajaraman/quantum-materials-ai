@@ -523,8 +523,8 @@ const Upload = () => {
           {/* Virtual Space Summary */}
           {searchSpace.length > 0 && (
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 mb-8 border border-indigo-100 text-left">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                   <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
                     <Layers className="w-5 h-5 text-indigo-600" />
                   </div>
@@ -535,7 +535,7 @@ const Upload = () => {
                 </div>
                 <button
                   onClick={downloadSearchSpace}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-indigo-700 font-semibold hover:bg-indigo-50 transition-colors text-sm"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-indigo-700 font-semibold hover:bg-indigo-50 transition-colors text-sm w-full sm:w-auto"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   Download Excel
@@ -544,7 +544,7 @@ const Upload = () => {
 
               {/* Variable Ranges */}
               {Object.keys(variableRanges).length > 0 && (
-                <div className="grid grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                   {Object.entries(variableRanges).map(([varName, [min, max]]) => (
                     <div key={varName} className="bg-white/80 rounded-lg p-3 border border-indigo-100">
                       <p className="text-xs font-bold text-slate-500 mb-1">{varName}</p>
@@ -556,7 +556,7 @@ const Upload = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-8 text-left mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-8">
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <h3 className="font-bold text-slate-900 mb-4">Dataset Summary</h3>
               <div className="space-y-3 text-sm">
