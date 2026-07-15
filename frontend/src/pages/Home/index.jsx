@@ -95,7 +95,6 @@ const STYLES = `
     transition: opacity 0.2s, transform 0.2s !important;
   }
   .signup-btn:hover {
-  .signup-btn:hover {
     opacity: 0.88 !important;
     transform: translateY(-2px) !important;
   }
@@ -110,10 +109,12 @@ const STYLES = `
       display: none !important;
     }
     .hero-title {
-      font-size: 36px !important;
+      font-size: 32px !important;
+      word-break: break-word;
     }
     .hero-subtitle {
-      font-size: 36px !important;
+      font-size: 32px !important;
+      word-break: break-word;
     }
   }
 `;
