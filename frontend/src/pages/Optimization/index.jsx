@@ -29,17 +29,31 @@ const Optimization = () => {
   const [fetchingSuggestion, setFetchingSuggestion] = useState(false);
   const reportRef = useRef(null);
 
-  const handleDownloadPDF = useReactToPrint({
-    contentRef: reportRef,
-    documentTitle: 'Thermal_CVD_Optimization_Report',
-    onBeforePrint: async () => setIsDownloading(true),
-    onAfterPrint: () => setIsDownloading(false),
-    onPrintError: (errorLocation, error) => {
-      console.error('Print Error:', errorLocation, error);
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current) return;
+    setIsDownloading(true);
+    try {
+      const element = reportRef.current.querySelector('.pdf-page') || reportRef.current;
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [794, 1123] // A4 format in pixels (96 DPI)
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, 794, 1123);
+      pdf.save('Thermal_CVD_Optimization_Report.pdf');
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
       alert(`Failed to generate PDF: ${String(error)}`);
+    } finally {
       setIsDownloading(false);
     }
-  });
+  };
+
 
   const handleDownloadExcel = async () => {
     setIsExportingExcel(true);
