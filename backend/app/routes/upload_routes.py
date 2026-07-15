@@ -453,9 +453,13 @@ class ConfirmImportPayload(BaseModel):
     start_idx: Optional[int] = None
     end_idx: Optional[int] = None
 
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends, BackgroundTasks
+import os
+
 @router.post("/upload/confirm")
 async def confirm_import(
     payload: ConfirmImportPayload,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -542,6 +546,7 @@ async def confirm_import(
             "data": thermal_cvd_df.replace({np.nan: None}).to_dict(orient='records'),
             "user_id": ObjectId(current_user["_id"]),
             "status": "unlocked",
+            "training_status": "pending",
             "column_mapping": payload.mapping,
             "optimization_variables": payload.optimization_variables
         }
@@ -555,20 +560,15 @@ async def confirm_import(
             {"$set": {"active_dataset_id": insert_result.inserted_id}}
         )
         
-        # 6. Trigger GP Synchronously to get search space
-        await run_gp_training_async(thermal_cvd_df, current_user["_id"], payload.optimization_variables, payload.initial_training_size)
-        
-        search_space = []
-        variable_ranges = {}
-        opt = await cvd_routes.get_optimizer(current_user["_id"])
-        if opt and getattr(opt, '_fitted', False) and getattr(opt, 'X_search', None) is not None:
-            X_raw = opt.encoder.scaler_X.inverse_transform(opt.X_search)
-            var_names = opt.encoder.VARIABLES
-            for row in X_raw:
-                search_space.append({var_names[i]: float(row[i]) for i in range(len(var_names))})
-            for var in var_names:
-                v_min, v_max = opt.encoder.VARIABLE_RANGES[var]
-                variable_ranges[var] = [float(v_min), float(v_max)]
+        # 6. Trigger GP Asynchronously via BackgroundTasks
+        background_tasks.add_task(
+            run_gp_training_async, 
+            thermal_cvd_df, 
+            current_user["_id"], 
+            payload.optimization_variables, 
+            payload.initial_training_size,
+            insert_result.inserted_id
+        )
         
         # Cleanup
         try:
@@ -580,9 +580,7 @@ async def confirm_import(
         return {
             "status": "success",
             "inserted_id": str(insert_result.inserted_id),
-            "message": "Dataset imported successfully",
-            "search_space": search_space,
-            "variable_ranges": variable_ranges,
+            "message": "Dataset imported successfully. Training model in background.",
             "report": {
                 "rows_processed": total_rows,
                 "variables_mapped": len(payload.mapping),
@@ -592,9 +590,15 @@ async def confirm_import(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-async def run_gp_training_async(df, user_id, optimization_variables, initial_training_size=None):
-    """Background task to train GP."""
+async def run_gp_training_async(df, user_id, optimization_variables, initial_training_size, dataset_id):
+    """Background task to train GP and update dataset."""
     try:
+        from app.database.mongodb_config import get_datasets_collection
+        datasets_collection = get_datasets_collection()
+
+        search_space = []
+        variable_ranges = {}
+
         if cvd_routes.optimizer_instance is not None:
             cvd_routes.optimizer_instance.encoder.set_variables(optimization_variables)
             # Drop NaN rows in required num columns for training
@@ -614,8 +618,31 @@ async def run_gp_training_async(df, user_id, optimization_variables, initial_tra
                 cvd_routes.set_optimizer(user_id, cvd_routes.optimizer_instance)
                 best_fwhm = float(cvd_routes.optimizer_instance.y_train.min())
                 await log_activity("GP Model Retrained", f"Best FWHM: {best_fwhm:.2f} meV", "bg-cyan-500", user_id)
+
+                # Generate search space for frontend
+                opt = cvd_routes.optimizer_instance
+                if getattr(opt, '_fitted', False) and getattr(opt, 'X_search', None) is not None:
+                    X_raw = opt.encoder.scaler_X.inverse_transform(opt.X_search)
+                    var_names = opt.encoder.VARIABLES
+                    for row in X_raw:
+                        search_space.append({var_names[i]: float(row[i]) for i in range(len(var_names))})
+                    for var in var_names:
+                        v_min, v_max = opt.encoder.VARIABLE_RANGES[var]
+                        variable_ranges[var] = [float(v_min), float(v_max)]
+
+        # Update MongoDB with ready status and payload
+        await datasets_collection.update_one(
+            {"_id": dataset_id},
+            {"$set": {
+                "training_status": "ready",
+                "search_space": search_space,
+                "variable_ranges": variable_ranges
+            }}
+        )
+
     except Exception as e:
         logger.info(f"Async GP Training Error: {e}")
+        # In a real app we might want to set training_status: "error" here
 
 
 

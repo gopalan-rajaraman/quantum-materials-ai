@@ -77,6 +77,7 @@ const Upload = () => {
   
   const [isLocking, setIsLocking] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isTraining, setIsTraining] = useState(false);
   const [lockError, setLockError] = useState(null);
   const [confirmedExpIds, setConfirmedExpIds] = useState(new Set());
   const [showFinalLockModal, setShowFinalLockModal] = useState(false);
@@ -376,6 +377,27 @@ const Upload = () => {
     setConfirmedExpIds(new Set(allIds));
   };
 
+  const startPollingDataset = (dsId) => {
+    setIsTraining(true);
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.getDataset(dsId);
+        if (data.training_status === 'ready') {
+          clearInterval(interval);
+          setSearchSpace(data.search_space || []);
+          setVariableRanges(data.variable_ranges || {});
+          setIsTraining(false);
+        } else if (data.training_status === 'error') {
+          clearInterval(interval);
+          setIsTraining(false);
+          setLockError("Background model training failed.");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 2000);
+  };
+
   const handleLockDataset = async () => {
     setIsLocking(true);
     setLockError(null);
@@ -405,14 +427,9 @@ const Upload = () => {
         setDatasetObjectId(response.inserted_id);
         await api.lockDataset(response.inserted_id);
         await api.activateDataset(response.inserted_id); // Auto-activate newly uploaded dataset
-      }
-
-      // Store search space and variable ranges
-      if (response.search_space) {
-        setSearchSpace(response.search_space);
-      }
-      if (response.variable_ranges) {
-        setVariableRanges(response.variable_ranges);
+        
+        // Start polling for background training completion
+        startPollingDataset(response.inserted_id);
       }
 
       setIsLocked(true);
@@ -512,16 +529,30 @@ const Upload = () => {
     <div className="p-8 max-w-7xl mx-auto min-h-full">
       {isLocked ? (
         <div className="max-w-4xl mx-auto bg-white rounded-3xl p-12 shadow-sm border border-slate-200 text-center mt-10 animate-fade-in">
-          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-10 h-10 text-green-600" />
-          </div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Dataset Registered Successfully!</h2>
-          <p className="text-slate-500 mb-8 max-w-lg mx-auto">
-            Your dataset has been locked and the virtual search space has been generated. You can download the virtual space or proceed to the BO Loop.
-          </p>
+                <div className="bg-emerald-50 rounded-xl p-8 text-center flex flex-col items-center">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2">Dataset Successfully Created!</h3>
+                  <p className="text-slate-600 mb-6">
+                    {isTraining 
+                      ? "Your dataset has been locked. The Gaussian Process model is training in the background..." 
+                      : "Your dataset is now locked and the optimization engine is initialized."}
+                  </p>
+                  
+                  {isTraining && (
+                    <div className="flex flex-col items-center mb-6">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mb-2"></div>
+                      <span className="text-sm font-medium text-emerald-600">Training BO Engine...</span>
+                    </div>
+                  )}
+                  {!isTraining && searchSpace.length === 0 && (
+                     <div className="text-emerald-700 mt-4">Initialization complete!</div>
+                  )}
+                </div>
 
           {/* Virtual Space Summary */}
-          {searchSpace.length > 0 && (
+          {!isTraining && searchSpace.length > 0 && (
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 mb-8 border border-indigo-100 text-left">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -533,12 +564,11 @@ const Upload = () => {
                     <p className="text-sm text-slate-500">{searchSpace.length} candidate experiments generated</p>
                   </div>
                 </div>
-                <button
+                <button 
                   onClick={downloadSearchSpace}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-lg text-indigo-700 font-semibold hover:bg-indigo-50 transition-colors text-sm w-full sm:w-auto"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-50 transition"
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Download Excel
+                  <Download className="w-4 h-4" /> Download Excel
                 </button>
               </div>
 
@@ -592,7 +622,11 @@ const Upload = () => {
             <button onClick={() => navigate('/datasets')} className="px-8 py-3 border border-slate-200 bg-white text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all">
               View Datasets
             </button>
-            <button onClick={() => navigate('/optimization')} className="bg-[#4C3BDE] hover:bg-[#3D2EB0] text-white px-8 py-3 rounded-xl font-medium transition-all shadow-sm flex items-center justify-center space-x-2">
+            <button 
+              onClick={() => navigate('/optimization')} 
+              disabled={isTraining}
+              className="bg-[#4C3BDE] hover:bg-[#3D2EB0] disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-medium transition-all shadow-sm flex items-center justify-center space-x-2"
+            >
               <span>Go to BO Loop</span>
               <ArrowRight className="w-5 h-5" />
             </button>
