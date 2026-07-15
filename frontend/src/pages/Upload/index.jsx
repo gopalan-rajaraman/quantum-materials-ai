@@ -544,11 +544,11 @@ const Upload = () => {
 
               {/* Variable Ranges */}
               {Object.keys(variableRanges).length > 0 && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                   {Object.entries(variableRanges).map(([varName, [min, max]]) => (
-                    <div key={varName} className="bg-white/80 rounded-lg p-3 border border-indigo-100">
-                      <p className="text-xs font-bold text-slate-500 mb-1">{varName}</p>
-                      <p className="text-sm font-semibold text-indigo-700">{min.toFixed(1)} - {max.toFixed(1)}</p>
+                    <div key={varName} className="bg-white/80 rounded-lg p-3 border border-indigo-100 overflow-hidden">
+                      <p className="text-xs font-bold text-slate-500 mb-1 break-words">{varName}</p>
+                      <p className="text-sm font-semibold text-indigo-700 break-words">{min.toFixed(1)} - {max.toFixed(1)}</p>
                     </div>
                   ))}
                 </div>
