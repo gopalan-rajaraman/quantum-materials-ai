@@ -445,7 +445,7 @@ const Upload = () => {
     const isStep2Complete = columnMapping['PL_FWHM'] && optimizationVariables.length === 4;
 
     return (
-      <div className="w-[280px] flex-shrink-0 pr-6 border-r border-slate-100 hidden md:block">
+      <div className="w-[280px] flex-shrink-0 pr-6 border-r border-slate-100 hidden lg:block">
         <h2 className="text-lg font-bold text-slate-900 mb-8">Dataset Upload</h2>
         
         <div className="space-y-6 relative mb-12">
@@ -599,10 +599,10 @@ const Upload = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex min-h-[600px] relative">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-8 flex flex-col lg:flex-row min-h-[600px] relative">
           <StepsSidebar />
           
-          <div className="flex-1 md:pl-10 flex flex-col h-full min-h-[500px]">
+          <div className="flex-1 lg:pl-10 flex flex-col h-full min-h-[500px]">
             {step === 1 && (
               <div className="animate-fade-in flex-1 flex flex-col">
                 <div className="mb-8">
@@ -611,7 +611,7 @@ const Upload = () => {
                 </div>
                 
                 <div className="flex flex-col lg:flex-row gap-8 flex-1">
-                  <div className="flex-1">
+                  <div className="flex-1 w-full">
                     <div 
                       className={`border-[1.5px] border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
                         dragActive ? 'border-[#4C3BDE] bg-[#F4F0FF]' : 'border-slate-200 bg-white hover:bg-slate-50'
@@ -641,7 +641,7 @@ const Upload = () => {
                     )}
                   </div>
 
-                  <div className="w-72 flex-shrink-0">
+                  <div className="w-full lg:w-72 flex-shrink-0">
                     <div className="bg-white rounded-xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-6 flex flex-col h-full">
                       <h3 className="font-bold text-slate-900 mb-6 text-[14px]">Template Preview</h3>
                       <div className="space-y-5 text-sm flex-1">
@@ -690,8 +690,8 @@ const Upload = () => {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="col-span-1 md:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                  <div className="col-span-1 lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                     <div className="flex items-center gap-2 mb-6 text-indigo-600">
                       <FileText className="w-5 h-5" />
                       <h3 className="text-[15px] font-bold text-slate-900">Dataset Details</h3>
@@ -739,7 +739,7 @@ const Upload = () => {
                     {/* Categorical Constants */}
                     <div className="mb-8">
                       <h4 className="font-bold text-slate-900 mb-4 text-[13px]">Categorical Constants</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {constantsSchema.filter(c => c.type === 'categorical').map(c => (
                           <div key={c.name}>
                             <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 mb-1.5">
@@ -781,7 +781,7 @@ const Upload = () => {
                     {/* Numerical Constants */}
                     <div className="mb-6">
                       <h4 className="font-bold text-slate-900 mb-4 text-[13px]">Numerical Constants</h4>
-                      <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                         {constantsSchema.filter(c => c.type === 'numeric').map(c => (
                           <div key={c.name}>
                             <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 mb-1.5">
@@ -857,9 +857,9 @@ const Upload = () => {
             )}
 
             {step === 4 && (
-              <div className="animate-fade-in flex gap-6 h-full bg-white relative">
+              <div className="animate-fade-in flex flex-col lg:flex-row gap-6 h-full bg-white relative">
                 {/* Left Sidebar */}
-                <div className="w-[280px] flex-shrink-0 flex flex-col gap-4">
+                <div className="w-full lg:w-[280px] flex-shrink-0 flex flex-col gap-4">
                   <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 shadow-sm flex flex-col h-full">
                     <div className="flex items-center gap-2 text-indigo-600 mb-6">
                       <FileText className="w-4 h-4" />
@@ -960,10 +960,10 @@ const Upload = () => {
                   
                   <div className="flex-1"></div>
 
-                  <div className="flex justify-between items-center mt-auto">
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-auto">
                     <button 
                       onClick={() => setStep(2)}
-                      className="px-8 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all text-[13px] shadow-sm"
+                      className="px-8 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all text-[13px] shadow-sm w-full sm:w-auto"
                     >
                       Back
                     </button>
