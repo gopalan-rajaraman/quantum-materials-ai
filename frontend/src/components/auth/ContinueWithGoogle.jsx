@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 import { apiPost } from '../../config/api';
 import { saveAuth } from '../../utils/auth';
@@ -17,25 +17,18 @@ const GoogleIcon = () => (
 
 const ContinueWithGoogle = ({ onError, rememberMe = false, isSignup = false }) => {
   const containerRef = useRef(null);
-  const [buttonWidth, setButtonWidth] = useState(400);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setButtonWidth(Math.max(containerRef.current.offsetWidth, 280));
-      }
-    };
+  // Width adjustment no longer needed for custom button
 
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  const handleSuccess = useCallback(async (credentialResponse) => {
+  const handleSuccess = useCallback(async (tokenResponse) => {
     try {
+      // With useGoogleLogin, we receive an access_token instead of credential.
+      // But we can also request an auth code depending on the flow.
+      // Wait, let's configure useGoogleLogin to use the implicit flow (which returns access_token).
+      // Or we can just use the standard flow. Let's see what the backend expects.
       const data = await apiPost('/api/users/google-login', {
-        credential: credentialResponse.credential,
+        credential: tokenResponse.credential || tokenResponse.access_token,
         remember_me: rememberMe,
         is_signup: isSignup
       });
@@ -45,6 +38,11 @@ const ContinueWithGoogle = ({ onError, rememberMe = false, isSignup = false }) =
       onError?.(err.message || 'Google login failed');
     }
   }, [navigate, onError, rememberMe, isSignup]);
+
+  const login = useGoogleLogin({
+    onSuccess: handleSuccess,
+    onError: () => onError?.('Google login failed')
+  });
 
   if (!GOOGLE_CLIENT_ID) {
     return (
@@ -62,15 +60,14 @@ const ContinueWithGoogle = ({ onError, rememberMe = false, isSignup = false }) =
 
   return (
     <div ref={containerRef} className="google-btn-wrap">
-      <GoogleLogin
-        onSuccess={handleSuccess}
-        onError={() => onError?.('Google login failed')}
-        text="continue_with"
-        theme="outline"
-        size="large"
-        shape="rectangular"
-        width={buttonWidth}
-      />
+      <button
+        type="button"
+        className="google-btn"
+        onClick={() => login()}
+      >
+        <GoogleIcon />
+        Continue with Google
+      </button>
     </div>
   );
 };

@@ -52,6 +52,7 @@ class ThermalCVDEncoder:
         self.feature_cols: List[str] = []
         self.VARIABLES: List[str] = []
         self.VARIABLE_RANGES: Dict[str, Tuple[float, float]] = {}
+        self.VARIABLE_PRECISIONS: Dict[str, int] = {}
         self._fitted = False
 
     def set_variables(self, variables: List[str]) -> None:
@@ -105,10 +106,22 @@ class ThermalCVDEncoder:
                     lower_limit = max(0.0, v_min - margin)
                     upper_limit = v_max + margin
                     self.VARIABLE_RANGES[var] = (lower_limit, upper_limit)
+                    
+                    # Detect precision (number of decimal places) from the original data
+                    max_decimals = 0
+                    for val in df[var].dropna():
+                        val_str = str(val)
+                        if '.' in val_str:
+                            decimals = len(val_str.split('.')[1].rstrip('0'))
+                            if decimals > max_decimals:
+                                max_decimals = decimals
+                    self.VARIABLE_PRECISIONS[var] = max_decimals
                 else:
                     self.VARIABLE_RANGES[var] = (0.0, 1000.0) # Default fallback
+                    self.VARIABLE_PRECISIONS[var] = 2
             else:
                 self.VARIABLE_RANGES[var] = (0.0, 1000.0)
+                self.VARIABLE_PRECISIONS[var] = 2
 
         # Step 6: Build raw feature matrix and fit imputer + scaler
         X_raw = self._build_raw_feature_matrix(df)
@@ -215,6 +228,7 @@ class ThermalCVDEncoder:
             'label_maps': {},
             'variables': self.VARIABLES,
             'variable_ranges': self.VARIABLE_RANGES,
+            'variable_precisions': getattr(self, 'VARIABLE_PRECISIONS', {}),
             'feature_cols': self.feature_cols,
             'n_features': len(self.feature_cols),
         }

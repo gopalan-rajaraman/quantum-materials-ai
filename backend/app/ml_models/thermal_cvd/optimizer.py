@@ -116,10 +116,17 @@ class ThermalCVDOptimizer:
         sample = sampler.random(n=n_points)
         scaled_sample = qmc.scale(sample, l_bounds, u_bounds)
 
-        # 3. Convert to dictionaries and encode
+        # 3. Convert to dictionaries, apply precision, and encode
         var_dicts = []
         for row in scaled_sample:
-            var_dict = {var_names[i]: row[i] for i in range(len(var_names))}
+            var_dict = {}
+            for i, var in enumerate(var_names):
+                val = row[i]
+                precision = getattr(self.encoder, 'VARIABLE_PRECISIONS', {}).get(var, 2)
+                if precision == 0:
+                    var_dict[var] = float(round(val))
+                else:
+                    var_dict[var] = float(round(val, precision))
             var_dicts.append(var_dict)
 
         # Encode all points

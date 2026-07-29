@@ -82,7 +82,7 @@ const Sidebar = () => {
               </svg>
             </div>
           </div>
-          <span className="text-[14px] font-bold tracking-tight text-white leading-tight">Quantum<br/>Materials AI</span>
+          <span className="text-[14px] font-bold tracking-tight text-white leading-tight">BO-LAB</span>
         </div>
  
         {/* Navigation Items */}

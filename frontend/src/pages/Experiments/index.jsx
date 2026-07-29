@@ -106,8 +106,28 @@ const Experiments = () => {
       const ws = wb.addWorksheet('Dataset');
       
       if (experimentsData.length > 0) {
-        // Flatten variables
+        // Flatten variables, parameters, and results
         const flatData = experimentsData.map((ex, index) => {
+          // If it's a new schema ExperimentModel from MongoDB:
+          if (ex.parameters || ex.results) {
+             const base = {
+               'Experiment Number': ex.experiment_number || index + 1,
+               'Type': ex.type || 'historical',
+               'Status': ex.status || 'unknown'
+             };
+             if (ex.parameters) {
+                 Object.assign(base, ex.parameters);
+             }
+             if (ex.results) {
+                 Object.assign(base, ex.results);
+             }
+             // Remove internal fields
+             delete base['_id'];
+             delete base['dataset_id'];
+             return base;
+          }
+          
+          // If it's an old draft or different schema:
           if (ex.variables) {
              return {
                'Experiment Number': ex.experiment_number || index + 1,
@@ -116,8 +136,10 @@ const Experiments = () => {
                ...ex.variables
              };
           }
+          
           // Fallback if data is already flat
-          return { ...ex };
+          const { _id, dataset_id, ...rest } = ex;
+          return rest;
         });
         
         const headers = Object.keys(flatData[0]);

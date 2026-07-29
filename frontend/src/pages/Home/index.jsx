@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Landmark, Users } from 'lucide-react';
 
 /* ─── Global keyframe styles injected once ───────────────────── */
 const STYLES = `
@@ -459,25 +460,7 @@ const Home = () => {
             {/* Center — staggered text */}
             <div style={{ textAlign:'center', maxWidth:520, padding:'0 24px' }}>
 
-              {/* Badge */}
-              <div style={{
-                ...fadeUpStyle(0),
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 14px',
-                borderRadius: 20,
-                border: '1px solid rgba(99,102,241,0.28)',
-                background: 'rgba(238,242,255,0.85)',
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: '0.11em',
-                color: '#6366f1',
-                marginBottom: 22,
-                textTransform: 'uppercase',
-              }}>
-                <BoltIcon /> AI-Powered Materials Discovery
-              </div>
+
 
               {/* Headline line 1 */}
               <div style={fadeUpStyle(150)}>
@@ -489,7 +472,7 @@ const Home = () => {
                   letterSpacing: '-0.025em',
                   lineHeight: 1.15,
                 }}>
-                  Next-Generation
+                  Next Generation
                 </span>
               </div>
 
@@ -509,7 +492,7 @@ const Home = () => {
                   backgroundClip: 'text',
                   animation: 'shimmer 4s linear infinite',
                 }}>
-                  Quantum Materials AI
+                  Bayesian-Optimization for Smarter Synthesis
                 </span>
               </div>
 
@@ -623,21 +606,136 @@ const Home = () => {
               animation:'drift2 11s ease-in-out 2s infinite',
             }}/>
 
-            <div style={{ maxWidth:320, position:'relative', zIndex:1 }}>
+            <div style={{ maxWidth:400, position:'relative', zIndex:1 }}>
               <h2 style={{
-                margin:'0 0 12px', fontSize:26, fontWeight:800,
-                color:'white', lineHeight:1.2, letterSpacing:'-0.02em',
+                margin:'0 0 20px', fontSize:22, fontWeight:700,
+                color:'white', lineHeight:1.2, letterSpacing:'-0.01em',
               }}>
-                Built for Researchers,<br/>Powered by AI
+                Supported by
               </h2>
-              <p style={{ margin:0, fontSize:14, color:'rgba(200,210,255,0.80)', lineHeight:1.65 }}>
-                Everything you need to optimize experiments and discover
-                novel materials — all in one place.
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img src="/NQM.png" alt="NQM" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }} />
+                  </div>
+                  <span style={{ color: 'white', fontSize: 16, fontWeight: 600 }}>National Quantum Mission</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e3a5f', fontWeight: 'bold', fontSize: 12, textAlign: 'center', lineHeight: 1 }}>QMD</div>
+                  <span style={{ color: 'white', fontSize: 16, fontWeight: 600 }}>Quantum Materials and Devices (QMD)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img src="/DST.png" alt="DST" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }} />
+                  </div>
+                  <span style={{ color: 'white', fontSize: 16, fontWeight: 600 }}>DST</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img src="/IIT.png" alt="IIT Bombay" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }} />
+                  </div>
+                  <span style={{ color: 'white', fontSize: 16, fontWeight: 600 }}>IIT Bombay</span>
+                </div>
+              </div>
             </div>
 
             <div style={{ position:'relative', zIndex:1, flexShrink:0 }}>
               <DashboardPreview />
+            </div>
+          </div>
+        </section>
+
+        {/* ── TEAM & LAB SECTION ────────────────────────────── */}
+        <section style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: '0 60px 80px',
+          display: 'flex',
+          gap: '30px',
+          flexWrap: 'wrap',
+          ...fadeUpStyle(800),
+        }}>
+          {/* Research Laboratory Card */}
+          <div style={{
+            flex: '1 1 400px',
+            background: 'white',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+            border: '1px solid #f1f5f9',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+              <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#eff6ff', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Landmark size={24} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>Research Laboratory</h3>
+            </div>
+            
+            <div style={{ marginBottom: '32px' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 600, color: '#6366f1' }}>Gopalan Rajaraman Lab</h4>
+              <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#475569' }}>Department of Chemistry</p>
+              <p style={{ margin: 0, fontSize: '14px', color: '#475569' }}>Indian Institute of Technology Bombay</p>
+            </div>
+
+            <div>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#6366f1' }}>Research in</h4>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#475569' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }}></div>
+                  Quantum Materials
+                </li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#475569' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }}></div>
+                  Computational Chemistry
+                </li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#475569' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }}></div>
+                  AI-driven Materials Discovery
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Development Team Card */}
+          <div style={{
+            flex: '1 1 400px',
+            background: 'white',
+            borderRadius: '20px',
+            padding: '40px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+            border: '1px solid #f1f5f9',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+              <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#eff6ff', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Users size={24} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>Development Team</h3>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '24px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f5f3ff', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>K</div>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>Khushboo Chaudhary</h4>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Full-Stack Developer • AI/ML</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '24px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>R</div>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>Raj Singh</h4>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Full-Stack Developer • Backend</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>B</div>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>Bhavya</h4>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Frontend Developer • UI/UX</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
