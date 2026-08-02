@@ -33,10 +33,8 @@ const Variables = () => {
 
   return (
     <div className="animate-fade-in flex flex-col h-full bg-[#F5F6FA] min-h-screen">
-      <div className="bg-[#1e1b4b] text-white px-4 py-2 rounded-t-lg rounded-br-lg inline-block mb-6 shadow-sm self-start">
-        <h2 className="text-[13px] font-bold tracking-wide">4. Graphical Representation of Numerical & Categorical Constants</h2>
-      </div>
       
+
       <div className="mb-6 flex space-x-6 border-b border-slate-200 w-full">
         <button 
           onClick={() => setActiveTab('numerical')}

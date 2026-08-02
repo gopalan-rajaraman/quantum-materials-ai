@@ -20,6 +20,8 @@ from app.email_utils import log_smtp_status
 from app.routes.template_routes import router as template_router
 from app.routes.experiment_routes import router as experiment_router
 from app.routes.dataset_routes import router as dataset_router
+from app.routes.notification_routes import router as notification_router
+from app.routes.support_routes import router as support_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -132,6 +134,8 @@ app.include_router(user_router)
 app.include_router(template_router)
 app.include_router(experiment_router)
 app.include_router(dataset_router)
+app.include_router(notification_router)
+app.include_router(support_router)
 
 if __name__ == "__main__":
     import uvicorn

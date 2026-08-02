@@ -113,7 +113,6 @@ const Sidebar = () => {
                 <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={handleLogout}
@@ -132,55 +131,8 @@ const Sidebar = () => {
             <span>Sign In</span>
           </Link>
         )}
- 
-        {/* Glow Info Card */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#1C184B] to-[#120F38] border border-[#2B256B] p-4 text-center">
-          {/* Neon Floating Chart SVG */}
-          <div className="flex justify-center mb-1">
-            <svg className="w-full h-24" viewBox="0 0 160 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <radialGradient id="cardGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#7C3AED" stopOpacity="0" />
-                </radialGradient>
-                <linearGradient id="glowBar" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#A78BFA" />
-                  <stop offset="100%" stopColor="#7C3AED" stopOpacity="0.2" />
-                </linearGradient>
-                <linearGradient id="neonPath" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#3B82F6" />
-                  <stop offset="100%" stopColor="#8B5CF6" />
-                </linearGradient>
-              </defs>
-              <circle cx="80" cy="50" r="40" fill="url(#cardGlow)" />
-              {/* Wireframe Grid */}
-              <line x1="20" y1="30" x2="140" y2="30" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
-              <line x1="20" y1="55" x2="140" y2="55" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
-              <line x1="20" y1="80" x2="140" y2="80" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
-              <line x1="50" y1="10" x2="50" y2="90" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
-              <line x1="110" y1="10" x2="110" y2="90" stroke="#251E62" strokeWidth="0.8" strokeDasharray="3 3" />
- 
-              {/* Bars */}
-              <rect x="40" y="60" width="8" height="20" rx="1.5" fill="url(#glowBar)" />
-              <rect x="52" y="48" width="8" height="32" rx="1.5" fill="url(#glowBar)" />
-              <rect x="98" y="40" width="8" height="40" rx="1.5" fill="url(#glowBar)" />
-              <rect x="110" y="55" width="8" height="25" rx="1.5" fill="url(#glowBar)" />
- 
-              {/* Line chart overlay */}
-              <path d="M 25 75 Q 50 35 80 60 T 135 25" fill="none" stroke="url(#neonPath)" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="135" cy="25" r="3" fill="#60A5FA" />
-            </svg>
-          </div>
-          <p className="text-[13px] font-medium text-slate-200 leading-snug">
-            Your experiments.
-          </p>
-          <p className="text-[13px] font-medium text-slate-200 leading-snug">
-            Our intelligence.
-          </p>
-          <p className="text-[13px] font-semibold text-purple-400 mt-1 leading-snug">
-            Smarter discoveries.
-          </p>
-        </div>
+
+
       </div>
       </aside>
     </>

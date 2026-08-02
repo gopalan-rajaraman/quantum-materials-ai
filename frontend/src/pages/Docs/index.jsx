@@ -176,7 +176,6 @@ export default function Docs() {
               { l: 'Gaussian Processes',    bg: '#f0fdf4', c: '#16a34a', b: '#bbf7d0' },
               { l: 'Quantum Materials',     bg: '#faf5ff', c: '#7c3aed', b: '#ddd6fe' },
               { l: 'Active Learning',       bg: '#fff7ed', c: '#ea580c', b: '#fed7aa' },
-              { l: 'WS₂ CVD',              bg: '#f0f9ff', c: '#0284c7', b: '#bae6fd' },
             ].map(({ l, bg, c, b }) => (
               <span key={l} style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 999, backgroundColor: bg, color: c, border: `1px solid ${b}` }}>{l}</span>
             ))}
@@ -184,8 +183,6 @@ export default function Docs() {
 
           {/* Science diagram strip */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 28px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 14 }}>
-            <CrystalSVG />
-            <ArrowRight size={16} style={{ color: '#cbd5e1', flexShrink: 0 }} />
             <GaussianSVG />
             <ArrowRight size={16} style={{ color: '#cbd5e1', flexShrink: 0 }} />
             <AcquisitionSVG />
@@ -505,16 +502,7 @@ export default function Docs() {
             })}
           </ul>
 
-          {/* Ready to start card */}
-          <div style={{ padding: 16, backgroundColor: '#f0f7ff', border: '1px solid #bfdbfe', borderRadius: 12 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', margin: '0 0 5px' }}>Ready to start?</p>
-            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 500, lineHeight: 1.65, margin: '0 0 14px' }}>
-              Sign up to run your first experiment with Bayesian Optimization.
-            </p>
-            <Link to="/signup" style={{ display: 'block', textAlign: 'center', fontSize: 12, fontWeight: 700, backgroundColor: '#2563eb', color: '#fff', padding: '9px 12px', borderRadius: 8, textDecoration: 'none' }}>
-              Get started free
-            </Link>
-          </div>
+
         </div>
       </div>
     </div>

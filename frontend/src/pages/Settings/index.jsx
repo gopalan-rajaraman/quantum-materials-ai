@@ -8,8 +8,6 @@ import { getStoredUser, getUserDisplayName, logout } from '../../utils/auth';
  
 const Settings = () => {
   const navigate = useNavigate();
-  const [boIterations, setBoIterations] = useState('10');
-  const [optGoal, setOptGoal] = useState('Minimize FWHM');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
  
   const loggedInUser = getStoredUser();
@@ -25,11 +23,11 @@ const Settings = () => {
         <p className="text-slate-500 text-sm">Manage your account and experiment preferences.</p>
       </div>
  
-      {/* Two Column Layout */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      {/* Account Settings Layout */}
+      <div className="flex justify-start">
  
-        {/* Left Card: Account Settings */}
-        <div className="lg:w-1/2 bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-slate-100 p-8">
+        {/* Account Settings Card */}
+        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-slate-100 p-8">
           {/* Card Header */}
           <div className="flex items-center space-x-4 mb-8">
             <div className="w-12 h-12 rounded-xl bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
@@ -114,91 +112,7 @@ const Settings = () => {
           </button>
         </div>
  
-        {/* Right Card: Experiment Defaults */}
-        <div className="lg:w-1/2 bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-slate-100 p-8">
-          {/* Card Header */}
-          <div className="flex items-center space-x-4 mb-10">
-            <div className="w-12 h-12 rounded-xl bg-[#F4F0FF] flex items-center justify-center text-[#4C3BDE]">
-              <FlaskConical className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-[16px] font-bold text-[#4C3BDE]">2. Experiment Defaults</h2>
-              <p className="text-[12px] text-slate-500 font-medium">Set your default preferences for new experiments.</p>
-            </div>
-          </div>
- 
-          {/* Fields */}
-          <div className="space-y-8">
-            {/* Default BO Iterations */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex-1 sm:mr-8">
-                <div className="flex items-center space-x-2 mb-1">
-                  <span className="text-[14px] font-bold text-slate-800">Default BO Iterations</span>
-                  <div className="relative group cursor-pointer">
-                    <Info className="w-3.5 h-3.5 text-slate-400" />
-                    <div className="absolute left-6 -top-2 w-48 bg-slate-800 text-white text-[11px] font-medium rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      Number of iterations for Bayesian Optimization
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[12px] text-slate-400 font-medium">Number of iterations for Bayesian Optimization</p>
-              </div>
-              <div className="relative flex-shrink-0">
-                <select
-                  value={boIterations}
-                  onChange={e => setBoIterations(e.target.value)}
-                  className="appearance-none bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-slate-800 py-2.5 pl-4 pr-10 focus:outline-none focus:ring-1 focus:ring-[#4C3BDE] cursor-pointer w-[120px]"
-                >
-                  <option>5</option>
-                  <option>10</option>
-                  <option>15</option>
-                  <option>20</option>
-                  <option>25</option>
-                  <option>50</option>
-                </select>
-                <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
- 
-            {/* Optimization Goal */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex-1 sm:mr-8">
-                <div className="flex items-center space-x-2 mb-1">
-                  <span className="text-[14px] font-bold text-slate-800">Optimization Goal</span>
-                  <div className="relative group cursor-pointer">
-                    <Info className="w-3.5 h-3.5 text-slate-400" />
-                    <div className="absolute left-6 -top-2 w-48 bg-slate-800 text-white text-[11px] font-medium rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      Objective for optimization
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[12px] text-slate-400 font-medium">Objective for optimization</p>
-              </div>
-              <div className="relative flex-shrink-0">
-                <select
-                  value={optGoal}
-                  onChange={e => setOptGoal(e.target.value)}
-                  className="appearance-none bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-slate-800 py-2.5 pl-4 pr-10 focus:outline-none focus:ring-1 focus:ring-[#4C3BDE] cursor-pointer w-[160px]"
-                >
-                  <option>Minimize FWHM</option>
-                  <option>Maximize FWHM</option>
-                  <option>Minimize Loss</option>
-                  <option>Maximize Efficiency</option>
-                </select>
-                <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-          </div>
- 
-          {/* Info Banner */}
-          <div className="mt-10 bg-[#F4F0FF] border border-[#4C3BDE]/15 rounded-xl p-4 flex items-start space-x-3">
-            <Info className="w-4 h-4 text-[#4C3BDE] flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[12px] font-bold text-[#4C3BDE]">These defaults will be applied to</p>
-              <p className="text-[12px] font-medium text-[#4C3BDE]/80">All newly created Bayesian Optimization experiments.</p>
-            </div>
-          </div>
-        </div>
+
       </div>
  
       {/* Change Password Modal */}

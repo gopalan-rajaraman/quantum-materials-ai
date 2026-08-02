@@ -59,6 +59,10 @@ def get_dataset_events_collection():
     """Get dataset events collection for audit trail."""
     return MongoDB.get_database().dataset_events
 
+def get_notifications_collection():
+    """Get notifications collection."""
+    return MongoDB.get_database().notifications
+
 def get_sessions_collection():
     """Get sessions collection for storing auth/session tokens."""
     return MongoDB.get_database().sessions
@@ -66,6 +70,11 @@ def get_sessions_collection():
 def get_login_history_collection():
     """Get login history collection."""
     return MongoDB.get_database().login_history
+
+def get_support_requests_collection():
+    """Get support requests collection."""
+    return MongoDB.get_database().support_requests
+
 
 async def init_indexes():
     """Initialize necessary MongoDB indexes."""
@@ -85,6 +94,9 @@ async def init_indexes():
     
     # dataset_events indexes
     await db.dataset_events.create_index([("dataset_id", 1), ("created_at", 1)])
+    
+    # notifications indexes
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     
     # sessions index (TTL 7 days)
     await db.sessions.create_index([("expires_at", 1)], expireAfterSeconds=0)

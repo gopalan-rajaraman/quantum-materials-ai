@@ -256,3 +256,53 @@ async def send_auth_email(event: str, to_email: str, user: dict = None, ip_addre
     """
 
     await _send(to_email, subject, html)
+
+
+async def send_support_email(ticket_id: str, full_name: str, email: str, category: str, message: str, submitted_at: str) -> None:
+    subject = "[BO-LAB Support] New Contact Support Request"
+    to_email = "sraj212000@gmail.com"
+
+    text_body = f"""New Contact Support Request
+
+Ticket ID:
+{ticket_id}
+
+Full Name:
+{full_name}
+
+Email:
+{email}
+
+Category:
+{category}
+
+Message:
+{message}
+
+Submitted At:
+{submitted_at}
+"""
+
+    if not smtp_configured():
+        logger.warning("SMTP not configured. Support email not sent.")
+        return
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{FROM_NAME} <{FROM_EMAIL}>"
+    msg["To"] = to_email
+    
+    # We use text/plain for this as requested, but can wrap in basic HTML if needed.
+    # The user request specified text formatting for the email. Let's send text/plain.
+    msg.attach(MIMEText(text_body, "plain"))
+
+    logger.info("Sending support email for %s via %s:%s", ticket_id, SMTP_HOST, SMTP_PORT)
+    await aiosmtplib.send(
+        msg,
+        hostname=SMTP_HOST,
+        port=SMTP_PORT,
+        username=SMTP_USER,
+        password=SMTP_PASSWORD,
+        start_tls=True,
+    )
+    logger.info("Support email sent successfully for %s", ticket_id)

@@ -200,6 +200,19 @@ export const api = {
 
   // Results (scoped to active dataset)
   getResults: () => request('/thermal-cvd/results'),
+
+  // Notifications
+  fetchNotifications: () => request('/api/notifications'),
+  markNotificationsRead: () => request('/api/notifications/read', { method: 'PUT' }),
+  markSingleNotificationRead: (id) => request(`/api/notifications/${id}/read`, { method: 'PUT' }),
+  deleteNotification: (id) => request(`/api/notifications/${id}`, { method: 'DELETE' }),
+
+  // Support
+  submitSupportRequest: (data) =>
+    request('/api/support/contact', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 export default api;
