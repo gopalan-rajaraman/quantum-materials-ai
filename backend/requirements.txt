@@ -37,3 +37,4 @@ google-auth
 requests
 user-agents
 pydantic-settings
+httpx
