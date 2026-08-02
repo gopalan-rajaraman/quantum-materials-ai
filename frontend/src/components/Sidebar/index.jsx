@@ -14,6 +14,7 @@ import {
   BookOpen,
   Menu,
   X,
+  LogIn,
 } from 'lucide-react';
 import { getStoredUser, getUserDisplayName, logout } from '../../utils/auth';
  
@@ -23,6 +24,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const isActive = (path) => location.pathname === path;
   const loggedInUser = getStoredUser();
+  const isLoggedIn = !!(loggedInUser?._id || loggedInUser?.email || loggedInUser?.full_name || loggedInUser?.username);
   const displayName = getUserDisplayName(loggedInUser);
   const displayRole = loggedInUser?.role || 'Researcher';
   const initial = displayName.charAt(0).toUpperCase();
@@ -99,27 +101,37 @@ const Sidebar = () => {
       </div>
  
       <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
-        {/* User Profile */}
-        <div className="flex flex-col gap-2 p-3 bg-[#1C184B]/50 rounded-xl border border-white/5">
-          <div className="flex items-center space-x-3 px-1">
-            <div className="w-9 h-9 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white font-semibold text-[15px] shadow-inner shrink-0">
-              {initial}
+        {/* User Profile / Sign In */}
+        {isLoggedIn ? (
+          <div className="flex flex-col gap-2 p-3 bg-[#1C184B]/50 rounded-xl border border-white/5">
+            <div className="flex items-center space-x-3 px-1">
+              <div className="w-[40px] h-[40px] rounded-full bg-[#6D5EF5] flex items-center justify-center text-white font-[600] text-[18px] shrink-0">
+                {initial}
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-[14px] font-semibold text-white leading-tight truncate">{displayName}</p>
+                <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
+              </div>
             </div>
-            <div className="text-left overflow-hidden">
-              <p className="text-[14px] font-semibold text-white leading-tight truncate">{displayName}</p>
-              <p className="text-[#8C8CA1] text-[11px] font-medium mt-0.5 capitalize">{displayRole}</p>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-[#FCA5A5] hover:bg-white/5 transition-colors"
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-[#FCA5A5] hover:bg-white/5 transition-colors"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className="text-[13px] font-semibold">Log out</span>
+            </button>
+          </div>
+        ) : (
+          <Link
+            to="/login"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#5D3EBC] text-white font-semibold text-[14px] hover:bg-[#6D4ED0] transition-colors shadow-lg shadow-[#5D3EBC]/30"
           >
-            <LogOut className="w-4 h-4 shrink-0" />
-            <span className="text-[13px] font-semibold">Log out</span>
-          </button>
-        </div>
+            <LogIn className="w-4 h-4 shrink-0" />
+            <span>Sign In</span>
+          </Link>
+        )}
  
         {/* Glow Info Card */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#1C184B] to-[#120F38] border border-[#2B256B] p-4 text-center">

@@ -9,6 +9,7 @@ from app.config import settings
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+import httpx
  
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, Response
@@ -338,22 +339,45 @@ class GoogleLoginRequest(BaseModel):
  
 @router.post("/google-login")
 async def google_login(google_req: GoogleLoginRequest, request: Request, response: Response, background_tasks: BackgroundTasks):
-    """Login or register user using Google OAuth."""
+    """Login or register user using Google OAuth.
+    
+    Supports both:
+    - ID tokens (JWT) from GoogleLogin component: verified via google-auth library
+    - Access tokens from useGoogleLogin hook: verified via Google's userinfo endpoint
+    """
     try:
-        # Verify the Google token
         client_id = settings.GOOGLE_CLIENT_ID
         if not client_id:
             raise HTTPException(status_code=500, detail="Google Client ID not configured")
-            
-        idinfo = id_token.verify_oauth2_token(
-            google_req.credential, requests.Request(), client_id,
-            clock_skew_in_seconds=10
-        )
- 
+
+        credential = google_req.credential
+
+        # Detect token type: ID tokens are JWTs (contain two dots), access tokens are opaque
+        is_id_token = credential.count('.') == 2
+
+        if is_id_token:
+            # Verify as ID token (JWT) using google-auth library
+            idinfo = id_token.verify_oauth2_token(
+                credential, requests.Request(), client_id,
+                clock_skew_in_seconds=10
+            )
+        else:
+            # Treat as access token — call Google's userinfo endpoint
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {credential}"},
+                    timeout=10.0
+                )
+            if resp.status_code != 200:
+                logger.warning("Google userinfo endpoint returned %s: %s", resp.status_code, resp.text)
+                raise ValueError(f"Google userinfo returned {resp.status_code}")
+            idinfo = resp.json()
+
         email = idinfo.get("email")
         if not email:
             raise HTTPException(status_code=400, detail="No email provided by Google")
- 
+
         if not idinfo.get("email_verified", False):
             raise HTTPException(status_code=403, detail="Google email is not verified")
  

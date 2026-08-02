@@ -84,7 +84,7 @@ const AppLayout = () => {
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
           <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/docs" element={<ProtectedRoute><Docs /></ProtectedRoute>} />
+          <Route path="/docs" element={<Docs />} />
         </Routes>
       </main>
     </div>
